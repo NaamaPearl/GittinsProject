@@ -1,6 +1,10 @@
 import numpy as np
 import copy
-
+from collections import namedtuple
+import queue as Q
+from gittins import Gittins
+from random import shuffle as Shuffle
+import random
 
 class MDPModel(object):
     def __init__(self, n=10, gamma=0.9, loc=0.5, var=0.2):
@@ -10,7 +14,7 @@ class MDPModel(object):
         self.r = np.random.random_integers(low=0, high=100, size=n)  # TODO stochastic reward
         self.r_hat = np.zeros(n)
         self.s = [State(i) for i in range(n)]
-        self.V = np.zeros(n)
+        self.V_hat = np.zeros(n)
         self.gamma = gamma
 
     def gen_P_matrix(self, loc, var):
@@ -24,26 +28,21 @@ class MDPModel(object):
         return row
 
     def simulate_one_step(self, curr_agent):
-        curr_s = self.get_state(curr_agent.curr_state)
-
-        if curr_agent.set_init_state:
-            curr_s.update_visits()
-            curr_agent.reset_init_state()
-
+        curr_s = self.s[curr_agent.curr_state]
         next_s = self.choose_next_state(curr_s)
-        r = self.r[next_s.idx]
+        r = self.r[curr_s.idx]
 
-        self.update_reward(next_s, r)
+        self.update_reward(curr_s, r)
         self.update_p(curr_s, next_s)
         self.update_V(curr_s.idx)
         curr_agent.update_state(next_s.idx)
-        next_s.update_visits()
+        curr_s.update_visits()
 
         return r, next_s.idx
 
     def choose_next_state(self, curr_s):
         next_s_idx = np.random.choice(np.arange(self.n), p=self.P[curr_s.idx])
-        return self.get_state(next_s_idx)
+        return self.s[next_s_idx]
 
     def update_reward(self, next_s, new_reward):
         curr_est_reward = self.r_hat[next_s.idx]
@@ -53,99 +52,131 @@ class MDPModel(object):
 
     def update_p(self, curr_s, next_s):
         curr_est_p_row = self.P_hat[curr_s.idx]
-        curr_num_of_tran = curr_est_p_row * (curr_s.visits - 1)
+        curr_num_of_tran = curr_est_p_row * curr_s.visits
         curr_num_of_tran[next_s.idx] += 1
 
-        new_est_p_row = curr_num_of_tran / curr_s.visits
+        new_est_p_row = curr_num_of_tran / (curr_s.visits + 1)
         self.P_hat[curr_s.idx] = new_est_p_row
 
     def get_state(self, n):
         return self.s[n]
 
     def update_V(self, idx):
-        self.V[idx] = self.r_hat[idx] + self.gamma * np.dot(self.V, self.P_hat[idx])
+        self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[idx, :], self.V_hat)
 
-    def P_hat_mean_diff(self):
+    def P_hat_sum_diff(self):
         return abs(self.P - self.P_hat).mean()
 
+    def V_hat_diff(self):
+        V = np.dot(self.r, np.linalg.inv(np.eye(self.n) - self.gamma * self.P))
+        print(V)
+        return abs(self.V_hat - V).max()
 
 class State(object):
     def __init__(self, idx):
         self.idx = idx
         self.visits = 0
 
+    def __repr__(self):
+        return str(self.idx)
+
     def update_visits(self):
         self.visits += 1
+
+
 
 
 class Agent(object):
     def __init__(self, idx, init_state):
         self.idx = idx
         self.curr_state = init_state
-        self.set_init_state = True
 
     def update_state(self, new_idx_state):
         self.curr_state = new_idx_state
 
-    def reset_init_state(self):
-        self.set_init_state = False
+    def __lt__(self, other):
+        return random.choice([True, False])
+
+
+GradedAgent = namedtuple('GradedAgent', ('grade', 'agent'))
 
 
 class Simulator(object):
-    def __init__(self, MDP_model=None, k=5, init_state=0, choose_agent_fun=None, first_agent=0, **kwargs):
-        self.MDP_model = MDP_model if MDP_model is not None else MDPModel(**kwargs)
+    def __init__(self, MDP_model, k=5, init_state=0):
+        self.MDP_model = copy.deepcopy(MDP_model)
         self.k = k
+        self.agents = Q.PriorityQueue()
+        [self.agents.put(GradedAgent(i, Agent(i, init_state))) for i in range(k)]
+        self.graded_s = copy.deepcopy(MDP_model.s)
 
-        self.curr_agent = first_agent
+    def GradeStates(self):
+        pass
 
-        if choose_agent_fun is not None:
-            self.choose_agent = choose_agent_fun
-        else:
-            self.choose_agent = lambda x: (x + 1) % k
+    def GradeAgent(self, agent):
+        for i, state in enumerate(self.graded_s):
+            if state.idx == agent.agent.curr_state:
+                return GradedAgent(i, agent.agent)
 
-        self.k = [Agent(i, init_state) for i in range(k)]
+    def simulate(self, steps=10000, grades_freq=20):
+        for i in range(steps):
+            if i % grades_freq == 0 and i > 0:
+                self.GradeStates()
 
-    def get_agent(self, k):
-        return self.k[k]
+                new_queue = Q.PriorityQueue()
+                while self.agents.qsize() > 0:
+                    tmp = self.GradeAgent(self.agents.get())
+                    new_queue.put(tmp)
 
-    def simulate(self):
-        next_agent_idx = self.choose_agent(self.curr_agent)
-        next_agent = self.get_agent(next_agent_idx)
+                self.agents = new_queue
 
-        r, next_state = self.MDP_model.simulate_one_step(next_agent)
+            next_agent = self.agents.get()
 
-        self.curr_agent = next_agent.idx
+            self.MDP_model.simulate_one_step(next_agent.agent)
 
-        return r, next_state, next_agent.idx
+            self.agents.put(self.GradeAgent(next_agent))
 
     def evaluate_P_hat(self):
-        return self.MDP_model.P_hat_mean_diff()
+        return self.MDP_model.P_hat_sum_diff()
+
+    def EvaluateV(self):
+        return self.MDP_model.V_hat_diff()
+
+
+class GittinsSimulator(Simulator):
+    def GradeStates(self):
+        self.graded_s = Gittins(self.MDP_model)
+
+    def evaluateGittins(self):
+        real_gittins = Gittins(self.MDP_model, real=True)
+        print('evaluate: ' + str(self.graded_s))
+        print('real: ' + str(real_gittins))
+        return sum(np.not_equal(real_gittins, self.graded_s))
+
+
+class RandomSimulator(Simulator):
+    def GradeStates(self):
+        Shuffle(self.graded_s)
 
 
 if __name__ == '__main__':
 
-    n = 6
-    k = 4
+    n = 4
+    k = 1
 
-    sequence_simulator = Simulator(k=k, n=n)
+    MDP = MDPModel(n=n)
+    RandomSimulator = RandomSimulator(k=k, MDP_model=MDP)
+    # GittinsSimulator = GittinsSimulator(MDP_model=MDP, k=k)
 
-    MDP = copy.copy(sequence_simulator.MDP_model)
+    RandomSimulator.simulate(steps=100000)
+    # GittinsSimulator.simulate(steps=10000)
 
+    print('eval Random')
+    print(RandomSimulator.evaluate_P_hat())
+    print(RandomSimulator.EvaluateV())
 
-    # random_agent = lambda x: np.random.choice(a=np.arange(k))
+    # print('eval Gittin')
+    # print(GittinsSimulator.evaluate_P_hat())
+    # print(GittinsSimulator.EvaluateV())
 
-    def three_agent(_):
-        return 3
-
-
-    three_simulator = Simulator(k=k, n=n, MDP_model=MDP, choose_agent_fun=three_agent)
-
-    # MDP = MDPModel(n=n)
-
-    for _ in range(100000):
-        r_sqe, state_sqe, agent_seq = sequence_simulator.simulate()
-        # r_rand, state_rand, agent_rand = three_simulator.simulate()
-
-    print(sequence_simulator.evaluate_P_hat())
-    print(three_simulator.evaluate_P_hat())
+    # print(GittinsSimulator.evaluateGittins())
     print('all done')
