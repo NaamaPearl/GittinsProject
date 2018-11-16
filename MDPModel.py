@@ -3,8 +3,8 @@ import copy
 from collections import namedtuple
 import queue as Q
 from gittins import Gittins
-from random import shuffle as Shuffle
 import random
+
 
 class MDPModel(object):
     def __init__(self, n=10, gamma=0.9, loc=0.5, var=0.2):
@@ -72,6 +72,7 @@ class MDPModel(object):
         print(V)
         return abs(self.V_hat - V).max()
 
+
 class State(object):
     def __init__(self, idx):
         self.idx = idx
@@ -82,8 +83,6 @@ class State(object):
 
     def update_visits(self):
         self.visits += 1
-
-
 
 
 class Agent(object):
@@ -107,33 +106,37 @@ class Simulator(object):
         self.k = k
         self.agents = Q.PriorityQueue()
         [self.agents.put(GradedAgent(i, Agent(i, init_state))) for i in range(k)]
-        self.graded_s = copy.deepcopy(MDP_model.s)
+        self.graded_s = {state.idx: state.idx for state in self.MDP_model.s}
 
     def GradeStates(self):
         pass
 
+    def ApproxModel(self):
+        self.GradeStates()
+        self.ReGradeAgents()
+
+    def ReGradeAgents(self):
+        new_queue = Q.PriorityQueue()
+        while self.agents.qsize() > 0:
+            new_queue.put(self.GradeAgent(self.agents.get().agent))
+
+        self.agents = new_queue
+
     def GradeAgent(self, agent):
-        for i, state in enumerate(self.graded_s):
-            if state.idx == agent.agent.curr_state:
-                return GradedAgent(i, agent.agent)
+        return GradedAgent(self.graded_s[agent.curr_state], agent)
 
     def simulate(self, steps=10000, grades_freq=20):
         for i in range(steps):
-            if i % grades_freq == 0 and i > 0:
-                self.GradeStates()
+            if i % grades_freq == grades_freq - 1:
+                self.ApproxModel()  # prioritize agents & states
 
-                new_queue = Q.PriorityQueue()
-                while self.agents.qsize() > 0:
-                    tmp = self.GradeAgent(self.agents.get())
-                    new_queue.put(tmp)
+            self.SimulateOneStep()
 
-                self.agents = new_queue
-
-            next_agent = self.agents.get()
-
-            self.MDP_model.simulate_one_step(next_agent.agent)
-
-            self.agents.put(self.GradeAgent(next_agent))
+    # find top-priority agent, and activate it for one step
+    def SimulateOneStep(self):
+        next_agent = self.agents.get()
+        self.MDP_model.simulate_one_step(next_agent.agent)  # TODO - move to sim
+        self.agents.put(self.GradeAgent(next_agent.agent))
 
     def evaluate_P_hat(self):
         return self.MDP_model.P_hat_sum_diff()
@@ -147,7 +150,7 @@ class GittinsSimulator(Simulator):
         self.graded_s = Gittins(self.MDP_model)
 
     def evaluateGittins(self):
-        real_gittins = Gittins(self.MDP_model, real=True)
+        real_gittins = Gittins(self.MDP_model, approximation=False)
         print('evaluate: ' + str(self.graded_s))
         print('real: ' + str(real_gittins))
         return sum(np.not_equal(real_gittins, self.graded_s))
@@ -155,28 +158,27 @@ class GittinsSimulator(Simulator):
 
 class RandomSimulator(Simulator):
     def GradeStates(self):
-        Shuffle(self.graded_s)
+        return {state: random.random() for state in self.MDP_model.s}
 
 
 if __name__ == '__main__':
-
     n = 4
-    k = 1
+    k = 2
 
     MDP = MDPModel(n=n)
     RandomSimulator = RandomSimulator(k=k, MDP_model=MDP)
-    # GittinsSimulator = GittinsSimulator(MDP_model=MDP, k=k)
+    GittinsSimulator = GittinsSimulator(MDP_model=MDP, k=k)
 
-    RandomSimulator.simulate(steps=100000)
-    # GittinsSimulator.simulate(steps=10000)
+    # RandomSimulator.simulate(steps=100000)
+    GittinsSimulator.simulate(steps=10000)
 
     print('eval Random')
     print(RandomSimulator.evaluate_P_hat())
     print(RandomSimulator.EvaluateV())
 
-    # print('eval Gittin')
-    # print(GittinsSimulator.evaluate_P_hat())
-    # print(GittinsSimulator.EvaluateV())
+    print('eval Gittin')
+    print(GittinsSimulator.evaluate_P_hat())
+    print(GittinsSimulator.EvaluateV())
 
     # print(GittinsSimulator.evaluateGittins())
     print('all done')
