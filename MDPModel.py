@@ -27,23 +27,6 @@ class MDPModel(object):
         row /= row.sum()
         return row
 
-    def simulate_one_step(self, curr_agent):
-        curr_s = self.s[curr_agent.curr_state]
-        next_s = self.choose_next_state(curr_s)
-        r = self.r[curr_s.idx]
-
-        self.update_reward(curr_s, r)
-        self.update_p(curr_s, next_s)
-        self.update_V(curr_s.idx)
-        curr_agent.update_state(next_s.idx)
-        curr_s.update_visits()
-
-        return r, next_s.idx
-
-    def choose_next_state(self, curr_s):
-        next_s_idx = np.random.choice(np.arange(self.n), p=self.P[curr_s.idx])
-        return self.s[next_s_idx]
-
     def update_reward(self, next_s, new_reward):
         curr_est_reward = self.r_hat[next_s.idx]
         new_est_reward = (curr_est_reward * next_s.visits + new_reward) / (next_s.visits + 1)
@@ -127,16 +110,29 @@ class Simulator(object):
 
     def simulate(self, steps=10000, grades_freq=20):
         for i in range(steps):
+            self.SimulateOneStep()
             if i % grades_freq == grades_freq - 1:
                 self.ApproxModel()  # prioritize agents & states
 
-            self.SimulateOneStep()
-
     # find top-priority agent, and activate it for one step
     def SimulateOneStep(self):
-        next_agent = self.agents.get()
-        self.MDP_model.simulate_one_step(next_agent.agent)  # TODO - move to sim
-        self.agents.put(self.GradeAgent(next_agent.agent))
+        agent = self.agents.get()
+
+        curr_s = self.MDP_model.s[agent.curr_state]
+        next_s = self.choose_next_state(curr_s)
+        r = self.MDP_model.r[curr_s.idx]
+
+        self.MDP_model.update_reward(curr_s, r)
+        self.MDP_model.update_p(curr_s, next_s)
+        self.MDP_model.update_V(curr_s.idx)
+        agent.update_state(next_s.idx)
+        curr_s.update_visits()
+
+        self.agents.put(self.GradeAgent(agent.agent))
+
+    def choose_next_state(self, curr_s):
+        next_s_idx = np.random.choice(np.arange(self.MDP_model.n), p=self.MDP_model.P[curr_s.idx])
+        return self.MDP_model.s[next_s_idx]
 
     def evaluate_P_hat(self):
         return self.MDP_model.P_hat_sum_diff()
