@@ -1,6 +1,8 @@
 from copy import copy
 import numpy as np
 
+epsilon = 10 ** -10
+
 
 class RewardedState:
     def __init__(self, state, r=0):
@@ -18,13 +20,14 @@ def CalcNewProb(opt_s, RS_list, P):
         if P[s1, opt_s] > 0:  # only update P for states from which opt_s is reachable
             for state2 in RS_list:
                 s2 = state2.state.idx
-                P[s1, s2] += (P[s1, opt_s] * P[opt_s, s2] / (1 - P[opt_s, opt_s]))
+                P[s1, s2] += (P[s1, opt_s] * P[opt_s, s2] / (1 + epsilon - P[opt_s, opt_s]))
 
     # zero out transitions to/ from opt_state
     P[opt_s] = 0
     P[:, opt_s] = 0
 
 
+# calc state's index after omission
 def CalcIndex(P, state, opt_s):
     state_idx = state.state.idx
     opt_state_idx = opt_s.state.idx
@@ -33,8 +36,9 @@ def CalcIndex(P, state, opt_s):
     if np.sum(P[state_idx, :]) == 0:  # TODO: T bored
         return 100
 
+    # calculate needed sizes for final calculations
     p_sub_optimal = 1 - P[state_idx, opt_state_idx]
-    p_opt_stay = P[opt_state_idx, opt_state_idx] + 10 ** -5
+    p_opt_stay = P[opt_state_idx, opt_state_idx] + epsilon
     sum_p_opt = 1 / (1 - p_opt_stay)
     t_opt_expect = 1 / (2 * (1 - p_opt_stay) ** 2)
     p_opt_back = P[state_idx, opt_state_idx] * sum_p_opt * (np.sum(P[opt_state_idx, :]) - p_opt_stay)
@@ -62,9 +66,10 @@ def Gittins(model, approximation=True):
 
     P, rs_list = Initiate(model, approximation)
     while len(rs_list) > 1:
+        # identify optimal state, omit it from model and add it to result
         opt_state = max(rs_list)
         rs_list.remove(opt_state)
-        result[opt_state.state.idx] = score  # add opt_state to result
+        result[opt_state.state.idx] = score
         score += 1
 
         for rewarded_state in rs_list:
@@ -73,5 +78,5 @@ def Gittins(model, approximation=True):
         CalcNewProb(opt_state.state.idx, rs_list, P)  # calc new transition matrix
 
     result[rs_list.pop().state.idx] = score  # when only one state remains, simply add it to the result list
-    # print(result)
+
     return result

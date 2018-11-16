@@ -41,9 +41,6 @@ class MDPModel(object):
         new_est_p_row = curr_num_of_tran / (curr_s.visits + 1)
         self.P_hat[curr_s.idx] = new_est_p_row
 
-    def get_state(self, n):
-        return self.s[n]
-
     def update_V(self, idx):
         self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[idx, :], self.V_hat)
 
@@ -62,7 +59,7 @@ class State(object):
         self.visits = 0
 
     def __repr__(self):
-        return str(self.idx)
+        return 'state' + str(self.idx)
 
     def update_visits(self):
         self.visits += 1
@@ -73,9 +70,6 @@ class Agent(object):
         self.idx = idx
         self.curr_state = init_state
 
-    def update_state(self, new_idx_state):
-        self.curr_state = new_idx_state
-
     def __lt__(self, other):
         return random.choice([True, False])
 
@@ -84,12 +78,13 @@ GradedAgent = namedtuple('GradedAgent', ('grade', 'agent'))
 
 
 class Simulator(object):
-    def __init__(self, MDP_model, k=5, init_state=0):
+    def __init__(self, MDP_model, agent_num=5, init_state=0):
         self.MDP_model = copy.deepcopy(MDP_model)
-        self.k = k
+        self.k = agent_num
         self.agents = Q.PriorityQueue()
-        [self.agents.put(GradedAgent(i, Agent(i, init_state))) for i in range(k)]
-        self.graded_s = {state.idx: state.idx for state in self.MDP_model.s}
+        [self.agents.put(GradedAgent(i, Agent(i, init_state))) for i in range(agent_num)]
+        # key - state_idx, value - state priority
+        self.graded_states = {state.idx: random.random() for state in self.MDP_model.s}
 
     def GradeStates(self):
         pass
@@ -98,6 +93,7 @@ class Simulator(object):
         self.GradeStates()
         self.ReGradeAgents()
 
+    # invoked after states re-prioritization. Replaces queue
     def ReGradeAgents(self):
         new_queue = Q.PriorityQueue()
         while self.agents.qsize() > 0:
@@ -106,7 +102,7 @@ class Simulator(object):
         self.agents = new_queue
 
     def GradeAgent(self, agent):
-        return GradedAgent(self.graded_s[agent.curr_state], agent)
+        return GradedAgent(self.graded_states[agent.curr_state], agent)
 
     def simulate(self, steps=10000, grades_freq=20):
         for i in range(steps):
@@ -116,7 +112,7 @@ class Simulator(object):
 
     # find top-priority agent, and activate it for one step
     def SimulateOneStep(self):
-        agent = self.agents.get()
+        agent = self.agents.get().agent
 
         curr_s = self.MDP_model.s[agent.curr_state]
         next_s = self.choose_next_state(curr_s)
@@ -125,10 +121,10 @@ class Simulator(object):
         self.MDP_model.update_reward(curr_s, r)
         self.MDP_model.update_p(curr_s, next_s)
         self.MDP_model.update_V(curr_s.idx)
-        agent.update_state(next_s.idx)
+        agent.curr_state = next_s.idx
         curr_s.update_visits()
 
-        self.agents.put(self.GradeAgent(agent.agent))
+        self.agents.put(self.GradeAgent(agent))
 
     def choose_next_state(self, curr_s):
         next_s_idx = np.random.choice(np.arange(self.MDP_model.n), p=self.MDP_model.P[curr_s.idx])
@@ -162,8 +158,8 @@ if __name__ == '__main__':
     k = 2
 
     MDP = MDPModel(n=n)
-    RandomSimulator = RandomSimulator(k=k, MDP_model=MDP)
-    GittinsSimulator = GittinsSimulator(MDP_model=MDP, k=k)
+    RandomSimulator = RandomSimulator(agent_num=k, MDP_model=MDP)
+    GittinsSimulator = GittinsSimulator(MDP_model=MDP, agent_num=k)
 
     # RandomSimulator.simulate(steps=100000)
     GittinsSimulator.simulate(steps=10000)
