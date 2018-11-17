@@ -57,12 +57,12 @@ def Initiate(model, approximation):
         P = model.P
         R = model.r
 
-    return copy(P), [RewardedState(state, R[i]) for i, state in enumerate(model.s)]
+    return copy(P), [RewardedState(state, copy(R[i])) for i, state in enumerate(model.s)]
 
 
 def Gittins(model, approximation=True):
     result = {}
-    score = 1
+    score = 1  # score is order of extraction
 
     P, rs_list = Initiate(model, approximation)
     while len(rs_list) > 1:
@@ -78,5 +78,4 @@ def Gittins(model, approximation=True):
         CalcNewProb(opt_state.state.idx, rs_list, P)  # calc new transition matrix
 
     result[rs_list.pop().state.idx] = score  # when only one state remains, simply add it to the result list
-
     return result
