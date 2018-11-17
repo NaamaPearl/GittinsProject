@@ -78,23 +78,21 @@ GradedAgent = namedtuple('GradedAgent', ('grade', 'agent'))
 
 
 class Simulator:
-    def __init__(self, MDP_model, agent_num=5, init_state=0,):
+    def __init__(self, MDP_model, agent_num=5, init_state=0, ):
         self.MDP_model = copy.deepcopy(MDP_model)
-        # key - state_idx, value - state priority
         self.graded_states = {state.idx: random.random() for state in self.MDP_model.s}
-        self.k = agent_num
         self.agents = Q.PriorityQueue()
-        [self.agents.put(GradedAgent(i, Agent(i, init_state))) for i in range(agent_num)]
+        [self.agents.put(GradedAgent(i, Agent(i, init_state))) for i in range(agent_num)]  # TODO - Random init_state
 
     def GradeStates(self):
         pass
 
     def ApproxModel(self):
-        self.graded_states = self.GradeStates()
-        self.ReGradeAgents()
+        self.GradeStates()
+        self.ReGradeAllAgents()
 
     # invoked after states re-prioritization. Replaces queue
-    def ReGradeAgents(self):
+    def ReGradeAllAgents(self):
         new_queue = Q.PriorityQueue()
         while self.agents.qsize() > 0:
             new_queue.put(self.GradeAgent(self.agents.get().agent))
@@ -143,18 +141,18 @@ class Simulator:
 
 class GittinsSimulator(Simulator):
     def GradeStates(self):
-        return Gittins(self.MDP_model)
+        self.graded_states = Gittins(self.MDP_model)
 
     def evaluateGittins(self):
         real_gittins = Gittins(self.MDP_model, approximation=False)
-        print('evaluate: ' + str(self.graded_s))
+        print('evaluate: ' + str(self.graded_states))
         print('real: ' + str(real_gittins))
-        return sum(np.not_equal(real_gittins, self.graded_s))
+        return sum(np.not_equal(real_gittins, self.graded_states))
 
 
 class RandomSimulator(Simulator):
     def GradeStates(self):
-        return {state.idx: random.random() for state in self.MDP_model.s}
+        self.graded_states = {state.idx: random.random() for state in self.MDP_model.s}
 
 
 if __name__ == '__main__':
