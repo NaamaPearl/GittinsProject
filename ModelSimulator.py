@@ -18,7 +18,7 @@ class Simulator:
         [self.agents.put(PrioritizedObject(Agent(i, init_state), i)) for i in range(agent_num)]  # TODO - Random init_state
 
     def ApproxModel(self):
-        self.prioritizer.GradeStates()
+        self.graded_states = self.prioritizer.GradeStates()
         self.ReGradeAllAgents()
 
     # invoked after states re-prioritization. Replaces queue
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     MDP = MDPModel(n=n)
     RandomSimulator  = Simulator(MDP)
-    GittinsSimulator = Simulator(MDP, GittinsPrioritizer(MDP))
+    GittinsSimulator = Simulator(MDP, False)
 
     RandomSimulator.simulate(steps=100000)
     GittinsSimulator.simulate(steps=10000)

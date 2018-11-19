@@ -18,46 +18,44 @@ class GittinsPrioritizer(Prioritizer):
     def __init__(self, model: MDPModel, approximation=True):
         super().__init__(model)
         if approximation:
-            P = model.P_hat
-            R = model.r_hat
+            self.P = copy(model.P_hat)
+            self.R = copy(model.r_hat)
         else:
-            P = model.P
-            R = model.r
-
-        self.rs_list = [PrioritizedObject(state, copy(R[i])) for i, state in enumerate(model.s)]
-        self.P = copy(P)
+            self.P = copy(model.P)
+            self.R = copy(model.r)
 
     def GradeStates(self):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.
         """
+        rs_list = [PrioritizedObject(state, self.R[i]) for i, state in enumerate(self.model.s)]
         result = {}
         score = 1  # score is order of extraction
 
-        while len(self.rs_list) > 1:
+        while len(rs_list) > 1:
             # identify optimal state, omit it from model and add it to result
-            opt_state = max(self.rs_list)
-            self.rs_list.remove(opt_state)
+            opt_state = max(rs_list)
+            rs_list.remove(opt_state)
             result[opt_state.object.idx] = score
             score += 1
 
-            for rewarded_state in self.rs_list:
+            for rewarded_state in rs_list:
                 self.CalcIndex(rewarded_state, opt_state)  # calc index after omission, for all remaining states
 
-            self.CalcNewProb(opt_state.object.idx)  # calc new transition matrix
+            self.CalcNewProb(rs_list, opt_state.object.idx)  # calc new transition matrix
 
-        result[self.rs_list.pop().object.idx] = score  # when only one state remains, simply add it to the result list
+        result[rs_list.pop().object.idx] = score  # when only one state remains, simply add it to the result list
         return result
 
-    def CalcNewProb(self, opt_s):
+    def CalcNewProb(self, rs_list, opt_s):
         """
     calculate new transition probabilities, after optimal state omission (invoked after removal)
     """
-        for state1 in self.rs_list:
+        for state1 in rs_list:
             s1 = state1.object.idx
             if self.P[s1, opt_s] > 0:  # only update P for states from which opt_s is reachable
-                for state2 in self.rs_list:
+                for state2 in rs_list:
                     s2 = state2.object.idx
                     self.P[s1, s2] += (self.P[s1, opt_s] * self.P[opt_s, s2] / (1 + epsilon - self.P[opt_s, opt_s]))
 
