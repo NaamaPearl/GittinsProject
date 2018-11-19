@@ -74,8 +74,8 @@ if __name__ == '__main__':
     k = 4
 
     MDP = MDPModel(n=n)
-    RandomSimulator  = Simulator(MDP, True)
-    GittinsSimulator = Simulator(MDP, False)
+    RandomSimulator  = Simulator(MDP, randomprio=True)
+    GittinsSimulator = Simulator(MDP, randomprio=False)
 
     RandomSimulator.simulate(steps=100000)
     GittinsSimulator.simulate(steps=10000)
