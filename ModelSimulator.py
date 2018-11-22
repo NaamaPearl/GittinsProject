@@ -1,25 +1,94 @@
 import numpy as np
-import copy
+import random
 import queue as Q
 from Prioritizer import Prioritizer, GittinsPrioritizer
-import random
-from MDPModel import MDPModel, Agent, PrioritizedObject
+from MDPModel import MDPModel, PrioritizedObject
+from functools import reduce
+
+
+class StateActionPair:
+    def __init__(self, state, action, p_vec):
+        self.state = state
+        self.action = action
+        self.visitations = 0
+        self.P_hat = p_vec
+
+    def UpdateP(self, next_s):
+        curr_num_of_tran = self.P_hat * self.visitations
+        curr_num_of_tran[next_s.idx] += 1
+
+        new_est_p_row = curr_num_of_tran / (self.visitations + 1)
+        self.P_hat = new_est_p_row
+
+    def UpdateVisits(self):
+        self.visitations += 1
+
+
+class SimulatedState:
+    """
+    Represents a state with a list of possible actions from current state
+    """
+
+    def __init__(self, state, P_hat, r_hat, action_num, best_action):
+        self.state = state
+        self.actions = [StateActionPair(state, action, P_hat[action]) for action in range(action_num)]
+        self.policy_action = best_action
+        self.r_hat = r_hat
+
+    @property
+    def idx(self):
+        return self.state.idx
+
+    def UpdateReward(self, next_s, new_reward):
+        self.r_hat = (self.r_hat * next_s.visitations + new_reward) / (next_s.visitations + 1)
+
+    @property
+    def visitations(self):
+        return reduce(lambda a, b: a + b, [state_action.visitations for state_action in self.actions])
+
+
+class Agent:
+    def __init__(self, idx, init_state: SimulatedState):
+        self.idx = idx
+        self.curr_state: SimulatedState = init_state
+
+    def __lt__(self, other):
+        return random.choice([True, False])
 
 
 class Simulator:
-    def __init__(self, MDP_model, random_prio=True, agent_num=5, init_state=0):
-        self.MDP_model: MDPModel = copy.deepcopy(MDP_model)
-        if random_prio:
-            self.prioritizer = Prioritizer(self.MDP_model)
-        else:
-            self.prioritizer = GittinsPrioritizer(self.MDP_model)
-
-        self.graded_states = {state.idx: random.random() for state in self.MDP_model.s}
+    def __init__(self, MDP_model, agent_num=5, init_state=0, gamma=0.9):
+        self.MDP_model: MDPModel = MDP_model
+        self.r_hat = np.zeros(n)
+        self.P_hat = [np.zeros((MDP_model.actions, MDP_model.n)) for _ in range(MDP_model.n)]
+        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(MDP_model.n)]
+        self.gamma = gamma
+        self.V_hat = np.zeros(n)
+        self.states = [SimulatedState(state=state, P_hat=self.P_hat[state.idx], r_hat=self.r_hat[state.idx],
+                                      best_action=self.policy[state.idx], action_num=self.MDP_model.actions) for state in self.MDP_model.s]
+        self.graded_states = {state.idx: random.random() for state in self.states}
         self.agents = Q.PriorityQueue()
-        [self.agents.put(PrioritizedObject(Agent(i, init_state), i)) for i in range(agent_num)]  # TODO - Random init_state
+        [self.agents.put(PrioritizedObject(Agent(i, self.states[init_state]), i)) for i in range(agent_num)]  # TODO - Random init_state
 
-    def ApproxModel(self):
-        self.graded_states = self.prioritizer.GradeStates()
+    def ImprovePolicy(self):
+        self.policy = [random.randint(0, self.MDP_model.actions) for _ in range(self.MDP_model.n)]
+
+    def update_V(self, idx, action):
+        self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
+
+    def P_hat_sum_diff(self):
+        return [abs(self.MDP_model.P[a] - self.P_hat[a]).mean() for a in range(self.MDP_model.actions)]
+
+    # def V_hat_diff(self):
+    #     res = []
+    #     for action in range(self.MDP_model.actions):
+    #         V = np.dot(self.MDP_model.r,
+    #                    np.linalg.inv(np.eye(self.MDP_model.n) - self.gamma * self.MDP_model.P[action]))
+    #         print(V)
+    #         res.append(abs(self.V_hat - V).max())
+
+    def ApproxModel(self, prioritizer):
+        self.graded_states = prioritizer.GradeStates(self.states, self.policy, self.P_hat, self.r_hat)
         self.ReGradeAllAgents()
 
     # invoked after states re-prioritization. Replaces queue
@@ -31,44 +100,41 @@ class Simulator:
         self.agents = new_queue
 
     def GradeAgent(self, agent):
-        return PrioritizedObject(agent, self.graded_states[agent.curr_state])
+        return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
-    def simulate(self, steps=10000, grades_freq=20):
+    def simulate(self, prioritizer, steps=10000, grades_freq=20):
         for i in range(steps):
-            self.SimulateOneStep()
+            self.SimulateOneStep(prioritizer)
             if i % grades_freq == grades_freq - 1:
-                self.ApproxModel()  # prioritize agents & states
+                self.ApproxModel(prioritizer)  # prioritize agents & states
 
     # find top-priority agents, and activate them for a single step
-    def SimulateOneStep(self, agents_to_run=1):
+    def SimulateOneStep(self, prioritizer, agents_to_run=1):
         agents_list = (self.agents.get().object for _ in range(agents_to_run))
         for agent in agents_list:
             self.SimulateAgent(agent)
 
     # simulate one action of an agent, and re-grade it, according to it's new state
-    def SimulateAgent(self, agent):
-        curr_s = self.MDP_model.s[agent.curr_state]
-        curr_action = self.prioritizer.ChooseAction(curr_s)
-        next_s = self.choose_next_state(curr_s, curr_action)
-        r = self.MDP_model.r[curr_action][curr_s.idx]
+    def SimulateAgent(self, agent: Agent):
+        action = self.policy[agent.curr_state.idx]
+        state_action = agent.curr_state.actions[action]
 
-        self.MDP_model.update_reward(curr_action, next_s, r)
-        self.MDP_model.update_p(curr_s, curr_action, next_s)
-        self.MDP_model.update_V(curr_s.idx, curr_action)
-        agent.curr_state = next_s.idx
-        curr_s.update_visits()
+        next_state = np.random.choice(self.states, p=self.MDP_model.P[action][agent.curr_state.idx])
+        reward = self.MDP_model.GetReward(state_action.state, state_action.action)
+        agent.curr_state.UpdateReward(next_state, reward)
+        state_action.UpdateP(next_state)
+
+        self.update_V(state_action.state.idx, state_action.action)
+        state_action.UpdateVisits()
+        agent.curr_state = agent.curr_state
 
         self.agents.put(self.GradeAgent(agent))
 
-    def choose_next_state(self, curr_s, action):
-        next_s_idx = np.random.choice(np.arange(self.MDP_model.n), p=self.MDP_model.P[action][curr_s.idx])
-        return self.MDP_model.s[next_s_idx]
-
     def evaluate_P_hat(self):
-        return self.MDP_model.P_hat_sum_diff()
+        return self.P_hat_sum_diff()
 
-    def EvaluateV(self):
-        return self.MDP_model.V_hat_diff()
+    # def EvaluateV(self):
+    #     return self.V_hat_diff()
 
 
 if __name__ == '__main__':
@@ -76,19 +142,19 @@ if __name__ == '__main__':
     k = 4
 
     MDP = MDPModel(n=n)
-    RandomSimulator  = Simulator(MDP, random_prio=True)
-    GittinsSimulator = Simulator(MDP, random_prio=False)
+ #   random_simulator = Simulator(MDP)
+    gittins_simulator = Simulator(MDP)
 
-    RandomSimulator.simulate(steps=100000)
-    GittinsSimulator.simulate(steps=10000)
+ #   random_simulator.simulate(Prioritizer(), steps=100000)
+    gittins_simulator.simulate(GittinsPrioritizer(), steps=10000)
 
     print('eval Random')
-    print(RandomSimulator.evaluate_P_hat())
-    print(RandomSimulator.EvaluateV())
+ #   print(random_simulator.evaluate_P_hat())
+ #   print(random_simulator.EvaluateV())
 
     print('eval Gittin')
-    print(GittinsSimulator.evaluate_P_hat())
-    print(GittinsSimulator.EvaluateV())
+    print(gittins_simulator.evaluate_P_hat())
+ #   print(gittins_simulator.EvaluateV())
 
     # print(GittinsSimulator.evaluateGittins())
     print('all done')
