@@ -66,7 +66,7 @@ class GittinsPrioritizer(Prioritizer):
             if P[s1, opt_s.idx] > 0:  # only update P for states from which opt_s is reachable
                 for state2 in rs_list:
                     s2 = state2.object.idx
-                    P[s1, s2] += (P[s1, opt_s] * P[opt_s, s2] / (1 + epsilon - P[opt_s, opt_s]))
+                    P[s1, s2] += (P[s1, opt_s.idx] * P[opt_s.idx, s2] / (1 + epsilon - P[opt_s.idx, opt_s.idx]))
 
         # zero out transitions to/ from opt_state
         P[opt_s.idx] = 0
@@ -77,7 +77,7 @@ class GittinsPrioritizer(Prioritizer):
         calc state's index after omission
         """
         action = self.policy[opt_s.idx]
-        P = self.P[action]
+        P = self.P
         state_idx = state. idx
         opt_state_idx = opt_s.idx
 

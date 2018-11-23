@@ -16,11 +16,11 @@ class StateActionPair:
 
     @property
     def P_hat(self):
-        return self.P_hat_mat[self.action][self.state.idx]
+        return self.P_hat_mat[self.state.idx][self.action]
 
     @P_hat.setter
     def P_hat(self, new_val):
-        self.P_hat_mat[self.action][self.state.idx] = new_val
+        self.P_hat_mat[self.state.idx][self.action] = new_val
 
     def UpdateP(self, next_s):
         curr_num_of_tran = self.P_hat * self.visitations
@@ -100,10 +100,11 @@ class Simulator:
         return np.random.choice(self.states, p=self.init_prob)
 
     def ImprovePolicy(self):
-        self.policy = [random.randint(0, self.MDP_model.actions) for _ in range(self.MDP_model.n)]
+        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(self.MDP_model.n)]
 
     def update_V(self, idx, action):
-        self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
+        pass
+        #  self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
 
     def P_hat_sum_diff(self):
         return [abs(self.MDP_model.P[a] - self.P_hat[a]).mean() for a in range(self.MDP_model.actions)]
@@ -118,6 +119,7 @@ class Simulator:
 
     def ApproxModel(self, prioritizer: Prioritizer):
         self.graded_states = prioritizer.GradeStates(self.states, self.policy, self.P_hat, self.r_hat)
+        self.ImprovePolicy()
         self.ReGradeAllAgents()
 
     # invoked after states re-prioritization. Replaces queue
@@ -155,7 +157,7 @@ class Simulator:
 
         self.update_V(state_action.state.idx, state_action.action)
         state_action.UpdateVisits()
-        agent.curr_state = agent.curr_state
+        agent.curr_state = next_state
 
         self.agents.put(self.GradeAgent(agent))
 
