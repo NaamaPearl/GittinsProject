@@ -20,7 +20,7 @@ class MDPModel:
         row /= row.sum()
         return row
 
-    def GetReward(self, state, action):
+    def GetReward(self, state):
         return self.r[state.idx]
 
 

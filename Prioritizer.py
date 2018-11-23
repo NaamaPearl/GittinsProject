@@ -56,11 +56,10 @@ class GittinsPrioritizer(Prioritizer):
         result[rs_list.pop().object.idx] = score  # when only one state remains, simply add it to the result list
         return result
 
-    def CalcNewProb(self, rs_list, opt_s: State):
+    def CalcNewProb(self, rs_list, opt_s: PrioritizedObject):
         """
     calculate new transition probabilities, after optimal state omission (invoked after removal)
     """
-        action = self.policy[opt_s.idx]
         P = self.P
         for state1 in rs_list:
             s1 = state1.object.idx
