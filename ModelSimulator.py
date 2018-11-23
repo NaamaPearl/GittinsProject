@@ -2,9 +2,9 @@ import numpy as np
 import random
 import queue as Q
 from Prioritizer import Prioritizer, GittinsPrioritizer
-from MDPModel import MDPModel, PrioritizedObject
+from MDPModel import MDPModel
 from functools import reduce
-from framework import SimulatorInput
+from framework import SimulatorInput, PrioritizedObject
 
 
 class StateActionPair:

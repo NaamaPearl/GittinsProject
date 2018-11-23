@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from MDPModel import PrioritizedObject, State
+from framework import PrioritizedObject
 
 
 epsilon = 10 ** -10
