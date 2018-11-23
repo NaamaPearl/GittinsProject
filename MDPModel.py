@@ -29,9 +29,6 @@ class State:
         self.idx = idx
         self.visits = 0
 
-    # def __repr__(self):
-    #     return 'state' + str(self.idx)
-
     def update_visits(self):
         self.visits += 1
 

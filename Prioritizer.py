@@ -19,12 +19,12 @@ class Prioritizer:
 
 class GittinsPrioritizer(Prioritizer):
     def InitProbMat(self, p):
-        probmat = np.zeros((self.n, self.n))
+        prob_mat = np.zeros((self.n, self.n))
         for state in range(self.n):
             action = self.policy[state]
-            probmat[state] = p[state][action]
+            prob_mat[state] = p[state][action]
 
-        return probmat
+        return prob_mat
 
     def GradeStates(self, states, policy, probability, reward):
         """

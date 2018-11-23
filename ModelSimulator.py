@@ -4,6 +4,7 @@ import queue as Q
 from Prioritizer import Prioritizer, GittinsPrioritizer
 from MDPModel import MDPModel, PrioritizedObject
 from functools import reduce
+from framework import SimulatorInput
 
 
 class StateActionPair:
@@ -12,7 +13,6 @@ class StateActionPair:
         self.state = state
         self.action = action
         self.visitations = 0
-        self.P_hat = P_hat_mat[self.action][self.state.idx]
 
     @property
     def P_hat(self):
@@ -44,7 +44,6 @@ class SimulatedState:
         self.r_hat_vec = r_hat_vec
         self.actions = [StateActionPair(state, action, P_hat) for action in range(action_num)]
         self.policy_action = best_action
-        self.r_hat = r_hat_vec[self.state.idx]
 
     @property
     def idx(self):
@@ -77,21 +76,28 @@ class Agent:
 
 
 class Simulator:
-    def __init__(self, MDP_model, agent_num=5, init_state=0, gamma=0.9):
-        self.MDP_model: MDPModel = MDP_model
+    def __init__(self, sim_input: SimulatorInput):
+        self.MDP_model: MDPModel = sim_input.MDP_model
+        n = self.MDP_model.n
         self.r_hat = np.zeros(n)
-        self.P_hat = [np.zeros((MDP_model.actions, MDP_model.n)) for _ in range(MDP_model.n)]
+        self.P_hat = [np.zeros((self.MDP_model.actions, n)) for _ in range(n)]
 
-        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(MDP_model.n)]
-        self.gamma = gamma
+        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(n)]
+        self.gamma = sim_input.gamma
         self.V_hat = np.zeros(n)
-        self.states = [SimulatedState(state=state, best_action=self.policy[state.idx],
-                                      action_num=self.MDP_model.actions, P_hat=self.P_hat, r_hat_vec=self.r_hat)
-                       for state in self.MDP_model.s]
+        self.Q_hat = np.zeros((n, self.MDP_model.actions))
+        self.states = [SimulatedState(state=state,
+                       best_action=self.policy[state.idx],
+                       action_num=self.MDP_model.actions,
+                       P_hat=self.P_hat,
+                       r_hat_vec=self.r_hat) for state in self.MDP_model.s]
         self.graded_states = {state.idx: random.random() for state in self.states}
         self.agents = Q.PriorityQueue()
-        # TODO - Random init_state
-        [self.agents.put(PrioritizedObject(Agent(i, self.states[init_state]), i)) for i in range(agent_num)]
+        self.init_prob = sim_input.init_prob
+        [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()), i)) for i in range(sim_input.agent_num)]
+
+    def ChooseInitState(self):
+        return np.random.choice(self.states, p=self.init_prob)
 
     def ImprovePolicy(self):
         self.policy = [random.randint(0, self.MDP_model.actions) for _ in range(self.MDP_model.n)]
@@ -142,7 +148,7 @@ class Simulator:
         action = self.policy[agent.curr_state.idx]
         state_action = agent.curr_state.actions[action]
 
-        next_state = np.random.choice(self.states, p=self.MDP_model.P[action][agent.curr_state.idx])
+        next_state = np.random.choice(self.states, p=self.MDP_model.P[agent.curr_state.idx][action])
         reward = self.MDP_model.GetReward(state_action.state)
         agent.curr_state.UpdateReward(next_state, reward)
         state_action.UpdateP(next_state)
@@ -165,8 +171,9 @@ if __name__ == '__main__':
     k = 4
 
     MDP = MDPModel(n=n)
+    simulator_input = SimulatorInput(MDP)
     #   random_simulator = Simulator(MDP)
-    gittins_simulator = Simulator(MDP)
+    gittins_simulator = Simulator(simulator_input)
 
     #   random_simulator.simulate(Prioritizer(), steps=100000)
     gittins_simulator.simulate(GittinsPrioritizer(), steps=10000)
