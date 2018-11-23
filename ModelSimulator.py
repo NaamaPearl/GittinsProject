@@ -13,6 +13,7 @@ class StateActionPair:
         self.state = state
         self.action = action
         self.visitations = 0
+        self.P_hat = np.zeros(len(self.P_hat_mat[self.state.idx][self.action]))
 
     @property
     def P_hat(self):
@@ -44,6 +45,7 @@ class SimulatedState:
         self.r_hat_vec = r_hat_vec
         self.actions = [StateActionPair(state, action, P_hat) for action in range(action_num)]
         self.policy_action = best_action
+        self.r_hat = 0
 
     @property
     def idx(self):
@@ -122,8 +124,8 @@ class Simulator:
         self.ImprovePolicy()
         self.ReGradeAllAgents()
 
-    # invoked after states re-prioritization. Replaces queue
     def ReGradeAllAgents(self):
+        """invoked after states re-prioritization. Replaces queue"""
         new_queue = Q.PriorityQueue()
         while self.agents.qsize() > 0:
             new_queue.put(self.GradeAgent(self.agents.get().object))
