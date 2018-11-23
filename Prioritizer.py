@@ -37,7 +37,7 @@ class GittinsPrioritizer(Prioritizer):
         self.r = reward
         self.P = self.InitProbMat(probability)
 
-        rs_list = [PrioritizedObject(s.state, s.r_hat) for s in states]
+        rs_list = [PrioritizedObject(s, s.r_hat) for s in states]
         result = {}
         score = 1  # score is order of extraction
 
