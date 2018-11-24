@@ -137,10 +137,10 @@ class Simulator:
     def Update_V(self, state_action: StateActionPair):
         #  self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
         state = state_action.state
-        state.V_hat = state.r_hat + self.gamma * state_action.P_hat @ state.V_hat
+        state.V_hat = state.r_hat + self.gamma * state_action.P_hat @ self.V_hat
 
     def Update_Q(self, state_action: StateActionPair):
-        state_action.Q_hat = state_action.state_reward + self.gamma * state_action.P_hat @ state_action.state_V
+        state_action.Q_hat = state_action.state_reward + self.gamma * state_action.P_hat @ self.V_hat
 
     def P_hat_sum_diff(self):
         return [abs(self.MDP_model.P[a] - self.P_hat[a]).mean() for a in range(self.MDP_model.actions)]
