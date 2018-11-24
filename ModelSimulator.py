@@ -21,7 +21,7 @@ class StateActionPair:
         return self.Q_hat > other.Q_hat
 
     @property
-    def state_reward(self):
+    def s_a_reward(self):
         return self.state.r_hat
 
     @property
@@ -52,7 +52,7 @@ class SimulatedState:
     """
     Represents a state with a list of possible actions from current state
     """
-    r_hat_vec = []
+    r_hat_mat = []
     V_hat_vec = []
     action_num = 0
     policy = []
@@ -75,11 +75,15 @@ class SimulatedState:
 
     @property
     def r_hat(self):
-        return SimulatedState.r_hat_vec[self.idx]
+        return SimulatedState.r_hat_mat[self.idx, self.policy_action]
 
     @r_hat.setter
     def r_hat(self, new_val):
-        SimulatedState.r_hat_vec[self.idx] = new_val
+        SimulatedState.r_hat_mat[self.idx, self.policy_action] = new_val
+
+    @property
+    def s_a_visits(self):
+        return self.actions[self.policy_action].visitations
 
     @property
     def visitations(self):
@@ -105,27 +109,29 @@ class Simulator:
         self.MDP_model: MDPModel = sim_input.MDP_model
         state_num = self.MDP_model.n
 
-        self.r_hat = np.zeros(state_num)
-        SimulatedState.r_hat_vec = self.r_hat
-
+        self.r_hat = np.zeros((state_num, self.MDP_model.actions))
         self.P_hat = [np.zeros((self.MDP_model.actions, state_num)) for _ in range(state_num)]
-        StateActionPair.P_hat_mat = self.P_hat
-
         self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
-        SimulatedState.policy = self.policy
-        SimulatedState.action_num = self.MDP_model.actions
-
         self.gamma = sim_input.gamma
         self.V_hat = np.zeros(state_num)
-        SimulatedState.V_hat_vec = self.V_hat
-
         self.Q_hat = np.zeros((state_num, self.MDP_model.actions))
-        StateActionPair.Q_hat_mat = self.Q_hat
+
+        self.InitStatics()
+
         self.states = [SimulatedState(idx) for idx in range(state_num)]
         self.graded_states = {state.idx: random.random() for state in self.states}
         self.agents = Q.PriorityQueue()
         self.init_prob = sim_input.init_prob
         [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()), i)) for i in range(sim_input.agent_num)]
+
+    def InitStatics(self):
+        SimulatedState.r_hat_mat = self.r_hat
+        SimulatedState.policy = self.policy
+        SimulatedState.action_num = self.MDP_model.actions
+        SimulatedState.V_hat_vec = self.V_hat
+
+        StateActionPair.P_hat_mat = self.P_hat
+        StateActionPair.Q_hat_mat = self.Q_hat
 
     def ChooseInitState(self):
         return np.random.choice(self.states, p=self.init_prob)
@@ -139,8 +145,11 @@ class Simulator:
         state = state_action.state
         state.V_hat = state.r_hat + self.gamma * state_action.P_hat @ self.V_hat
 
-    def Update_Q(self, state_action: StateActionPair):
-        state_action.Q_hat = state_action.state_reward + self.gamma * state_action.P_hat @ self.V_hat
+    def Update_Q(self, state_action: StateActionPair, next_state, reward: int):
+        # state_action.Q_hat = state_action.s_a_reward + self.gamma * state_action.P_hat @ self.V_hat
+        a_n = 1 / (state_action.visitations + 1)  # TODO: state-action visits or state visits?
+        d_n = reward + self.gamma * self.Q_hat[next_state.idx].max() - state_action.Q_hat
+        state_action.Q_hat += a_n * d_n
 
     def P_hat_sum_diff(self):
         return [abs(self.MDP_model.P[a] - self.P_hat[a]).mean() for a in range(self.MDP_model.actions)]
@@ -170,6 +179,8 @@ class Simulator:
         return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
     def simulate(self, prioritizer, steps=10000, grades_freq=20):
+        self.InitStatics()
+
         for i in range(steps):
             self.SimulateOneStep()
             if i % grades_freq == grades_freq - 1:
@@ -187,12 +198,12 @@ class Simulator:
         state_action = agent.curr_state.actions[action]
 
         next_state = np.random.choice(self.states, p=self.MDP_model.P[agent.curr_state.idx][action])
-        reward = self.MDP_model.GetReward(state_action.state)
-        self.UpdateReward(agent.curr_state, next_state, reward)
+        reward = self.MDP_model.GetReward(state_action.state, action)
+        self.UpdateReward(agent.curr_state, reward)
         self.UpdateP(state_action, next_state)
 
         self.Update_V(state_action)
-        self.Update_Q(state_action)
+        self.Update_Q(state_action, next_state, reward)
         state_action.UpdateVisits()
         agent.curr_state = next_state
 
@@ -207,8 +218,8 @@ class Simulator:
         state_action.P_hat = new_est_p_row
 
     @staticmethod
-    def UpdateReward(curr_state: SimulatedState, next_state: SimulatedState, new_reward):
-        new_val = (curr_state.r_hat * next_state.visitations + new_reward) / (next_state.visitations + 1)
+    def UpdateReward(curr_state: SimulatedState, new_reward: int):
+        new_val = (curr_state.r_hat * curr_state.s_a_visits + new_reward) / (curr_state.s_a_visits + 1)
         curr_state.r_hat = new_val
 
     def evaluate_P_hat(self):
