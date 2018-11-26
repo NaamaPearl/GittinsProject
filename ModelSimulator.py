@@ -45,16 +45,14 @@ class StateActionPair:
 
 
 class SimulatedState:
-    """
-    Represents a state with a list of possible actions from current state
-    """
+    """Represents a state with a list of possible actions from current state"""
     r_hat_mat = []
     V_hat_vec = []
     action_num = 0
     policy = []
 
     def __init__(self, idx):
-        self.idx:int = idx
+        self.idx: int = idx
         self.actions = [StateActionPair(self, action) for action in range(SimulatedState.action_num)]
 
     @property
