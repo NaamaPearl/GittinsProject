@@ -3,10 +3,11 @@ import random
 
 
 class SimulatorInput:
-    def __init__(self, MDP_model, agent_num=5, init_prob=None, gamma=0.9):
+    def __init__(self, MDP_model, agent_num=5, init_prob=None, gamma=0.9, epsilon=0.01):
         self.MDP_model = MDP_model
         self.agent_num = agent_num
         self.gamma = gamma
+        self.epsilon = epsilon
         if init_prob is not None:
             assert np.sum(init_prob) == 1
             self.init_prob = init_prob

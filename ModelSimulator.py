@@ -107,6 +107,7 @@ class Simulator:
         self.MDP_model: MDPModel = sim_input.MDP_model
         state_num = self.MDP_model.n
         self.gamma = sim_input.gamma
+        self.epsilon = sim_input.epsilon
 
         self.r_hat = np.zeros((state_num, self.MDP_model.actions))
         self.P_hat = [np.zeros((self.MDP_model.actions, state_num)) for _ in range(state_num)]
@@ -145,7 +146,7 @@ class Simulator:
 
     def Update_Q(self, state_action: StateActionPair, next_state: SimulatedState, reward: int):
         # state_action.Q_hat = state_action.s_a_reward + self.gamma * state_action.P_hat @ self.V_hat
-        a_n = 1 / (state_action.visitations + 1)  # TODO: state-action visits or state visits?
+        a_n = (state_action.visitations + 1) ** -0.7  # TODO: state-action visits or state visits?
         d_n = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
         state_action.Q_hat += a_n * d_n
 
@@ -191,13 +192,18 @@ class Simulator:
             self.SimulateAgent(agent)
             self.agents.put(self.GradeAgent(agent))
 
+    def ChooseAction(self, state: SimulatedState):
+        if random.random() < self.epsilon:
+            return np.random.choice(state.actions)
+        else:
+            return state.actions[state.policy_action]
+
     def SimulateAgent(self, agent: Agent):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
-        action = agent.curr_state.policy_action
-        state_action = agent.curr_state.actions[action]
+        state_action = self.ChooseAction(agent.curr_state)
 
-        next_state = np.random.choice(self.states, p=self.MDP_model.P[agent.curr_state.idx][action])
-        reward = self.MDP_model.GetReward(state_action.state, action)
+        next_state = np.random.choice(self.states, p=self.MDP_model.P[state_action.state.idx][state_action.action])
+        reward = self.MDP_model.GetReward(state_action.state, state_action.action)
         self.UpdateReward(agent.curr_state, reward)
         self.UpdateP(state_action, next_state)
 
