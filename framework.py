@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 
 class SimulatorInput:
@@ -18,9 +19,12 @@ class PrioritizedObject:
     Represents an object with a prioritization
     """
 
-    def __init__(self, obj, r=0):
+    def __init__(self, obj, r=None):
         self.object = obj
-        self.reward = r
+        if r is not None:
+            self.reward = r
+        else:
+            self.reward = random.random()
 
     def __gt__(self, other):
         return self.reward > other.reward

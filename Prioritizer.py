@@ -1,6 +1,7 @@
 import numpy as np
 import random
 from framework import PrioritizedObject
+import typing
 
 
 epsilon = 10 ** -10
@@ -45,7 +46,7 @@ class GittinsPrioritizer(Prioritizer):
             # identify optimal state, omit it from model and add it to result
             opt_state = max(rs_list)
             rs_list.remove(opt_state)
-            result[opt_state.object.idx] = score
+            result[opt_state.idx] = score
             score += 1
 
             for rewarded_state in rs_list:
@@ -78,7 +79,7 @@ class GittinsPrioritizer(Prioritizer):
         """
         action = self.policy[opt_s.idx]
         P = self.P
-        state_idx = state. idx
+        state_idx = state.idx
         opt_state_idx = opt_s.idx
 
         # in case we haven't visited this state yet

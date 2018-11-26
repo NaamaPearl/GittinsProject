@@ -15,18 +15,14 @@ class StateActionPair:
         self.state: SimulatedState = state
         self.action = action
         self.visitations = 0
-        self.P_hat = np.zeros(len(self.P_hat_mat[self.state.idx][self.action]))
 
     def __gt__(self, other):
+        assert isinstance(other, StateActionPair)
         return self.Q_hat > other.Q_hat
 
     @property
     def s_a_reward(self):
         return self.state.r_hat
-
-    @property
-    def state_V(self):
-        return self.state.V_hat
 
     @property
     def P_hat(self):
@@ -58,7 +54,7 @@ class SimulatedState:
     policy = []
 
     def __init__(self, idx):
-        self.idx = idx
+        self.idx:int = idx
         self.actions = [StateActionPair(self, action) for action in range(SimulatedState.action_num)]
 
     @property
@@ -73,13 +69,17 @@ class SimulatedState:
     def policy_action(self):
         return SimulatedState.policy[self.idx]
 
+    @policy_action.setter
+    def policy_action(self, new_val):
+        SimulatedState.policy[self.idx] = new_val
+
     @property
     def r_hat(self):
-        return SimulatedState.r_hat_mat[self.idx, self.policy_action]
+        return SimulatedState.r_hat_mat[self.idx][self.policy_action]
 
     @r_hat.setter
     def r_hat(self, new_val):
-        SimulatedState.r_hat_mat[self.idx, self.policy_action] = new_val
+        SimulatedState.r_hat_mat[self.idx][self.policy_action] = new_val
 
     @property
     def s_a_visits(self):
@@ -90,9 +90,9 @@ class SimulatedState:
         """ sums visitation counter for all related state-action pairs"""
         return reduce(lambda a, b: a + b, [state_action.visitations for state_action in self.actions])
 
-    def ImprovePolicy(self):
-        """Finds action with maximal approximated Q value, and updates policy"""
-        SimulatedState.policy[self.idx] = max(self.actions).action
+    @property
+    def best_action(self):
+        return max(self.actions)
 
 
 class Agent:
@@ -108,11 +108,11 @@ class Simulator:
     def __init__(self, sim_input: SimulatorInput):
         self.MDP_model: MDPModel = sim_input.MDP_model
         state_num = self.MDP_model.n
+        self.gamma = sim_input.gamma
 
         self.r_hat = np.zeros((state_num, self.MDP_model.actions))
         self.P_hat = [np.zeros((self.MDP_model.actions, state_num)) for _ in range(state_num)]
         self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
-        self.gamma = sim_input.gamma
         self.V_hat = np.zeros(state_num)
         self.Q_hat = np.zeros((state_num, self.MDP_model.actions))
 
@@ -122,7 +122,7 @@ class Simulator:
         self.graded_states = {state.idx: random.random() for state in self.states}
         self.agents = Q.PriorityQueue()
         self.init_prob = sim_input.init_prob
-        [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()), i)) for i in range(sim_input.agent_num)]
+        [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()))) for i in range(sim_input.agent_num)]
 
     def InitStatics(self):
         SimulatedState.r_hat_mat = self.r_hat
@@ -138,17 +138,17 @@ class Simulator:
 
     def ImprovePolicy(self):
         for state in self.states:
-            state.ImprovePolicy()
+            state.policy_action = state.best_action.action
 
     def Update_V(self, state_action: StateActionPair):
         #  self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
         state = state_action.state
         state.V_hat = state.r_hat + self.gamma * state_action.P_hat @ self.V_hat
 
-    def Update_Q(self, state_action: StateActionPair, next_state, reward: int):
+    def Update_Q(self, state_action: StateActionPair, next_state: SimulatedState, reward: int):
         # state_action.Q_hat = state_action.s_a_reward + self.gamma * state_action.P_hat @ self.V_hat
         a_n = 1 / (state_action.visitations + 1)  # TODO: state-action visits or state visits?
-        d_n = reward + self.gamma * self.Q_hat[next_state.idx].max() - state_action.Q_hat
+        d_n = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
         state_action.Q_hat += a_n * d_n
 
     def P_hat_sum_diff(self):
@@ -186,11 +186,12 @@ class Simulator:
             if i % grades_freq == grades_freq - 1:
                 self.ApproxModel(prioritizer)  # prioritize agents & states
 
-    # find top-priority agents, and activate them for a single step
     def SimulateOneStep(self, agents_to_run=1):
+        """find top-priority agents, and activate them for a single step"""
         agents_list = (self.agents.get().object for _ in range(agents_to_run))
         for agent in agents_list:
             self.SimulateAgent(agent)
+            self.agents.put(self.GradeAgent(agent))
 
     def SimulateAgent(self, agent: Agent):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
@@ -206,8 +207,6 @@ class Simulator:
         self.Update_Q(state_action, next_state, reward)
         state_action.UpdateVisits()
         agent.curr_state = next_state
-
-        self.agents.put(self.GradeAgent(agent))
 
     @staticmethod
     def UpdateP(state_action: StateActionPair, next_state: SimulatedState):
