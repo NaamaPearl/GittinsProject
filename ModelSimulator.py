@@ -2,7 +2,7 @@ import numpy as np
 import random
 import queue as Q
 from Prioritizer import Prioritizer, GittinsPrioritizer
-from MDPModel import MDPModel
+from MDPModel import *
 from functools import reduce
 from framework import SimulatorInput, PrioritizedObject
 
@@ -137,9 +137,9 @@ class Simulator:
 
         self.states = [SimulatedState(idx, sim_input.parameter) for idx in range(state_num)]
         self.graded_states = {state.idx: random.random() for state in self.states}
-        self.agents = Q.PriorityQueue()
         self.init_prob = self.MDP_model.init_prob
-        [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()))) for i in range(sim_input.agent_num)]
+        self.agents = Q.PriorityQueue()
+        self.reset_agents(sim_input.agent_num)
 
     def InitStatics(self):
         SimulatedState.policy = self.policy
@@ -194,13 +194,16 @@ class Simulator:
     def GradeAgent(self, agent):
         return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
-    def simulate(self, prioritizer, steps=10000, grades_freq=20):
+    def simulate(self, prioritizer, steps=10000, grades_freq=20, reset_freq=100):
         self.InitStatics()
 
         for i in range(steps):
             self.SimulateOneStep()
             if i % grades_freq == grades_freq - 1:
                 self.ApproxModel(prioritizer)  # prioritize agents & states
+
+            if i % reset_freq == reset_freq - 1:
+                self.reset_agents(self.agents.qsize())
 
     def SimulateOneStep(self, agents_to_run=1):
         """find top-priority agents, and activate them for a single step"""
@@ -256,33 +259,39 @@ class Simulator:
     def curr_policy_reward(self):
         return np.array([self.MDP_model.r[i][a] for (i, a) in enumerate(self.policy)])
 
+    def reset_agents(self, agents_num):
+        [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()))) for i in range(agents_num)]
+
+
+
 
 if __name__ == '__main__':
     n = 4
+    actions=2
     k = 1
 
-    MDP = MDPModel(n=n, actions=2)
+    MDP = SingleLineMDP(n=n, actions=actions)
     simulator_input = SimulatorInput(MDP)
-    #   random_simulator = Simulator(MDP)
-    gittins_simulator = Simulator(simulator_input)
+    random_simulator = Simulator(simulator_input)
+    # gittins_simulator = Simulator(simulator_input)
 
     #   random_simulator.simulate(Prioritizer(), steps=100000)
-    gittins_simulator.simulate(GittinsPrioritizer(), steps=10000)
+    random_simulator.simulate(Prioritizer(), steps=10000)
 
     print('r difference')
     print('------------')
-    print(np.array(gittins_simulator.r_hat - gittins_simulator.MDP_model.r))
+    print(np.array(random_simulator.r_hat - random_simulator.MDP_model.r))
 
     print('P difference')
     print('------------')
-    for s in range(gittins_simulator.MDP_model.n):
-        print(np.array(gittins_simulator.P_hat[s] - gittins_simulator.MDP_model.P[s]))
+    for s in range(random_simulator.MDP_model.n):
+        print(np.array(random_simulator.P_hat[s] - random_simulator.MDP_model.P[s]))
 
     print('V difference')
     print('------------')
-    V_diff = gittins_simulator.calculate_V() - gittins_simulator.V_hat
+    V_diff = random_simulator.calculate_V() - random_simulator.V_hat
     print(V_diff)
     print('percentage of error')
-    print(abs(V_diff / gittins_simulator.calculate_V()) * 100)
+    print(abs(V_diff / random_simulator.calculate_V()) * 100)
 
     print('all done')
