@@ -27,6 +27,13 @@ class GittinsPrioritizer(Prioritizer):
 
         return prob_mat
 
+    def InitRewardVec(self, reward):
+        r = np.zeros(self.n)
+        for idx in range(self.n):
+            r[idx] = reward[idx][self.policy[idx]]
+
+        return r
+
     def GradeStates(self, states, policy, probability, reward):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
@@ -35,7 +42,7 @@ class GittinsPrioritizer(Prioritizer):
 
         self.n = len(states)
         self.policy = policy
-        self.r = reward
+        self.r = self.InitRewardVec(reward)
         self.P = self.InitProbMat(probability)
 
         rs_list = [PrioritizedObject(s, s.r_hat) for s in states]
@@ -53,8 +60,8 @@ class GittinsPrioritizer(Prioritizer):
                 self.CalcIndex(rewarded_state, opt_state)  # calc index after omission, for all remaining states
 
             self.CalcNewProb(rs_list, opt_state)  # calc new transition matrix
-
-        result[rs_list.pop().object.idx] = score  # when only one state remains, simply add it to the result list
+        last_state = rs_list.pop()
+        result[last_state.object.idx] = score  # when only one state remains, simply add it to the result list
         return result
 
     def CalcNewProb(self, rs_list, opt_s: PrioritizedObject):
@@ -93,7 +100,7 @@ class GittinsPrioritizer(Prioritizer):
         t_opt_expect = 1 / (2 * (1 - p_opt_stay) ** 2)
         p_opt_back = P[state_idx, opt_state_idx] * sum_p_opt * (np.sum(P[opt_state_idx, :]) - p_opt_stay)
 
-        R = p_sub_optimal * state.reward + p_opt_back * (state.reward + opt_s.reward) + opt_s.reward * t_opt_expect
+        R = p_sub_optimal * state.reward + p_opt_back * (state.reward + opt_s.reward + opt_s.reward * t_opt_expect)
         W = p_sub_optimal + p_opt_back * 2 + p_opt_back * t_opt_expect
 
-        state.gittins = R / W
+        state.reward = R / W

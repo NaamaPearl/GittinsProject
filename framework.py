@@ -3,7 +3,7 @@ import random
 
 
 class SimulatorInput:
-    def __init__(self, MDP_model, param='reward', agent_num=5, gamma=0.9, epsilon=0.01):
+    def __init__(self, MDP_model, param='reward', agent_num=5, gamma=0.9, epsilon=0.1):
         self.MDP_model = MDP_model
         self.agent_num = agent_num
         self.gamma = gamma
