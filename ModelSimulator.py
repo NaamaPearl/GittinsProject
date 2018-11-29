@@ -10,19 +10,25 @@ from framework import SimulatorInput, PrioritizedObject
 class StateActionPair:
     P_hat_mat = []
     Q_hat_mat = []
+    r_hat_mat = []
 
     def __init__(self, state, action):
         self.state: SimulatedState = state
         self.action = action
         self.visitations = 0
+        self.TD_error = 0
 
     def __gt__(self, other):
         assert isinstance(other, StateActionPair)
         return self.Q_hat > other.Q_hat
 
     @property
-    def s_a_reward(self):
-        return self.state.r_hat
+    def r_hat(self):
+        return StateActionPair.r_hat_mat[self.state.idx][self.action]
+
+    @r_hat.setter
+    def r_hat(self, new_val):
+        StateActionPair.r_hat_mat[self.state.idx][self.action] = new_val
 
     @property
     def P_hat(self):
@@ -44,6 +50,23 @@ class StateActionPair:
         StateActionPair.Q_hat_mat[self.state.idx][self.action] = new_val
 
 
+class TDStateActionPair(StateActionPair):
+    def __init__(self, state, action):
+        super().__init__(state, action)
+
+    def __gt__(self, other):
+        return self.TD_error > other.TD_error
+
+
+class StateActionFactory:
+    @staticmethod
+    def Generate(state, action, param):
+        if param == 'reward':
+            return StateActionPair(state, action)
+        else:
+            return TDStateActionPair(state, action)
+
+
 class SimulatedState:
     """Represents a state with a list of possible actions from current state"""
     r_hat_mat = []
@@ -51,9 +74,10 @@ class SimulatedState:
     action_num = 0
     policy = []
 
-    def __init__(self, idx):
+    def __init__(self, idx, param):
         self.idx: int = idx
-        self.actions = [StateActionPair(self, action) for action in range(SimulatedState.action_num)]
+        state_action_factory = StateActionFactory
+        self.actions = [state_action_factory.Generate(self, action, param) for action in range(SimulatedState.action_num)]
 
     @property
     def V_hat(self):
@@ -117,10 +141,10 @@ class Simulator:
 
         self.InitStatics()
 
-        self.states = [SimulatedState(idx) for idx in range(state_num)]
+        self.states = [SimulatedState(idx, sim_input.parameter) for idx in range(state_num)]
         self.graded_states = {state.idx: random.random() for state in self.states}
         self.agents = Q.PriorityQueue()
-        self.init_prob = sim_input.init_prob
+        self.init_prob = self.MDP_model.init_prob
         [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()))) for i in range(sim_input.agent_num)]
 
     def InitStatics(self):
@@ -131,6 +155,7 @@ class Simulator:
 
         StateActionPair.P_hat_mat = self.P_hat
         StateActionPair.Q_hat_mat = self.Q_hat
+        StateActionPair.r_hat_vec = self.r_hat
 
     def ChooseInitState(self):
         return np.random.choice(self.states, p=self.init_prob)
@@ -145,10 +170,9 @@ class Simulator:
         state.V_hat = state.r_hat + self.gamma * state_action.P_hat @ self.V_hat
 
     def Update_Q(self, state_action: StateActionPair, next_state: SimulatedState, reward: int):
-        # state_action.Q_hat = state_action.s_a_reward + self.gamma * state_action.P_hat @ self.V_hat
         a_n = (state_action.visitations + 1) ** -0.7  # TODO: state-action visits or state visits?
-        d_n = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
-        state_action.Q_hat += a_n * d_n
+        state_action.TD_error = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
+        state_action.Q_hat += a_n * state_action.TD_error
 
     def P_hat_sum_diff(self):
         return [abs(self.MDP_model.P[a] - self.P_hat[a]).mean() for a in range(self.MDP_model.actions)]
