@@ -52,9 +52,9 @@ class RandomSinkMDP(MDPModel):
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, init_states_idx=frozenset({0})):
-        super().__init__()
+    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0})):
         self.init_states_idx = init_states_idx
+        super().__init__(n, actions)
 
     def get_succesors(self, state_idx, action):
         if state_idx in self.init_states_idx:

@@ -275,7 +275,7 @@ if __name__ == '__main__':
     actions=2
     k = 1
 
-    MDP = SingleLineMDP(n=n, actions=actions)
+    MDP = SeperateChainsMDP(n=n, actions=actions)
     simulator_input = SimulatorInput(MDP)
     random_simulator = Simulator(simulator_input)
     # gittins_simulator = Simulator(simulator_input)
