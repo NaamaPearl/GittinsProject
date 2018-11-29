@@ -9,7 +9,7 @@ class MDPModel:
         self.init_prob = self.GenInitialProbability()
         for state_idx in range(self.n):
             low, high = self.ChainLimits(state_idx)
-            self.P = [self.gen_P_matrix(state_idx, set(range(low, high + 1))) for _ in range(self.actions)]
+            self.P = [self.gen_P_matrix(state_idx, set(range(low, high + 1))) for _ in range(self.n)]
         self.r = self.gen_r_vec()
 
     def ChainLimits(self, state_idx):

@@ -69,7 +69,6 @@ class StateActionFactory:
 
 class SimulatedState:
     """Represents a state with a list of possible actions from current state"""
-    r_hat_mat = []
     V_hat_vec = []
     action_num = 0
     policy = []
@@ -96,14 +95,6 @@ class SimulatedState:
         SimulatedState.policy[self.idx] = new_val
 
     @property
-    def r_hat(self):
-        return SimulatedState.r_hat_mat[self.idx][self.policy_action]
-
-    @r_hat.setter
-    def r_hat(self, new_val):
-        SimulatedState.r_hat_mat[self.idx][self.policy_action] = new_val
-
-    @property
     def s_a_visits(self):
         return self.actions[self.policy_action].visitations
 
@@ -116,6 +107,9 @@ class SimulatedState:
     def best_action(self):
         return max(self.actions)
 
+    @property
+    def r_hat(self):
+        return self.actions[self.policy_action].r_hat
 
 class Agent:
     def __init__(self, idx, init_state: SimulatedState):
@@ -148,14 +142,13 @@ class Simulator:
         [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()))) for i in range(sim_input.agent_num)]
 
     def InitStatics(self):
-        SimulatedState.r_hat_mat = self.r_hat
         SimulatedState.policy = self.policy
         SimulatedState.action_num = self.MDP_model.actions
         SimulatedState.V_hat_vec = self.V_hat
 
         StateActionPair.P_hat_mat = self.P_hat
         StateActionPair.Q_hat_mat = self.Q_hat
-        StateActionPair.r_hat_vec = self.r_hat
+        StateActionPair.r_hat_mat = self.r_hat
 
     def ChooseInitState(self):
         return np.random.choice(self.states, p=self.init_prob)
@@ -167,7 +160,7 @@ class Simulator:
     def Update_V(self, state_action: StateActionPair):
         #  self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
         state = state_action.state
-        state.V_hat = state.r_hat + self.gamma * state_action.P_hat @ self.V_hat
+        state.V_hat = state_action.r_hat + self.gamma * state_action.P_hat @ self.V_hat
 
     def Update_Q(self, state_action: StateActionPair, next_state: SimulatedState, reward: int):
         a_n = (state_action.visitations + 1) ** -0.7  # TODO: state-action visits or state visits?
@@ -228,7 +221,7 @@ class Simulator:
 
         next_state = np.random.choice(self.states, p=self.MDP_model.P[state_action.state.idx][state_action.action])
         reward = self.MDP_model.GetReward(state_action.state, state_action.action)
-        self.UpdateReward(agent.curr_state, reward)
+        self.UpdateReward(state_action, reward)
         self.UpdateP(state_action, next_state)
 
         self.Update_V(state_action)
@@ -245,22 +238,30 @@ class Simulator:
         state_action.P_hat = new_est_p_row
 
     @staticmethod
-    def UpdateReward(curr_state: SimulatedState, new_reward: int):
-        new_val = (curr_state.r_hat * curr_state.s_a_visits + new_reward) / (curr_state.s_a_visits + 1)
-        curr_state.r_hat = new_val
+    def UpdateReward(state_action: StateActionPair, new_reward: int):
+        new_val = (state_action.r_hat * state_action.visitations + new_reward) / (state_action.visitations + 1)
+        state_action.r_hat = new_val
 
     def evaluate_P_hat(self):
         return self.P_hat_sum_diff()
 
-    # def EvaluateV(self):
-    #     return self.V_hat_diff()
+    def calculate_V(self):
+        return np.linalg.inv(np.eye(self.MDP_model.n) - self.gamma * self.curr_policy_P) @ self.curr_policy_reward
+
+    @property
+    def curr_policy_P(self):
+        return np.array([self.MDP_model.P[i][a] for (i, a) in enumerate(self.policy)])
+
+    @property
+    def curr_policy_reward(self):
+        return np.array([self.MDP_model.r[i][a] for (i, a) in enumerate(self.policy)])
 
 
 if __name__ == '__main__':
-    n = 10
-    k = 4
+    n = 4
+    k = 1
 
-    MDP = MDPModel(n=n)
+    MDP = MDPModel(n=n, actions=2)
     simulator_input = SimulatorInput(MDP)
     #   random_simulator = Simulator(MDP)
     gittins_simulator = Simulator(simulator_input)
@@ -268,13 +269,20 @@ if __name__ == '__main__':
     #   random_simulator.simulate(Prioritizer(), steps=100000)
     gittins_simulator.simulate(GittinsPrioritizer(), steps=10000)
 
-    print('eval Random')
-    #   print(random_simulator.evaluate_P_hat())
-    #   print(random_simulator.EvaluateV())
+    print('r difference')
+    print('------------')
+    print(np.array(gittins_simulator.r_hat - gittins_simulator.MDP_model.r))
 
-    print('eval Gittin')
-    print(gittins_simulator.evaluate_P_hat())
-    #   print(gittins_simulator.EvaluateV())
+    print('P difference')
+    print('------------')
+    for s in range(gittins_simulator.MDP_model.n):
+        print(np.array(gittins_simulator.P_hat[s] - gittins_simulator.MDP_model.P[s]))
 
-    # print(GittinsSimulator.evaluateGittins())
+    print('V difference')
+    print('------------')
+    V_diff = gittins_simulator.calculate_V() - gittins_simulator.V_hat
+    print(V_diff)
+    print('percentage of error')
+    print(abs(V_diff / gittins_simulator.calculate_V()) * 100)
+
     print('all done')
