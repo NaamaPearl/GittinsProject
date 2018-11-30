@@ -68,6 +68,10 @@ class SeperateChainsMDP(MDPModel):
         for state in self.init_states_idx:
             self.init_prob[state] = 1 / len(self.init_states_idx)
 
+    def gen_r_mat(self):
+        np.concatenate((np.random.normal(0, 1, (self.n / 2, self.actions)),
+                       np.random.normal(10, 1, (self.n / 2, self.actions))))
+
 
 class EyeMDP(MDPModel):
     def get_succesors(self, state_idx, action):
@@ -84,7 +88,7 @@ class SingleLineMDP(MDPModel):
         return state_idx == (self.n - 1)
 
     def get_succesors(self, state_idx, action):
-        if action == 0: # forward -->
+        if action == 0:  # forward -->
             return {(state_idx + 1) % self.n}
         return {0}
 
