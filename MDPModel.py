@@ -64,13 +64,15 @@ class SeperateChainsMDP(MDPModel):
         return self.n / 2, self.n
 
     def GenInitialProbability(self):
-        self.init_prob = np.zeros(self.n)
+        init_prob = np.zeros(self.n)
         for state in self.init_states_idx:
-            self.init_prob[state] = 1 / len(self.init_states_idx)
+            init_prob[state] = 1 / len(self.init_states_idx)
+
+        return init_prob
 
     def gen_r_mat(self):
-        np.concatenate((np.random.normal(0, 1, (self.n / 2, self.actions)),
-                       np.random.normal(10, 1, (self.n / 2, self.actions))))
+        return np.concatenate((np.random.normal(0, 1, (int(self.n / 2), self.actions)),
+                               np.random.normal(10, 1, (int(self.n / 2), self.actions))))
 
 
 class EyeMDP(MDPModel):
