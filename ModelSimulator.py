@@ -268,12 +268,10 @@ class Simulator:
         [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()))) for i in range(agents_num)]
 
 
-
-
 if __name__ == '__main__':
-    n = 4
-    actions=2
-    k = 1
+    n = 6
+    actions = 2
+    k = 2
 
     MDP = SeperateChainsMDP(n=n, actions=actions)
     simulator_input = SimulatorInput(MDP)

@@ -12,7 +12,7 @@ class MDPModel:
         self.r = self.gen_r_mat()
 
     def get_succesors(self, state_idx, action):
-        return set(range(0, self.n + 1))
+        return set(range(0, self.n))
 
     def gen_P_matrix(self, state_idx, succesors):
         if self.IsSinkState(state_idx):
@@ -52,16 +52,24 @@ class RandomSinkMDP(MDPModel):
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0})):
+    default_rewards_param = [(0, 1), (10, 1)]
+
+    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=None):
+        if n % 2 == 0:
+            n += 1  # make sure sub_chains are even sized
         self.init_states_idx = init_states_idx
+        if reward_param is not None:
+            self.reward_params = reward_param
+        else:
+            self.reward_params = SeperateChainsMDP.default_rewards_param
         super().__init__(n, actions)
 
     def get_succesors(self, state_idx, action):
         if state_idx in self.init_states_idx:
-            return 0, self.n
+            return set(range(self.n))
         elif state_idx < self.n / 2:
-            return 0, self.n / 2 - 1
-        return self.n / 2, self.n
+            return set(range(1, int(self.n / 2) + 1))
+        return set(range(int(self.n / 2) + 1, self.n))
 
     def GenInitialProbability(self):
         init_prob = np.zeros(self.n)
@@ -71,8 +79,9 @@ class SeperateChainsMDP(MDPModel):
         return init_prob
 
     def gen_r_mat(self):
-        return np.concatenate((np.random.normal(0, 1, (int(self.n / 2), self.actions)),
-                               np.random.normal(10, 1, (int(self.n / 2), self.actions))))
+        return np.concatenate((np.zeros((1, self.actions)),
+                               np.concatenate([np.random.normal(r[0], r[1], (int(self.n / 2), self.actions))
+                                               for r in self.reward_params])))
 
 
 class EyeMDP(MDPModel):
