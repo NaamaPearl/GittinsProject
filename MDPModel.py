@@ -31,13 +31,14 @@ class MDPModel:
         return row
 
     def gen_r_mat(self):
-        return np.random.random_integers(low=0, high=100, size=(self.n, self.actions))  # TODO stochastic reward
+        return [[(random.random(), random.random()) for _ in range(self.actions)] for _ in range(self.n)]
 
     def IsSinkState(self, state_idx) -> bool:
         return False
 
     def GetReward(self, state, action):
-        return self.r[state.idx, action]
+        params = self.r[state.idx][action]
+        return np.random.normal(params[0], params[1])
 
     def GenInitialProbability(self):
         return np.ones(self.n) / self.n
@@ -53,7 +54,7 @@ class RandomSinkMDP(MDPModel):
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=frozenset({(0, 1), (10, 1)})):
+    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=((0, 1), (10, 1))):
         if n % 2 == 0:
             n += 1  # make sure sub_chains are even sized
 
@@ -63,12 +64,18 @@ class SeperateChainsMDP(MDPModel):
 
         super().__init__(n, actions)
 
-    def get_succesors(self, state_idx, action):
+    def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
-            return self.chains[action]
+            return None
         elif state_idx < self.n / 2:
-            return self.chains[0]
-        return self.chains[1]
+            return 0
+        return 1
+
+    def get_succesors(self, state_idx, action):
+        chain = self.FindChain(state_idx)
+        if chain is None:
+            return self.chains[action]
+        return self.chains[chain]
 
     def GenInitialProbability(self):
         init_prob = np.zeros(self.n)
@@ -78,9 +85,17 @@ class SeperateChainsMDP(MDPModel):
         return init_prob
 
     def gen_r_mat(self):
-        return np.concatenate((np.zeros((1, self.actions)),
-                               np.concatenate([np.random.normal(r[0], r[1], (int(self.n / 2), self.actions))
-                                               for r in self.reward_params])))
+        res = [[] for _ in range(self.n)]
+        for state_idx in range(self.n):
+            chain = self.FindChain(state_idx)
+            for action in range(self.actions):
+                if chain is None:
+                    params = (0, 0)
+                else:
+                    params = self.reward_params[chain]
+                res[state_idx].append(params)
+
+        return res
 
 
 class EyeMDP(MDPModel):

@@ -155,6 +155,8 @@ class Simulator:
         self.agents = None
         self.reset_agents(sim_input.agent_num)
 
+        self.regret_vec = []
+
     def InitStatics(self):
         SimulatedState.policy = self.policy
         SimulatedState.action_num = self.MDP_model.actions
@@ -219,6 +221,7 @@ class Simulator:
                 self.ApproxModel(prioritizer)  # prioritize agents & states
 
             if i % reset_freq == reset_freq - 1:
+                self.regret_vec.append(self.CalcRegret())
                 self.reset_agents(self.agents.qsize())
 
             if (i % 500) == 0:
@@ -233,9 +236,11 @@ class Simulator:
 
     def ChooseAction(self, state: SimulatedState):
         if random.random() < self.epsilon:
-            return np.random.choice(state.actions)
+            action = np.random.choice(state.actions)
         else:
-            return state.policy_action
+            action = state.policy_action
+        self.NotifyAction(action)
+        return action
 
     def SimulateAgent(self, agent: Agent):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
@@ -290,6 +295,9 @@ class Simulator:
     def CalcRegret(self):
         return 0
 
+    def NotifyAction(self, state_action: StateActionPair):
+        pass
+
     @property
     def agents_location(self):
         return [agent.idx for agent in self.agents.queue]
@@ -325,9 +333,11 @@ if __name__ == '__main__':
     for i in range(3):
         gittins_simulator = SeperateChainsSimulator(td_simulator_input)
         gittins_simulator.simulate(GittinsPrioritizer(), steps=steps)
+        gittins_reg += gittins_simulator.regret_vec
 
         random_simulator = SeperateChainsSimulator(reward_simulator_input)
         random_simulator.simulate(Prioritizer(), steps=steps)
+        random_reg += random_simulator.regret_vec
 
     gittins_reg /= 3
     random_reg /= 3
@@ -337,7 +347,7 @@ if __name__ == '__main__':
 
     print('r difference')
     print('------------')
-    print(np.array(random_simulator.r_hat - random_simulator.MDP_model.r))
+    #print(np.array(random_simulator.r_hat - random_simulator.MDP_model.r)) TODO - irrelevant for random rewards
 
     print('P difference')
     print('------------')
@@ -350,10 +360,11 @@ if __name__ == '__main__':
 
     print('V difference')
     print('------------')
-    V_diff = random_simulator.calculate_V() - random_simulator.V_hat
-    print(V_diff)
-    print('percentage of error')
-    print(abs(V_diff / random_simulator.calculate_V()) * 100)
+    # TODO - irelevant for stochastic rewards
+    # V_diff = random_simulator.calculate_V() - random_simulator.V_hat
+    # print(V_diff)
+    # print('percentage of error')
+    # print(abs(V_diff / random_simulator.calculate_V()) * 100)
 
     print('Q Function')
     print(random_simulator.Q_hat)

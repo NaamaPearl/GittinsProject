@@ -30,7 +30,8 @@ class GittinsPrioritizer(Prioritizer):
     def InitRewardVec(self, reward):
         r = np.zeros(self.n)
         for idx in range(self.n):
-            r[idx] = reward[idx][self.policy[idx]]
+            params = reward[idx][self.policy[idx]]
+            r[idx] = np.random.normal(params[0], params[1])
 
         return r
 
