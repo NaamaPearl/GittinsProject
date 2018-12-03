@@ -9,6 +9,7 @@ class MDPModel:
         self.init_prob = self.GenInitialProbability()
         self.P = [np.array([self.gen_P_matrix(state_idx, self.get_succesors(state_idx, action))
                             for action in range(self.actions)]) for state_idx in range(self.n)]
+
         self.r = self.gen_r_mat()
 
     def get_succesors(self, state_idx, action):
@@ -52,26 +53,22 @@ class RandomSinkMDP(MDPModel):
 
 
 class SeperateChainsMDP(MDPModel):
-    default_rewards_param = [(0, 1), (10, 1)]
-    chains = []
-
-    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=None):
+    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=frozenset({(0, 1), (10, 1)})):
         if n % 2 == 0:
             n += 1  # make sure sub_chains are even sized
+
         self.init_states_idx = init_states_idx
-        if reward_param is not None:
-            self.reward_params = reward_param
-        else:
-            self.reward_params = SeperateChainsMDP.default_rewards_param
-        SeperateChainsMDP.chains = [set(range(1, int(n / 2) + 1)), set(range(int(n / 2) + 1, n))]
+        self.chains = [frozenset(range(1, int(n / 2) + 1)), frozenset(range(int(n / 2) + 1, n))]
+        self.reward_params = reward_param
+
         super().__init__(n, actions)
 
     def get_succesors(self, state_idx, action):
         if state_idx in self.init_states_idx:
-            return SeperateChainsMDP.chains[action]
+            return self.chains[action]
         elif state_idx < self.n / 2:
-            return SeperateChainsMDP.chains[0]
-        return SeperateChainsMDP.chains[1]
+            return self.chains[0]
+        return self.chains[1]
 
     def GenInitialProbability(self):
         init_prob = np.zeros(self.n)

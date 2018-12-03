@@ -1,10 +1,9 @@
-import numpy as np
-import random
 import queue as Q
 from Prioritizer import Prioritizer, GittinsPrioritizer
 from MDPModel import *
 from functools import reduce
 from framework import SimulatorInput, PrioritizedObject
+from matplotlib import pyplot as plt
 
 
 class StateActionPair:
@@ -18,7 +17,7 @@ class StateActionPair:
         self.state: SimulatedState = state
         self.action = action
         self.visitations = 0
-        self.TD_error = 0
+        self.TD_error_val = 0
 
     def __gt__(self, other):
         assert isinstance(other, StateActionPair)
@@ -53,13 +52,23 @@ class StateActionPair:
     def Q_hat(self, new_val):
         StateActionPair.Q_hat_mat[self.state.idx][self.action] = new_val
 
+    @property
+    def TD_error(self):
+        if self.visitations < StateActionPair.T_bored_num:
+            return StateActionPair.T_bored_val + self.TD_error_val
+        return self.TD_error_val
+
+    @TD_error.setter
+    def TD_error(self, new_val):
+        self.TD_error_val = new_val
+
 
 class TDStateActionPair(StateActionPair):
     def __init__(self, state, action):
         super().__init__(state, action)
 
     def __gt__(self, other):
-        return self.TD_error > other.TD_error
+        return abs(self.TD_error) > abs(other.TD_error)
 
 
 class StateActionFactory:
@@ -160,6 +169,8 @@ class Simulator:
 
     def ImprovePolicy(self):
         for state in self.states:
+            if state.idx == 0 and state.policy_action.action != state.best_action.action:
+                print('action changed from %s to %s' % (state.policy_action.action, state.best_action.action))
             state.policy_action = state.best_action.action
 
     def Update_V(self, state_action: StateActionPair):
@@ -184,7 +195,6 @@ class Simulator:
     #         res.append(abs(self.V_hat - V).max())
 
     def ApproxModel(self, prioritizer: Prioritizer):
-        #self.graded_states = prioritizer.GradeStates(self.states, self.policy, self.P_hat, self.r_hat)
         self.graded_states = prioritizer.GradeStates(self.states, self.policy, self.MDP_model.P, self.MDP_model.r)
         self.ImprovePolicy()
         self.ReGradeAllAgents()
@@ -200,23 +210,23 @@ class Simulator:
     def GradeAgent(self, agent):
         return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
-    def simulate(self, prioritizer, steps=10000, grades_freq=100, reset_freq=1000):
+    def simulate(self, prioritizer, steps=1000, grades_freq=10, reset_freq=20):
         self.InitStatics()
 
         for i in range(steps):
-            self.SimulateOneStep()
+            self.SimulateOneStep(agents_to_run=3)
             if i % grades_freq == grades_freq - 1:
                 self.ApproxModel(prioritizer)  # prioritize agents & states
 
             if i % reset_freq == reset_freq - 1:
                 self.reset_agents(self.agents.qsize())
 
-            if (i % 5000) == 0:
+            if (i % 500) == 0:
                 print('simulate step %d' % i)
 
     def SimulateOneStep(self, agents_to_run=1):
         """find top-priority agents, and activate them for a single step"""
-        agents_list = (self.agents.get().object for _ in range(agents_to_run))
+        agents_list = [self.agents.get().object for _ in range(agents_to_run)]
         for agent in agents_list:
             self.SimulateAgent(agent)
             self.agents.put(self.GradeAgent(agent))
@@ -251,8 +261,7 @@ class Simulator:
 
     @staticmethod
     def UpdateReward(state_action: StateActionPair, new_reward: int):
-        new_val = (state_action.r_hat * state_action.visitations + new_reward) / (state_action.visitations + 1)
-        state_action.r_hat = new_val
+        state_action.r_hat = (state_action.r_hat * state_action.visitations + new_reward) / (state_action.visitations + 1)
 
     def evaluate_P_hat(self):
         return self.P_hat_sum_diff()
@@ -272,21 +281,59 @@ class Simulator:
         self.agents = Q.PriorityQueue()
         for i in range(agents_num):
             init_state = self.ChooseInitState()
-            self.agents.put(PrioritizedObject(Agent(i, init_state), init_state.policy_action.Q_hat))
+            self.agents.put(PrioritizedObject(Agent(i, init_state), -np.inf))
+
+    def PrintAgentsStatus(self):
+        for i, agent in enumerate(self.agents.queue):
+            print("Agent #%s is in state #%s" % (i, agent.object.curr_state.idx))
+
+    def CalcRegret(self):
+        return 0
+
+    @property
+    def agents_location(self):
+        return [agent.idx for agent in self.agents.queue]
+
+
+class SeperateChainsSimulator(Simulator):
+    def __init__(self, sim_input: SimulatorInput):
+        super().__init__(sim_input)
+        self.wrong_choices = 0
+        self.total_choices = 0
+        self.policy[0] = 0
+
+    def NotifyAction(self, state_action: StateActionPair):
+        if state_action.state.idx == 0:
+            self.total_choices += 1
+            if state_action.action != 1:
+                self.wrong_choices += 1
+
+    def CalcRegret(self):
+        return self.wrong_choices / self.total_choices * 100
 
 
 if __name__ == '__main__':
     n = 6
     actions = 2
-    k = 2
 
-    MDP = SeperateChainsMDP(n=n, actions=actions)
-    simulator_input = SimulatorInput(MDP)
-    random_simulator = Simulator(simulator_input)
-    # gittins_simulator = Simulator(simulator_input)
+    MDP = SeperateChainsMDP(n=n, actions=actions, reward_param=[(100, 0.1), (0, 100)])
+    td_simulator_input = SimulatorInput(MDP, param='error')
+    reward_simulator_input = SimulatorInput(MDP)
+    steps = 1000
+    gittins_reg = np.zeros(50)
+    random_reg = np.zeros(50)
+    for i in range(3):
+        gittins_simulator = SeperateChainsSimulator(td_simulator_input)
+        gittins_simulator.simulate(GittinsPrioritizer(), steps=steps)
 
-    #   random_simulator.simulate(Prioritizer(), steps=100000)
-    random_simulator.simulate(GittinsPrioritizer(), steps=10000)
+        random_simulator = SeperateChainsSimulator(reward_simulator_input)
+        random_simulator.simulate(Prioritizer(), steps=steps)
+
+    gittins_reg /= 3
+    random_reg /= 3
+    plt.plot(list(range(50)), random_reg, list(range(50)), gittins_reg)
+    plt.legend(['random', 'gittins'])
+
 
     print('r difference')
     print('------------')

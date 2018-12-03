@@ -1,5 +1,3 @@
-import numpy as np
-import random
 
 
 class SimulatorInput:
@@ -25,9 +23,6 @@ class PrioritizedObject:
 
     def __lt__(self, other):
         return self.reward < other.reward
-
-    def __eq__(self, other):
-        return self.reward == other.reward
 
     def __hash__(self):
         return hash(object)
