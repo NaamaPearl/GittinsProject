@@ -53,6 +53,7 @@ class RandomSinkMDP(MDPModel):
 
 class SeperateChainsMDP(MDPModel):
     default_rewards_param = [(0, 1), (10, 1)]
+    chains = []
 
     def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=None):
         if n % 2 == 0:
@@ -62,14 +63,15 @@ class SeperateChainsMDP(MDPModel):
             self.reward_params = reward_param
         else:
             self.reward_params = SeperateChainsMDP.default_rewards_param
+        SeperateChainsMDP.chains = [set(range(1, int(n / 2) + 1)), set(range(int(n / 2) + 1, n))]
         super().__init__(n, actions)
 
     def get_succesors(self, state_idx, action):
         if state_idx in self.init_states_idx:
-            return set(range(self.n))
+            return SeperateChainsMDP.chains[action]
         elif state_idx < self.n / 2:
-            return set(range(1, int(self.n / 2) + 1))
-        return set(range(int(self.n / 2) + 1, self.n))
+            return SeperateChainsMDP.chains[0]
+        return SeperateChainsMDP.chains[1]
 
     def GenInitialProbability(self):
         init_prob = np.zeros(self.n)

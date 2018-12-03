@@ -16,12 +16,9 @@ class PrioritizedObject:
     Represents an object with a prioritization
     """
 
-    def __init__(self, obj, r=None):
+    def __init__(self, obj, r):
         self.object = obj
-        if r is not None:
-            self.reward = r
-        else:
-            self.reward = random.random()
+        self.reward = r
 
     def __gt__(self, other):
         return self.reward > other.reward

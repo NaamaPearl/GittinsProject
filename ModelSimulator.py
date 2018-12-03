@@ -11,6 +11,8 @@ class StateActionPair:
     P_hat_mat = []
     Q_hat_mat = []
     r_hat_mat = []
+    T_bored_num = 10
+    T_bored_val = 100
 
     def __init__(self, state, action):
         self.state: SimulatedState = state
@@ -43,6 +45,8 @@ class StateActionPair:
 
     @property
     def Q_hat(self):
+        if self.visitations < StateActionPair.T_bored_num:
+            return StateActionPair.T_bored_val
         return StateActionPair.Q_hat_mat[self.state.idx][self.action]
 
     @Q_hat.setter
@@ -88,7 +92,7 @@ class SimulatedState:
 
     @property
     def policy_action(self):
-        return SimulatedState.policy[self.idx]
+        return self.actions[SimulatedState.policy[self.idx]]
 
     @policy_action.setter
     def policy_action(self, new_val):
@@ -109,7 +113,8 @@ class SimulatedState:
 
     @property
     def r_hat(self):
-        return self.actions[self.policy_action].r_hat
+        return self.policy_action.r_hat
+
 
 class Agent:
     def __init__(self, idx, init_state: SimulatedState):
@@ -220,7 +225,7 @@ class Simulator:
         if random.random() < self.epsilon:
             return np.random.choice(state.actions)
         else:
-            return state.actions[state.policy_action]
+            return state.policy_action
 
     def SimulateAgent(self, agent: Agent):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
@@ -265,7 +270,9 @@ class Simulator:
 
     def reset_agents(self, agents_num):
         self.agents = Q.PriorityQueue()
-        [self.agents.put(PrioritizedObject(Agent(i, self.ChooseInitState()))) for i in range(agents_num)]
+        for i in range(agents_num):
+            init_state = self.ChooseInitState()
+            self.agents.put(PrioritizedObject(Agent(i, init_state), init_state.policy_action.Q_hat))
 
 
 if __name__ == '__main__':
