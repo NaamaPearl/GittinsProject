@@ -27,11 +27,10 @@ class GittinsPrioritizer(Prioritizer):
 
         return prob_mat
 
-    def InitRewardVec(self, reward):
+    def InitRewardVec(self, reward_mat):
         r = np.zeros(self.n)
         for idx in range(self.n):
-            params = reward[idx][self.policy[idx]]
-            r[idx] = np.random.normal(params[0], params[1])
+            r[idx] = reward_mat[idx][self.policy[idx]]
 
         return r
 
@@ -46,7 +45,7 @@ class GittinsPrioritizer(Prioritizer):
         self.r = self.InitRewardVec(reward)
         self.P = self.InitProbMat(probability)
 
-        rs_list = [PrioritizedObject(s, s.r_hat) for s in states]
+        rs_list = [PrioritizedObject(s, r) for s, r in zip(states, self.r)]
         result = {}
         score = 1  # score is order of extraction
 
