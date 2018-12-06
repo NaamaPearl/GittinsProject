@@ -11,7 +11,7 @@ class StateActionPair:
     Q_hat_mat = []
     TD_error_mat = []
     r_hat_mat = []
-    T_bored_num = 10
+    T_bored_num = 1
     T_bored_val = 0
 
     def __init__(self, state, action):
@@ -119,24 +119,23 @@ class Agent:
 class Simulator:
     def __init__(self, sim_input: SimulatorInput):
         self.MDP_model: MDPModel = sim_input.MDP_model
-        state_num = self.MDP_model.n
+        self.agents_num = sim_input.agent_num
         self.gamma = sim_input.gamma
         self.epsilon = sim_input.epsilon
 
-        self.r_hat = np.zeros((state_num, self.MDP_model.actions))
-        self.P_hat = [np.zeros((self.MDP_model.actions, state_num)) for _ in range(state_num)]
-        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
-        self.V_hat = np.zeros(state_num)
-        self.Q_hat = np.zeros((state_num, self.MDP_model.actions))
-        self.TD_error = np.zeros((state_num, self.MDP_model.actions))
+        self.r_hat = None
+        self.P_hat = None
+        self.policy = None
+        self.V_hat = None
+        self.Q_hat = None
+        self.TD_error = None
+        self.agents = Q.PriorityQueue()
+        self.states = None
+        self.graded_states = None
+        self.init_prob = None
 
+        self.InitParams()
         self.InitStatics()
-
-        self.states = [SimulatedState(idx) for idx in range(state_num)]
-        self.graded_states = {state.idx: random.random() for state in self.states}
-        self.init_prob = self.MDP_model.init_prob
-        self.agents = None
-        self.reset_agents(sim_input.agent_num)
 
         self.tmp_reward = []
         self.fork_action = []
@@ -151,6 +150,20 @@ class Simulator:
         StateActionPair.Q_hat_mat = self.Q_hat
         StateActionPair.TD_error_mat = self.TD_error
         StateActionPair.r_hat_mat = self.r_hat
+
+    def InitParams(self):
+        state_num = self.MDP_model.n
+        self.r_hat = np.zeros((state_num, self.MDP_model.actions))
+        self.P_hat = [np.zeros((self.MDP_model.actions, state_num)) for _ in range(state_num)]
+        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
+        self.V_hat = np.zeros(state_num)
+        self.Q_hat = np.zeros((state_num, self.MDP_model.actions))
+        self.TD_error = np.zeros((state_num, self.MDP_model.actions))
+
+        self.states = [SimulatedState(idx) for idx in range(state_num)]
+        self.graded_states = {state.idx: random.random() for state in self.states}
+        self.init_prob = self.MDP_model.init_prob
+        self.ResetAgents(self.agents_num)
 
     def ChooseInitState(self):
         return np.random.choice(self.states, p=self.init_prob)
@@ -203,6 +216,7 @@ class Simulator:
         return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
     def simulate(self, prioritizer, _steps, grades_freq=10, reset_freq=20):
+        self.InitParams()
         self.InitStatics()
 
         for i in range(_steps):
@@ -211,9 +225,7 @@ class Simulator:
                 self.ApproxModel(prioritizer)  # prioritize agents & states
 
             if i % reset_freq == reset_freq - 1:
-                self.tmp_reward.append(self.CalcRegret())
-                self.fork_action.append(self.states[0].policy_action.action)
-                self.reset_agents(self.agents.qsize())
+                self.ResetAgents(self.agents.qsize())
 
             if (i % 500) == 0:
                 print('simulate step %d' % i)
@@ -229,12 +241,16 @@ class Simulator:
     def SimulateOneStep(self, agents_to_run=1):
         """find top-priority agents, and activate them for a single step"""
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
+        self.UpdateActivations(agents_list)
         for agent in agents_list:
             self.SimulateAgent(agent)
             self.agents.put(self.GradeAgent(agent))
 
+    def UpdateActivations(self, agent_list):
+        pass
+
     def ChooseAction(self, state: SimulatedState):
-        if random.random() < self.epsilon:
+        if random.random() < self.epsilon or state.visitations < 5:
             return np.random.choice(state.actions)
         return state.policy_action
 
@@ -279,7 +295,7 @@ class Simulator:
     def curr_policy_P(self):
         return np.array([self.MDP_model.P[i][a] for (i, a) in enumerate(self.policy)])
 
-    def reset_agents(self, agents_num):
+    def ResetAgents(self, agents_num):
         self.agents = Q.PriorityQueue()
         for i in range(agents_num):
             init_state = self.ChooseInitState()
@@ -294,75 +310,51 @@ class Simulator:
         return [agent.object.curr_state.idx for agent in self.agents.queue]
 
 
-class SeperateChainsSimulator(Simulator):
+class ChainsSimulator(Simulator):
     def __init__(self, sim_input: SimulatorInput):
+        self.chain_visits = [[] for _ in range(sim_input.MDP_model.chain_num)]
+        self.chain_activations = [[] for _ in range(sim_input.MDP_model.chain_num)]
         super().__init__(sim_input)
-        self.policy[0] = 0
+
+    @property
+    def curr_chain_visits(self):
+        res = np.zeros(self.MDP_model.chain_num)
+        for state_idx in self.agents_location:
+            res[self.MDP_model.FindChain(state_idx)] += 1
+
+        return res
+
+    def ResetAgents(self, agents_num):
+        tmp = self.curr_chain_visits
+        for i in range(self.MDP_model.chain_num):
+            self.chain_visits[i].append(tmp[i])
+
+        super().ResetAgents(agents_num)
+
+    def UpdateActivations(self, agent_list):
+        res = np.zeros(self.MDP_model.chain_num)
+        for agent in agent_list:
+            agents_chain = self.MDP_model.FindChain(agent.curr_state.idx)
+            if agents_chain is None:
+                continue
+            res[agents_chain] += 1
+
+        for i in range(self.MDP_model.chain_num):
+            self.chain_activations[i].append(res[i])
 
 
 if __name__ == '__main__':
-    n = 20
-    actions = 2
-
-    MDP = SeperateChainsMDP(n=n, actions=actions, reward_param=[(0, 0.1), (1, 100)])
-    td_simulator_input = SimulatorInput(MDP, param='error')
-    reward_simulator_input = SimulatorInput(MDP)
     steps = 10000
-
-    gittins_reward_wrong = np.zeros(500)
-    gittins_error_wrong = np.zeros(500)
-    random_wrong = np.zeros(500)
-
-    gittins_reward_policy = np.zeros(500)
-    gittins_error_policy = np.zeros(500)
-    random_policy = np.zeros(500)
-
-
-    error_simulator = SeperateChainsSimulator(td_simulator_input)
-    reward_simulator = SeperateChainsSimulator(reward_simulator_input)
-    random_simulator = SeperateChainsSimulator(reward_simulator_input)
-
-    for _ in range(5):
-        error_simulator.simulate(GittinsPrioritizer(), _steps=steps)
-        gittins_error_wrong += error_simulator.tmp_reward
-        gittins_error_policy += error_simulator.fork_action
-        error_simulator.tmp_reward = []
-        error_simulator.fork_action = []
-
-        reward_simulator.simulate(GittinsPrioritizer(), _steps=steps)
-        gittins_reward_wrong += reward_simulator.tmp_reward
-        gittins_reward_policy += reward_simulator.fork_action
-        reward_simulator.tmp_reward = []
-        reward_simulator.fork_action = []
-
-        random_simulator.simulate(Prioritizer(), _steps=steps)
-        random_wrong += random_simulator.tmp_reward
-        random_policy += random_simulator.fork_action
-        random_simulator.tmp_reward = []
-        random_simulator.fork_action = []
-
-    random_wrong /= 5
-    random_policy /= 5
-    gittins_error_wrong /= 5
-    gittins_error_policy /= 5
-    gittins_reward_wrong /= 5
-    gittins_reward_policy /= 5
+    chains_input = SimulatorInput(SeperateChainsMDP(n=9), 'error')
+    chains_simulator = ChainsSimulator(chains_input)
+    chains_simulator.simulate(Prioritizer(), _steps=steps)
 
     plt.figure()
-    plt.plot(list(range(500)), random_wrong, list(range(500)), random_policy)
-    plt.title('random')
+    visitation_sum = np.cumsum(chains_simulator.chain_visits, axis=1)
+    [plt.plot(visitation_sum[i]) for i in range(chains_input.MDP_model.actions)]
+    plt.legend(['chain ' + str(c) for c in range(chains_input.MDP_model.actions)])
+    plt.title('Accumulated Visitations for all chains')
     plt.show()
-    plt.figure()
-    plt.plot(list(range(500)), gittins_error_wrong, list(range(500)), gittins_error_policy)
-    plt.title('gittins_TD')
-    plt.show()
-    plt.figure()
-    plt.plot(list(range(500)), gittins_reward_wrong, list(range(500)), gittins_reward_policy)
-    plt.title('gittins_Reward')
-    plt.show()
-
-
-
     # print('r difference')
     # print('------------')
     # print(np.array(random_simulator.r_hat - random_simulator.MDP_model.r[0]))

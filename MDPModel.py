@@ -3,14 +3,18 @@ import random
 
 
 class MDPModel:
-    def __init__(self, n=10, actions=5):
+    def __init__(self, n=10, actions=5, chain_num=1):
         self.n: int = n
+        self.chain_num = chain_num
         self.actions: int = actions
         self.init_prob = self.GenInitialProbability()
         self.P = [np.array([self.gen_P_matrix(state_idx, self.get_succesors(state_idx, action))
                             for action in range(self.actions)]) for state_idx in range(self.n)]
 
         self.r = self.gen_r_mat()
+
+    def FindChain(self, state_idx):
+        return 0
 
     def get_succesors(self, state_idx, action):
         return set(range(0, self.n))
@@ -54,22 +58,25 @@ class RandomSinkMDP(MDPModel):
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=((0, 1), (10, 1))):
-        if n % 2 == 0:
-            n += 1  # make sure sub_chains are even sized
-
+    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=((0, 1), (0, 1), (0, 1), (0, 2))):
+        self.chain_num = len(reward_param)
         self.init_states_idx = init_states_idx
-        self.chains = [frozenset(range(1, int(n / 2) + 1)), frozenset(range(int(n / 2) + 1, n))]
+        n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
+        self.chain_size = int((n - 1) / self.chain_num)
+
+        self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1)) for i in range(self.chain_num)]
         self.reward_params = reward_param
 
-        super().__init__(n, actions)
+        actions = self.chain_num
+
+        super().__init__(n, actions, self.chain_num)
 
     def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
             return None
-        elif state_idx < self.n / 2:
-            return 0
-        return 1
+        for i in range(self.chain_num):
+            if state_idx < 1 + (i + 1) * self.chain_size:
+                return i
 
     def get_succesors(self, state_idx, action):
         chain = self.FindChain(state_idx)

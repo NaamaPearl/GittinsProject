@@ -22,6 +22,8 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="MDPModel.MDPModel.chains" />
+          <option value="MDPModel.MDPModel.chain_num" />
+          <option value="MDPModel.MDPModel.FindChain" />
         </list>
       </option>
     </inspection_tool>
