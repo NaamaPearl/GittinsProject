@@ -369,8 +369,8 @@ if __name__ == '__main__':
     activations = []
     policy = []
 
-    mdp = SeperateChainsMDP(n=n, reward_param=((0, 1), (0, 1), (0, 1), (0, 1)))
-    mdp.r[3][np.random.randint(low=0, high=actions)] = (-5, 1)
+    mdp = SeperateChainsMDP(n=n, reward_param=((0, 1, 1), (0, 1, 1), (0, 1, 1), (0, 1, 1)))
+    mdp.r[3][np.random.randint(low=0, high=actions)] = (-5, 1, 1)
 
     random_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run)
     gittins_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run * 3)
@@ -379,7 +379,7 @@ if __name__ == '__main__':
     gittins_chains_simulator = ChainsSimulator(random_chains_input)
 
     random_chains_simulator.simulate(Prioritizer(), steps=main_steps, parameter=None, agents_to_run=main_agents_to_run
-                                     , run_time=1)
+                                     , run_time=1, reset_freq=200)
 
     activations.append(copy.copy(random_chains_simulator.chain_activations))
     policy.append(copy.copy(random_chains_simulator.best_s_a_policy))

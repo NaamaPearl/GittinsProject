@@ -26,9 +26,9 @@ class MDPModel:
             self_vec[state_idx] = 1
             return np.array(self_vec)
         else:
-            return np.array(self.gen_row_of_P(succesors))
+            return np.array(self.gen_row_of_P(succesors, state_idx))
 
-    def gen_row_of_P(self, succesors):
+    def gen_row_of_P(self, succesors, state_idx):
         row = np.random.random(self.n)
         for idx in set(range(self.n)).difference(succesors):
             row[idx] = 0
@@ -81,9 +81,9 @@ class SeperateChainsMDP(MDPModel):
         return self.chains[chain]
 
     def GenInitialProbability(self):
-        init_prob = np.ones(self.n)
+        init_prob = np.zeros(self.n)
         for state in self.init_states_idx:
-            init_prob[state] = 0
+            init_prob[state] = 1
 
         return init_prob / sum(init_prob)
 
@@ -95,10 +95,27 @@ class SeperateChainsMDP(MDPModel):
                 if chain is None:
                     params = (0, 0)
                 else:
-                    params = np.random.normal(self.reward_params[chain][0], self.reward_params[chain][1])
+                    expectation = np.random.normal(self.reward_params[chain][0], self.reward_params[chain][1])
+                    variance = self.reward_params[chain][2]
+                    params = (expectation, variance)
                 res[state_idx].append(params)
 
         return res
+
+    def gen_row_of_P(self, succesors, state_idx):
+        row = np.zeros(self.n)
+        if state_idx in self.init_states_idx:
+            chain_trans = set(range(self.chain_num))
+            while len(chain_trans) != 0:
+                trans_idx = np.random.choice(range(self.n))
+                chain_trans_num = self.FindChain(trans_idx)
+                if chain_trans_num in chain_trans:
+                    row[trans_idx] = 1
+                    chain_trans.remove(chain_trans_num)
+            row /= row.sum()
+            return row
+        else:
+            return super().gen_row_of_P(succesors, state_idx)
 
 
 class EyeMDP(MDPModel):
