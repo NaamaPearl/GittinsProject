@@ -122,6 +122,66 @@ class Agent:
         return self.curr_state.chain
 
 
+class SimulatedModel:
+    def __init__(self, mdp_model):
+        self.MDP_model: MDPModel = mdp_model
+        self.policy_dynamics = np.zeros((mdp_model.n, mdp_model.n))
+        self.policy_expected_rewards = np.zeros(mdp_model.n)
+
+    def CalcPolicyData(self, policy):
+        for i, a in enumerate(policy):
+            self.policy_dynamics[i] = self.MDP_model.P[i][a]
+            self.policy_expected_rewards[i] = self.MDP_model.r[i][a][0]
+
+    def GetNextState(self, state_action, run_time=1):
+        n_s = np.random.choice(range(self.MDP_model.n), p=self.MDP_model.P[state_action.state.idx][state_action.action])
+        if run_time == 1:
+            return n_s
+
+        p = self.policy_dynamics ** (run_time - 1)
+        return np.random.choice(range(self.MDP_model.n), p=p[n_s])
+
+    def GetReward(self, state_action, gamma=1, time_to_run=1):
+        params = self.MDP_model.r[state_action.state.idx][state_action.action]
+        reward = np.random.normal(params[0], params[1])
+
+        if time_to_run > 1:
+            position_vec = np.zeros(self.MDP_model.n)
+            position_vec[state_action.state.idx] = 1
+
+            for i in range(time_to_run - 1):  # first simulation is made in the previous row
+                position_vec = self.policy_dynamics @ position_vec
+                reward += (gamma ** i * (position_vec @ self.policy_expected_rewards))
+
+        return reward
+
+    def calculate_V(self, gamma):
+        return np.linalg.inv(np.eye(self.MDP_model.n) - gamma * self.policy_dynamics) @ self.policy_expected_rewards
+
+    @property
+    def n(self):
+        return self.MDP_model.n
+
+    @property
+    def actions(self):
+        return self.MDP_model.actions
+
+    @property
+    def init_prob(self):
+        return self.MDP_model.init_prob
+
+    def FindChain(self, idx):
+        return self.MDP_model.FindChain(idx)
+
+    @property
+    def chain_num(self):
+        return self.MDP_model.chain_num
+
+    @property
+    def init_states_idx(self):
+        return self.MDP_model.init_states_idx
+
+
 class Simulator:
     def __init__(self, sim_input: SimulatorInput):
         self.MDP_model: SimulatedModel = sim_input.MDP_model
@@ -141,6 +201,7 @@ class Simulator:
         self.init_prob = None
         self.agents_to_run = None
         self.run_time = None
+        self.evaluate_policy = None
 
         self.InitParams()
         self.InitStatics()
@@ -172,6 +233,9 @@ class Simulator:
         self.graded_states = {state.idx: random.random() for state in self.states}
         self.init_prob = self.MDP_model.init_prob
         self.ResetAgents(self.agents_num)
+
+        self.evaluate_policy = []
+        self.MDP_model.CalcPolicyData(self.policy)
 
     def FindChain(self, idx):
         return self.MDP_model.FindChain(idx)
@@ -243,6 +307,7 @@ class Simulator:
 
             if i % reset_freq == reset_freq - 1:
                 self.ResetAgents(self.agents.qsize())
+                self.evaluate_policy.append(self.EvaluatePolicy(50))
 
             if (i % 5000) == 0:
                 print('simulate step %d' % i)
@@ -302,6 +367,18 @@ class Simulator:
     def agents_location(self):
         return [agent.object.curr_state.idx for agent in self.agents.queue]
 
+    def EvaluatePolicy(self, trajectory_len):
+        reward = 0
+        for _ in range(50):
+            agent = Agent(0, self.states[np.random.choice(list(self.MDP_model.init_states_idx))])
+            for _ in range(trajectory_len):
+                if agent.curr_state.chain == 0:
+                    break
+                reward += self.MDP_model.GetReward(agent.curr_state.policy_action)
+                agent.curr_state = self.states[self.MDP_model.GetNextState(agent.curr_state.policy_action)]
+
+        return reward
+
 
 class ChainsSimulator(Simulator):
     def __init__(self, sim_input: SimulatorInput):
@@ -310,7 +387,8 @@ class ChainsSimulator(Simulator):
         super().__init__(sim_input)
 
     def SimulateAgent(self, agent: Agent, run_time=1):
-        self.chain_activations[agent.chain] += 1
+        if agent.chain is not None:
+            self.chain_activations[agent.chain] += 1
         super().SimulateAgent(agent, run_time)
 
     def InitParams(self):
@@ -361,42 +439,46 @@ def CompareActivations(vectors, chain_num):
     plt.title('Agents Activation per Chains')
 
 
+def PlotEvaluation(vectors):
+    plt.figure()
+    [plt.plot(vectors[i], 'o') for i in range(len(vectors))]
+    plt.legend(['random', 'reward', 'error'])
+    plt.title('Reward Eval')
+
+
 if __name__ == '__main__':
     main_steps = 10000
     main_agents_to_run = 10
-    n = 41
-    actions = 4
+    n = 21
+    actions = 2
     activations = []
-    policy = []
+    reward_eval = []
 
-    star = StarMDP(n=n, reward_param=((0, 1, 1), (0, 1, 1), (0, 1, 1), (0, 1, 1)))
-
-
-    mdp = SeperateChainsMDP(n=n, reward_param=((0, 1, 1), (0, 1, 1), (0, 1, 1), (0, 1, 1)))
-    mdp.r[3][np.random.randint(low=0, high=actions)] = (-5, 1, 1)
+    mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)))
+    # mdp.r[3][np.random.randint(low=0, high=actions)] = (-5, 1, 1)
 
     random_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run)
     gittins_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run * 3)
 
     random_chains_simulator = ChainsSimulator(random_chains_input)
-    gittins_chains_simulator = ChainsSimulator(random_chains_input)
+    gittins_chains_simulator = ChainsSimulator(gittins_chains_input)
 
-    random_chains_simulator.simulate(Prioritizer(), steps=main_steps, parameter=None, agents_to_run=main_agents_to_run
-                                     , run_time=1, reset_freq=200)
+    random_chains_simulator.simulate(Prioritizer(), steps=main_steps, parameter=None, agents_to_run=main_agents_to_run)
 
     activations.append(copy.copy(random_chains_simulator.chain_activations))
-    policy.append(copy.copy(random_chains_simulator.best_s_a_policy))
+    reward_eval.append(copy.copy(random_chains_simulator.evaluate_policy))
 
     gittins_chains_simulator.simulate(GittinsPrioritizer(), steps=main_steps, parameter='error',
-                                      agents_to_run=main_agents_to_run, run_time=2)
+                                      agents_to_run=main_agents_to_run)
     activations.append(copy.copy(gittins_chains_simulator.chain_activations))
-    policy.append(copy.copy(gittins_chains_simulator.best_s_a_policy))
+    reward_eval.append(copy.copy(gittins_chains_simulator.evaluate_policy))
 
     gittins_chains_simulator.simulate(GittinsPrioritizer(), steps=main_steps, parameter='reward',
-                                      agents_to_run=main_agents_to_run, run_time=2)
+                                      agents_to_run=main_agents_to_run)
     activations.append(copy.copy(gittins_chains_simulator.chain_activations))
-    policy.append(copy.copy(gittins_chains_simulator.best_s_a_policy))
+    reward_eval.append(copy.copy(gittins_chains_simulator.evaluate_policy))
 
-    CompareActivations(activations, 4)
+    CompareActivations(activations, 2)
+    PlotEvaluation(reward_eval)
 
     print('all done')
