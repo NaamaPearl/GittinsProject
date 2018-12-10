@@ -75,6 +75,8 @@ class SeperateChainsMDP(MDPModel):
                 return i
 
     def get_succesors(self, state_idx, action):
+        if state_idx == 0:
+            return {np.random.choice(list(chain)) for chain in self.chains}
         chain = self.FindChain(state_idx)
         if chain is None:
             return self.chains[action]
@@ -102,20 +104,19 @@ class SeperateChainsMDP(MDPModel):
 
         return res
 
-    def gen_row_of_P(self, succesors, state_idx):
-        row = np.zeros(self.n)
-        if state_idx in self.init_states_idx:
-            chain_trans = set(range(self.chain_num))
-            while len(chain_trans) != 0:
-                trans_idx = np.random.choice(range(self.n))
-                chain_trans_num = self.FindChain(trans_idx)
-                if chain_trans_num in chain_trans:
-                    row[trans_idx] = 1
-                    chain_trans.remove(chain_trans_num)
-            row /= row.sum()
-            return row
-        else:
-            return super().gen_row_of_P(succesors, state_idx)
+
+# class StarMDP(SeperateChainsMDP):
+#     def get_succesors(self, state_idx, action):
+#         if state_idx == 0:
+#             return {list(self.chains[(action % self.chain_num)])[0]}
+#
+#         next_state = state_idx + 1
+#         next_chain = self.FindChain(state_idx)
+#         curr_chain = self.FindChain(state_idx)
+#         if next_chain == curr_chain:
+#             return next_state
+#         else:
+#             return self.chains[curr_chain][0]
 
 
 class EyeMDP(MDPModel):

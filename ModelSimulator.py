@@ -369,6 +369,9 @@ if __name__ == '__main__':
     activations = []
     policy = []
 
+    star = StarMDP(n=n, reward_param=((0, 1, 1), (0, 1, 1), (0, 1, 1), (0, 1, 1)))
+
+
     mdp = SeperateChainsMDP(n=n, reward_param=((0, 1, 1), (0, 1, 1), (0, 1, 1), (0, 1, 1)))
     mdp.r[3][np.random.randint(low=0, high=actions)] = (-5, 1, 1)
 
