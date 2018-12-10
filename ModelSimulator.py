@@ -383,49 +383,16 @@ if __name__ == '__main__':
 
     activations.append(copy.copy(random_chains_simulator.chain_activations))
     policy.append(copy.copy(random_chains_simulator.best_s_a_policy))
-    # chains_simulator.PlotVisitations(chains_simulator.chain_activations, 'Accumulated Activations for all chains - '
-    #                                                                      'Random Prioritizer')
-    # chains_simulator.PlotVisitations(chains_simulator.chain_visits, 'Accumulated Visitations for all chains - Random '
-    #                                                                 'Prioritizer')
 
     gittins_chains_simulator.simulate(GittinsPrioritizer(), steps=main_steps, parameter='error',
                                       agents_to_run=main_agents_to_run, run_time=2)
     activations.append(copy.copy(gittins_chains_simulator.chain_activations))
     policy.append(copy.copy(gittins_chains_simulator.best_s_a_policy))
-    # chains_simulator.PlotVisitations(chains_simulator.chain_activations, 'Accumulated Activations for all chains - '
-    #                                                                      'Gittins Prioritizer')
-    # chains_simulator.PlotVisitations(chains_simulator.chain_visits, 'Accumulated Visitations for all chains - Gittins '
-    #                                                                 'Error Prioritizer')
 
     gittins_chains_simulator.simulate(GittinsPrioritizer(), steps=main_steps, parameter='reward',
                                       agents_to_run=main_agents_to_run, run_time=2)
     activations.append(copy.copy(gittins_chains_simulator.chain_activations))
     policy.append(copy.copy(gittins_chains_simulator.best_s_a_policy))
-    # print('r difference')
-    # print('------------')
-    # print(np.array(random_simulator.r_hat - random_simulator.MDP_model.r[0]))
-    #
-    # # print('P difference')
-    # # print('------------')
-    # # for s in range(random_simulator.MDP_model.n):
-    # #     print(np.array(random_simulator.P_hat[s] - random_simulator.MDP_model.P[s]))
-    # #
-    # # print('Policy')
-    # # print('------------')
-    # # print(random_simulator.policy)
-    #
-    # print('V difference')
-    # print('------------')
-    # V_diff = random_simulator.calculate_V() - random_simulator.V_hat
-    # print(V_diff)
-    # print('percentage of error')
-    # print(abs(V_diff / random_simulator.calculate_V()) * 100)
-
-    # print('Q Function')
-    # print(random_simulator.Q_hat)
-    #
-    # print('visits')
-    # print([[random_simulator.states[idx].actions[a].visitations for a in range(MDP.actions)] for idx in range(MDP.n)])
 
     CompareActivations(activations, 4)
 
