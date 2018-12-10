@@ -1,10 +1,9 @@
 import numpy as np
 import random
 from framework import PrioritizedObject
-import typing
 
 
-epsilon = 10 ** -10
+epsilon = 10 ** -5
 
 
 class Prioritizer:

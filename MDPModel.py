@@ -3,7 +3,7 @@ import random
 
 
 class MDPModel:
-    def __init__(self, n=10, actions=5, chain_num=1):
+    def __init__(self, n, actions, chain_num=1):
         self.n: int = n
         self.chain_num = chain_num
         self.actions: int = actions
@@ -40,36 +40,52 @@ class MDPModel:
     def IsSinkState(self, state_idx) -> bool:
         return False
 
-    def GetReward(self, state, action):
+    def GetReward(self, state, action, policy, time_to_run=1):
+        position_vec = np.zeros(self.n)
+        position_vec[state.idx] = 1
         params = self.r[state.idx][action]
-        return np.random.normal(params[0], params[1])
+        reward = np.random.normal(params[0], params[1])
+
+        if time_to_run > 1:
+            policy_dynamic = self.GetPolicyDynamics(policy)
+            expected_policy_rewards = self.GetPolicyExpectedRewards(policy)
+            for _ in range(time_to_run - 1):  # first simulation is made in the previous row
+                position_vec = policy_dynamic @ position_vec
+                reward += (position_vec @ expected_policy_rewards)
+
+        return reward
+
+    def GetPolicyExpectedRewards(self, policy):
+        return np.array([self.r[i][a][0] for (i, a) in enumerate(policy)])
+
+    def GetPolicyDynamics(self, policy):
+        return np.array([self.P[i][a] for (i, a) in enumerate(policy)])
 
     def GenInitialProbability(self):
         return np.ones(self.n) / self.n
 
 
 class RandomSinkMDP(MDPModel):
-    def __init__(self):
-        super().__init__()
-        self.sink_list = random.sample(range(self.n), random.randint(0, self.n))
+    def __init__(self, n, actions):
+        self.sink_list = random.sample(range(n), random.randint(0, n))
+        super().__init__(n, actions)
 
     def IsSinkState(self, state_idx):
         return state_idx in self.sink_list
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, n=10, actions=5, init_states_idx=frozenset({0}), reward_param=((0, 1), (0, 1), (0, 1), (0, 2))):
+    def __init__(self, n, reward_param, init_states_idx=frozenset({0})):
         self.chain_num = len(reward_param)
         self.init_states_idx = init_states_idx
         n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
         self.chain_size = int((n - 1) / self.chain_num)
 
-        self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1)) for i in range(self.chain_num)]
+        self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1))
+                       for i in range(self.chain_num)]
         self.reward_params = reward_param
 
-        actions = self.chain_num
-
-        super().__init__(n, actions, self.chain_num)
+        super().__init__(n, self.chain_num, self.chain_num)
 
     def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
@@ -85,11 +101,11 @@ class SeperateChainsMDP(MDPModel):
         return self.chains[chain]
 
     def GenInitialProbability(self):
-        init_prob = np.zeros(self.n)
+        init_prob = np.ones(self.n)
         for state in self.init_states_idx:
-            init_prob[state] = 1 / len(self.init_states_idx)
+            init_prob[state] = 0
 
-        return init_prob
+        return init_prob / sum(init_prob)
 
     def gen_r_mat(self):
         res = [[] for _ in range(self.n)]
