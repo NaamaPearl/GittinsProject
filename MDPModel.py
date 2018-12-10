@@ -29,7 +29,7 @@ class MDPModel:
             return np.array(self.gen_row_of_P(succesors))
 
     def gen_row_of_P(self, succesors):
-        row = np.random.random(self.n)  # TODO: variance doesn't calculated as well
+        row = np.random.random(self.n)
         for idx in set(range(self.n)).difference(succesors):
             row[idx] = 0
         row /= row.sum()
@@ -95,7 +95,7 @@ class SeperateChainsMDP(MDPModel):
                 if chain is None:
                     params = (0, 0)
                 else:
-                    params = self.reward_params[chain]
+                    params = np.random.normal(self.reward_params[chain][0], self.reward_params[chain][1])
                 res[state_idx].append(params)
 
         return res
