@@ -124,7 +124,7 @@ class Agent:
 
 class Simulator:
     def __init__(self, sim_input: SimulatorInput):
-        self.MDP_model: MDPModel = sim_input.MDP_model
+        self.MDP_model: SimulatedModel = sim_input.MDP_model
         self.agents_num = sim_input.agent_num
         self.gamma = sim_input.gamma
         self.epsilon = sim_input.epsilon
@@ -182,7 +182,8 @@ class Simulator:
     def ImprovePolicy(self):
         for state in self.states:
             state.policy_action = state.best_action.action
-            self.best_s_a_policy.append(self.states[0].policy_action.action)
+
+        self.MDP_model.CalcPolicyData(self.policy)
 
     def Update_V(self, state_action: StateActionPair):
         #  self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
@@ -194,8 +195,8 @@ class Simulator:
         state_action.TD_error = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
         state_action.Q_hat += a_n * state_action.TD_error
 
-    def P_hat_sum_diff(self):
-        return [abs(self.MDP_model.P[a] - self.P_hat[a]).mean() for a in range(self.MDP_model.actions)]
+    # def P_hat_sum_diff(self):
+    #     return [abs(self.MDP_model.P[a] - self.P_hat[a]).mean() for a in range(self.MDP_model.actions)]
 
     # def V_hat_diff(self):
     #     res = []
@@ -246,14 +247,6 @@ class Simulator:
             if (i % 5000) == 0:
                 print('simulate step %d' % i)
 
-    def CalcRegret(self):
-        wrong = 0
-        for location in self.agents_location:
-            if location in self.MDP_model.chains[1]:
-                wrong += 1
-
-        return wrong / self.agents.qsize()
-
     def SimulateOneStep(self):
         """find top-priority agents, and activate them for a single step"""
         agents_list = [self.agents.get().object for _ in range(self.agents_to_run)]
@@ -269,20 +262,12 @@ class Simulator:
             return np.random.choice(state.actions)
         return state.policy_action
 
-    def GetNextState(self, state_action: StateActionPair, run_time):
-        immediate_next = np.random.choice(self.states, p=self.MDP_model.P[state_action.state.idx][state_action.action])
-        if run_time == 1:
-            return immediate_next
-
-        p = self.curr_policy_P ** (run_time - 1)
-        return np.random.choice(self.states, p=p[immediate_next.idx])
-
     def SimulateAgent(self, agent: Agent, run_time):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
         state_action = self.ChooseAction(agent.curr_state)
 
-        next_state = self.GetNextState(state_action, run_time)
-        reward = self.MDP_model.GetReward(state_action.state, state_action.action, self.policy, run_time)
+        next_state = self.states[self.MDP_model.GetNextState(state_action, run_time)]
+        reward = self.MDP_model.GetReward(state_action, self.gamma, run_time)
         self.UpdateReward(state_action, reward)
         self.UpdateP(state_action, next_state)
 
@@ -307,26 +292,11 @@ class Simulator:
     def evaluate_P_hat(self):
         return self.P_hat_sum_diff()
 
-    def calculate_V(self):
-        return np.linalg.inv(np.eye(self.MDP_model.n) - self.gamma * self.curr_policy_P) @ self.curr_policy_reward
-
-    @property
-    def curr_policy_reward(self):
-        return np.array([self.MDP_model.r[state][a][0] for (state, a) in enumerate(self.policy)])
-
-    @property
-    def curr_policy_P(self):
-        return self.MDP_model.GetPolicyDynamics(self.policy)
-
     def ResetAgents(self, agents_num):
         self.agents = Q.PriorityQueue()
         for i in range(agents_num):
             init_state = self.ChooseInitState()
             self.agents.put(PrioritizedObject(Agent(i, init_state), -np.inf))
-
-    def PrintAgentsStatus(self):
-        for i, agent in enumerate(self.agents.queue):
-            print("Agent #%s is in state #%s" % (i, agent.object.curr_state.idx))
 
     @property
     def agents_location(self):
@@ -392,7 +362,7 @@ def CompareActivations(vectors, chain_num):
 
 
 if __name__ == '__main__':
-    main_steps = 1000
+    main_steps = 10000
     main_agents_to_run = 10
     n = 41
     actions = 4
@@ -400,12 +370,10 @@ if __name__ == '__main__':
     policy = []
 
     mdp = SeperateChainsMDP(n=n, reward_param=((0, 1), (0, 1), (0, 1), (0, 1)))
-    best_state = np.random.randint(low=0, high=n)
-    best_action = np.random.randint(low=0, high=actions)
-    mdp.r[best_state][best_action] = (5, 1)
+    mdp.r[3][np.random.randint(low=0, high=actions)] = (-5, 1)
 
-    random_chains_input = SimulatorInput(mdp, agent_num=10)
-    gittins_chains_input = SimulatorInput(mdp, agent_num=30)
+    random_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run)
+    gittins_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run * 3)
 
     random_chains_simulator = ChainsSimulator(random_chains_input)
     gittins_chains_simulator = ChainsSimulator(random_chains_input)
@@ -461,7 +429,4 @@ if __name__ == '__main__':
 
     CompareActivations(activations, 4)
 
-    plt.figure()
-    [plt.plot(policy[i]) for i in range(3)]
-    plt.show()
     print('all done')

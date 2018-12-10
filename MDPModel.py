@@ -10,6 +10,7 @@ class MDPModel:
         self.init_prob = self.GenInitialProbability()
         self.P = [np.array([self.gen_P_matrix(state_idx, self.get_succesors(state_idx, action))
                             for action in range(self.actions)]) for state_idx in range(self.n)]
+        self.init_states_idx = []
 
         self.r = self.gen_r_mat()
 
@@ -39,27 +40,6 @@ class MDPModel:
 
     def IsSinkState(self, state_idx) -> bool:
         return False
-
-    def GetReward(self, state, action, policy, time_to_run=1):
-        position_vec = np.zeros(self.n)
-        position_vec[state.idx] = 1
-        params = self.r[state.idx][action]
-        reward = np.random.normal(params[0], params[1])
-
-        if time_to_run > 1:
-            policy_dynamic = self.GetPolicyDynamics(policy)
-            expected_policy_rewards = self.GetPolicyExpectedRewards(policy)
-            for _ in range(time_to_run - 1):  # first simulation is made in the previous row
-                position_vec = policy_dynamic @ position_vec
-                reward += (position_vec @ expected_policy_rewards)
-
-        return reward
-
-    def GetPolicyExpectedRewards(self, policy):
-        return np.array([self.r[i][a][0] for (i, a) in enumerate(policy)])
-
-    def GetPolicyDynamics(self, policy):
-        return np.array([self.P[i][a] for (i, a) in enumerate(policy)])
 
     def GenInitialProbability(self):
         return np.ones(self.n) / self.n
@@ -139,6 +119,66 @@ class SingleLineMDP(MDPModel):
         if action == 0:  # forward -->
             return {(state_idx + 1) % self.n}
         return {0}
+
+
+class SimulatedModel:
+    def __init__(self, mdp_model):
+        self.MDP_model: MDPModel = mdp_model
+        self.policy_dynamics = np.zeros((mdp_model.n, mdp_model.n))
+        self.policy_expected_rewards = np.zeros(mdp_model.n)
+
+    def CalcPolicyData(self, policy):
+        for i, a in enumerate(policy):
+            self.policy_dynamics[i] = self.MDP_model.P[i][a]
+            self.policy_expected_rewards[i] = self.MDP_model.r[i][a][0]
+
+    def GetNextState(self, state_action, run_time=1):
+        n_s = np.random.choice(range(self.MDP_model.n), p=self.MDP_model.P[state_action.state.idx][state_action.action])
+        if run_time == 1:
+            return n_s
+
+        p = self.policy_dynamics ** (run_time - 1)
+        return np.random.choice(range(self.MDP_model.n), p=p[n_s])
+
+    def GetReward(self, state_action, gamma, time_to_run=1):
+        params = self.MDP_model.r[state_action.state.idx][state_action.action]
+        reward = np.random.normal(params[0], params[1])
+
+        if time_to_run > 1:
+            position_vec = np.zeros(self.MDP_model.n)
+            position_vec[state_action.state.idx] = 1
+
+            for i in range(time_to_run - 1):  # first simulation is made in the previous row
+                position_vec = self.policy_dynamics @ position_vec
+                reward += (gamma ** i * (position_vec @ self.policy_expected_rewards))
+
+        return reward
+
+    def calculate_V(self, gamma):
+        return np.linalg.inv(np.eye(self.MDP_model.n) - gamma * self.policy_dynamics) @ self.policy_expected_rewards
+
+    @property
+    def n(self):
+        return self.MDP_model.n
+
+    @property
+    def actions(self):
+        return self.MDP_model.actions
+
+    @property
+    def init_prob(self):
+        return self.MDP_model.init_prob
+
+    def FindChain(self, idx):
+        return self.MDP_model.FindChain(idx)
+
+    @property
+    def chain_num(self):
+        return self.MDP_model.chain_num
+
+    @property
+    def init_states_idx(self):
+        return self.MDP_model.init_states_idx
 
 
 if __name__ == '__main__':
