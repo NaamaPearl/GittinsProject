@@ -13,7 +13,7 @@ class Prioritizer:
         self.r = None
         self.P = None
 
-    def GradeStates(self, states, policy, P, r):
+    def GradeStates(self, states, policy, p_r):
         return {state.idx: random.random() for state in states}
 
 
@@ -33,7 +33,7 @@ class GittinsPrioritizer(Prioritizer):
 
         return r
 
-    def GradeStates(self, states, policy, probability, reward):
+    def GradeStates(self, states, policy, p_r):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.
@@ -41,8 +41,8 @@ class GittinsPrioritizer(Prioritizer):
 
         self.n = len(states)
         self.policy = policy
-        self.r = self.InitRewardVec(reward)
-        self.P = self.InitProbMat(probability)
+        self.r = self.InitRewardVec(p_r[1])
+        self.P = self.InitProbMat(p_r[0])
 
         rs_list = [PrioritizedObject(s, r) for s, r in zip(states, self.r)]
         result = {}

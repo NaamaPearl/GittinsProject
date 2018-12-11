@@ -3,13 +3,14 @@ import random
 
 
 class MDPModel:
-    def __init__(self, n, actions, chain_num=1):
+    def __init__(self, n, actions, reward_type, chain_num):
         self.n: int = n
         self.chain_num = chain_num
         self.actions: int = actions
         self.init_prob = self.GenInitialProbability()
         self.P = [np.array([self.gen_P_matrix(state_idx, self.get_succesors(state_idx, action))
                             for action in range(self.actions)]) for state_idx in range(self.n)]
+        self.reward_type = reward_type
 
         self.r = self.gen_r_mat()
 
@@ -45,16 +46,16 @@ class MDPModel:
 
 
 class RandomSinkMDP(MDPModel):
-    def __init__(self, n, actions):
+    def __init__(self, n, actions, reward_type, chain_num):
         self.sink_list = random.sample(range(n), random.randint(0, n))
-        super().__init__(n, actions)
+        super().__init__(n, actions, reward_type, chain_num)
 
     def IsSinkState(self, state_idx):
         return state_idx in self.sink_list
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, n, reward_param, init_states_idx=frozenset({0})):
+    def __init__(self, n, reward_param, reward_type, init_states_idx=frozenset({0})):
         self.chain_num = len(reward_param)
         self.init_states_idx = init_states_idx
         n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
@@ -64,7 +65,7 @@ class SeperateChainsMDP(MDPModel):
                        for i in range(self.chain_num)]
         self.reward_params = reward_param
 
-        super().__init__(n, self.chain_num, self.chain_num)
+        super().__init__(n, actions=self.chain_num, reward_type=reward_type,chain_num=self.chain_num)
 
     def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
@@ -91,15 +92,17 @@ class SeperateChainsMDP(MDPModel):
         for state_idx in range(self.n):
             chain = self.FindChain(state_idx)
             for action in range(self.actions):
-                if chain is None:
-                    params = (0, 0)
-                else:
-                    expectation = np.random.normal(self.reward_params[chain][0], self.reward_params[chain][1])
-                    variance = self.reward_params[chain][2]
-                    params = (expectation, variance)
-                res[state_idx].append(params)
+                res[state_idx].append(self.GetRewardParams(chain))
 
         return res
+
+    def GetRewardParams(self, chain):
+        if chain is None:
+            return 0, 0
+        elif self.reward_type == 'gauss':
+            expectation = np.random.normal(self.reward_params[chain][0], self.reward_params[chain][1])
+            variance = self.reward_params[chain][2]
+            return expectation, variance
 
     def gen_row_of_P(self, succesors, state_idx):
         if state_idx in self.init_states_idx:
@@ -145,5 +148,4 @@ class SingleLineMDP(MDPModel):
 
 
 if __name__ == '__main__':
-    eye_model = SingleLineMDP(n=4, actions=2)
-    print(eye_model.P)
+    print('s')
