@@ -18,7 +18,7 @@ class MDPModel:
         return 0
 
     def get_succesors(self, state_idx, action):
-        return set(range(0, self.n))
+        return set(range(self.n))
 
     def gen_P_matrix(self, state_idx, succesors):
         if self.IsSinkState(state_idx):
@@ -29,9 +29,9 @@ class MDPModel:
             return np.array(self.gen_row_of_P(succesors, state_idx))
 
     def gen_row_of_P(self, succesors, state_idx):
-        row = np.random.random(self.n)
-        for idx in set(range(self.n)).difference(succesors):
-            row[idx] = 0
+        row = np.zeros(self.n)
+        for idx in succesors:
+            row[idx] = random.random()
         row /= row.sum()
         return row
 
@@ -65,7 +65,7 @@ class SeperateChainsMDP(MDPModel):
                        for i in range(self.chain_num)]
         self.reward_params = reward_param
 
-        super().__init__(n, actions=self.chain_num, reward_type=reward_type,chain_num=self.chain_num)
+        super().__init__(n, actions=self.chain_size, reward_type=reward_type, chain_num=self.chain_num)
 
     def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
@@ -78,7 +78,8 @@ class SeperateChainsMDP(MDPModel):
         chain = self.FindChain(state_idx)
         if chain is None:
             return set(range(self.n))  # self.chains[action]
-        return self.chains[chain]
+
+        return {1 + self.chain_size * chain + action}
 
     def GenInitialProbability(self):
         init_prob = np.zeros(self.n)
@@ -99,10 +100,14 @@ class SeperateChainsMDP(MDPModel):
     def GetRewardParams(self, chain):
         if chain is None:
             return 0, 0
-        elif self.reward_type == 'gauss':
-            expectation = np.random.normal(self.reward_params[chain][0], self.reward_params[chain][1])
-            variance = self.reward_params[chain][2]
-            return expectation, variance
+
+        expectation = np.random.normal(self.reward_params[chain][0], self.reward_params[chain][1])
+        if self.reward_type == 'gauss':
+            return expectation, self.reward_params[chain][2]
+        elif self.reward_type == 'bernuly':
+            if chain == 0:
+                return expectation, 0
+        return expectation, random.random()
 
     def gen_row_of_P(self, succesors, state_idx):
         if state_idx in self.init_states_idx:
