@@ -5,8 +5,8 @@ from ModelSimulator import *
 
 def CompareActivations(vectors, chain_num, method_type):
     plt.figure()
-    tick_shift = [-0.45, -0.15, 0.15, 0.45]
-    [plt.bar([tick_shift[i] + s for s in range(chain_num)], vectors[method_type[i]], width=0.2, align='center')
+    tick_shift = [-0.25, -0.05, 0.15, 0.35]
+    [plt.bar([tick_shift[i] + s for s in range(chain_num)], vectors[method_type[i]], width=0.1, align='center')
      for i in range(len(vectors))]
 
     plt.xticks(range(chain_num), ['chain ' + str(s) for s in range(4)])
