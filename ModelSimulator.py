@@ -190,13 +190,14 @@ class Simulator:
         self.gamma = sim_input.gamma
         self.epsilon = sim_input.epsilon
         self.evaluated_model = EvaluatedModel()
-        self.critic = CriticFactory.Generate(type=self.MDP_model.MDP_model.type, chain_num=self.MDP_model.chain_num)
         self.evaluate_policy = None
         self.policy = None
+        self.critic = None
         self.states = None
 
         self.InitParams()
         self.InitStatics()
+
 
     def InitStatics(self):
         SimulatedState.policy = self.policy
@@ -208,14 +209,16 @@ class Simulator:
         StateActionPair.r_hat_mat = self.evaluated_model.r_hat
 
     def InitParams(self):
+        self.critic = CriticFactory.Generate(type=self.MDP_model.MDP_model.type, chain_num=self.MDP_model.chain_num)
         state_num = self.MDP_model.n
-
-        SimulatedState.action_num = self.MDP_model.actions
-        self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(self.MDP_model.n)]
-
-        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
         self.evaluate_policy = []
         self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
+        self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(state_num)]
+        self.graded_states = {state.idx: random.random() for state in self.states}
+        self.init_prob = self.MDP_model.init_prob
+        self.ResetAgents(self.agents_num)
+
+        self.MDP_model.CalcPolicyData(self.evaluated_model.policy)
 
     def FindChain(self, idx):
         return self.MDP_model.FindChain(idx)
@@ -448,64 +451,77 @@ class PrioritizedSweeping(Simulator):
 #     #     plt.show()
 
 
-def CompareActivations(vectors, chain_num):
+def CompareActivations(vectors, chain_num, method_type):
     plt.figure()
     tick_shift = [-0.45, -0.15, 0.15, 0.45]
-    [plt.bar([tick_shift[i] + s for s in range(chain_num)], vectors[i], width=0.2, align='center')
-     for i in range(len(vectors))]
+    [plt.bar([tick_shift[i] + s for s in range(chain_num)], vectors[method_type[i]], width=0.2, align='center')
+        for i in range(len(vectors))]
 
     plt.xticks(range(chain_num), ['chain ' + str(s) for s in range(4)])
-    plt.legend(['random', 'reward', 'error', 'ground_truth'])
+    plt.legend(method_type)
     plt.title('Agents Activation per Chains')
 
 
-def PlotEvaluation(vectors):
+def PlotEvaluation(vectors, method_type):
     plt.figure()
-    [plt.plot(vectors[i]) for i in range(len(vectors))]
-    plt.legend(['random', 'reward', 'error', 'ground_truth'])
+    [plt.plot(vectors[method_type[i]]) for i in range(len(vectors))]
+    plt.legend(method_type)
     plt.title('Reward Eval')
 
 
-if __name__ == '__main__':
-    main_steps = 1000
-    main_agents_to_run = 10
-    n = 21
-    activations = []
-    reward_eval = []
-
-    mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss')
-
+def RunSimulationsOnMdp(mdp, runs_for_specific_mdp=10):
+    # creating simulation inputs
     random_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run)
     gittins_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run * 3)
 
-    random_chains_simulator = PrioritizedSweeping(random_chains_input)
+    random_simulation_input = AgentSimulationInput(prioritizer=Prioritizer(), steps=main_steps, parameter=None,
+                                                   agents_to_run=main_agents_to_run)
+    gittins_error_simulation_input = AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=main_steps,
+                                                          parameter='error',
+                                                          agents_to_run=main_agents_to_run)
+    gittins_reward_simulation_input = AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=main_steps,
+                                                          parameter='reward',
+                                                          agents_to_run=main_agents_to_run)
+
+    # creating simulation
+    random_chains_simulator = Simulator(random_chains_input)
     gittins_reward_chains_simulator = Simulator(gittins_chains_input)
     gittins_error_chains_simulator = Simulator(gittins_chains_input)
-    gittins_gt_chains_simulator = Simulator(gittins_chains_input)
 
-    random_simulation_input = AgentSimulationInput(prioritizer=Prioritizer(), steps=main_steps, parameter=None,
-                                                   agents_to_run=main_agents_to_run, agent_num=main_agents_to_run)
-    random_chains_simulator.simulate(random_simulation_input)
+    simulator_inputs = {'random': random_simulation_input,
+                        'reward': gittins_error_simulation_input,
+                        'error': gittins_reward_simulation_input}
+    simulators = {'random': random_chains_simulator,
+                  'reward': gittins_reward_chains_simulator,
+                  'error': gittins_error_chains_simulator}
+    method_type = ['random', 'error', 'reward']
+    chain_activation = {key: 0 for key in method_type}
+    reward_eval = {key: 0 for key in method_type}
 
-    # random_chains_simulator.simulate(random_simulation_input)
-    # activations.append(copy.copy(random_chains_simulator.critic.chain_activations))
-    # reward_eval.append(copy.copy(random_chains_simulator.evaluate_policy))
-    # print('random finished, %s agents activated' % sum(random_chains_simulator.critic.chain_activations))
-    #
-    # gittis_simulation_input = AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=main_steps, parameter='error',
-    #                                                agents_to_run=main_agents_to_run * 3)
-    # gittins_error_chains_simulator.simulate(gittis_simulation_input)
-    # activations.append(copy.copy(gittins_error_chains_simulator.critic.chain_activations))
-    # reward_eval.append(copy.copy(gittins_error_chains_simulator.evaluate_policy))
-    # print('gittins error finished, %s agents activated' % sum(gittins_error_chains_simulator.critic.chain_activations))
-    #
-    # gittis_simulation_input.parameter='reward'
-    # gittins_reward_chains_simulator.simulate(gittis_simulation_input)
-    # activations.append(copy.copy(gittins_reward_chains_simulator.critic.chain_activations))
-    # reward_eval.append(copy.copy(gittins_reward_chains_simulator.evaluate_policy))
-    # print('gittins reward finished, %s agents activated' % sum(gittins_reward_chains_simulator.critic.chain_activations))
-    #
-    # CompareActivations(activations, 2)
-    # PlotEvaluation(reward_eval)
+    for i in range(runs_for_specific_mdp):
+        for method in method_type:
+
+            print('simulate ' + method + ' run_num=' + str(i))
+            simulators[method].simulate(simulator_inputs[method])
+            chain_activation[method] += (np.asarray(simulators[method].critic.chain_activations) / runs_for_specific_mdp)
+            reward_eval[method] += (np.asarray(simulators[method].evaluate_policy) / runs_for_specific_mdp)
+            print('simulate finished, %s agents activated' % sum(random_chains_simulator.critic.chain_activations))
+
+    return chain_activation, reward_eval
+
+
+if __name__ == '__main__':
+    main_steps = 50
+    main_agents_to_run = 10
+    n = 21
+    method_type = ['random', 'error', 'reward']
+    mdp_num = 1
+
+    for i in range(mdp_num):
+        mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss')
+
+        activations, reward_eval = RunSimulationsOnMdp(mdp, runs_for_specific_mdp=5)
+        CompareActivations(activations, 2, method_type)
+        PlotEvaluation(reward_eval, method_type)
 
     print('all done')
