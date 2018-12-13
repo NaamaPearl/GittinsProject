@@ -5,6 +5,7 @@ import random
 class MDPModel:
     def __init__(self, n, actions, reward_type, chain_num):
         self.n: int = n
+        self.type = 'regular'
         self.chain_num = chain_num
         self.actions: int = actions
         self.init_prob = self.GenInitialProbability()
@@ -49,6 +50,7 @@ class RandomSinkMDP(MDPModel):
     def __init__(self, n, actions, reward_type, chain_num):
         self.sink_list = random.sample(range(n), random.randint(0, n))
         super().__init__(n, actions, reward_type, chain_num)
+        self.type = 'random_sink'
 
     def IsSinkState(self, state_idx):
         return state_idx in self.sink_list
@@ -66,6 +68,7 @@ class SeperateChainsMDP(MDPModel):
         self.reward_params = reward_param
 
         super().__init__(n, actions=self.chain_size, reward_type=reward_type, chain_num=self.chain_num)
+        self.type = 'chains'
 
     def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
