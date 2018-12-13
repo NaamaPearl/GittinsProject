@@ -185,7 +185,7 @@ class SimulatedModel:
 
 
 class Simulator:
-    def __init__(self, sim_input: SimulatorInput):
+    def __init__(self, sim_input: ProblemInput):
         self.MDP_model: SimulatedModel = sim_input.MDP_model
         self.gamma = sim_input.gamma
         self.epsilon = sim_input.epsilon
@@ -197,7 +197,6 @@ class Simulator:
 
         self.InitParams()
         self.InitStatics()
-
 
     def InitStatics(self):
         SimulatedState.policy = self.policy
@@ -211,14 +210,12 @@ class Simulator:
     def InitParams(self):
         self.critic = CriticFactory.Generate(type=self.MDP_model.MDP_model.type, chain_num=self.MDP_model.chain_num)
         state_num = self.MDP_model.n
+        SimulatedState.action_num = self.MDP_model.actions
         self.evaluate_policy = []
         self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
         self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(state_num)]
-        self.graded_states = {state.idx: random.random() for state in self.states}
-        self.init_prob = self.MDP_model.init_prob
-        self.ResetAgents(self.agents_num)
-
-        self.MDP_model.CalcPolicyData(self.evaluated_model.policy)
+        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
+        self.MDP_model.CalcPolicyData(self.policy)
 
     def FindChain(self, idx):
         return self.MDP_model.FindChain(idx)
@@ -310,19 +307,21 @@ class Simulator:
 
 
 class AgentSimulator(Simulator):
-    def __init__(self, sim_input: AgentSimulationInput):
-        super().__init__(sim_input)
+    def __init__(self, sim_input: ProblemInput):
         self.agents_num = sim_input.agent_num
+        super().__init__(sim_input)
         self.agents = Q.PriorityQueue()
         self.graded_states = None
         self.init_prob = None
         self.agents_to_run = None
 
     def InitParams(self):
+        super().InitParams()
         self.graded_states = {state.idx: random.random() for state in self.states}
         self.init_prob = self.MDP_model.init_prob
         self.ResetAgents(self.agents_num)
-        self.MDP_model.CalcPolicyData(self.policy)
+        self.graded_states = {state.idx: random.random() for state in self.states}
+        self.init_prob = self.MDP_model.init_prob
 
     def ChooseInitState(self):
         return np.random.choice(self.states, p=self.init_prob)
@@ -331,9 +330,9 @@ class AgentSimulator(Simulator):
         if parameter is None:
             return
         if parameter == 'reward':
-            return self.P_hat, self.r_hat
+            return self.evaluated_model.P_hat, self.evaluated_model.r_hat
         if parameter == 'error':
-            return self.P_hat, abs(self.evaluated_model.TD_error)
+            return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
 
         reward_mat = [[self.MDP_model.MDP_model.r[state][action][0] * self.MDP_model.MDP_model.r[state][action][1]
                        for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
@@ -349,7 +348,7 @@ class AgentSimulator(Simulator):
         super().simulate(sim_input)
 
         for i in range(sim_input.steps):
-            self.SimulateOneStep()
+            self.SimulateOneStep(sim_input.agents_to_run)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ApproxModel(sim_input.prioritizer, sim_input.parameter, i)  # prioritize agents & states
 
@@ -372,9 +371,9 @@ class AgentSimulator(Simulator):
     def GradeAgent(self, agent):
         return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
-    def SimulateOneStep(self):
+    def SimulateOneStep(self, agents_to_run):
         """find top-priority agents, and activate them for a single step"""
-        agents_list = [self.agents.get().object for _ in range(self.agents_to_run)]
+        agents_list = [self.agents.get().object for _ in range(agents_to_run)]
         for agent in agents_list:
             self.SimulateAgent(agent)
             self.critic.Update(agent.chain)
@@ -415,7 +414,7 @@ class AgentSimulator(Simulator):
 
 
 class PrioritizedSweeping(Simulator):
-    def __init__(self, sim_input: SimulatorInput):
+    def __init__(self, sim_input: ProblemInput):
         super().__init__(sim_input)
         state_actions_list = [act for action_list in [state.actions for state in self.states] for act in action_list]
         self.state_action = [PrioritizedObject(state_action, -np.inf) for state_action in state_actions_list]
@@ -426,8 +425,10 @@ class PrioritizedSweeping(Simulator):
 
         for _ in range(sim_input.steps):
             state_action: StateActionPair = heapq.heappop(self.state_action).object
-            self.SampleStateAction(state_action)
+            next_state = self.SampleStateAction(state_action)
+            self.critic.Update(next_state.chain)
             heapq.heappush(self.state_action, PrioritizedObject(state_action, -abs(state_action.TD_error)))
+
 
 # class ChainsSimulator(Simulator):
 #     def __init__(self, sim_input: SimulatorInput):
@@ -455,7 +456,7 @@ def CompareActivations(vectors, chain_num, method_type):
     plt.figure()
     tick_shift = [-0.45, -0.15, 0.15, 0.45]
     [plt.bar([tick_shift[i] + s for s in range(chain_num)], vectors[method_type[i]], width=0.2, align='center')
-        for i in range(len(vectors))]
+     for i in range(len(vectors))]
 
     plt.xticks(range(chain_num), ['chain ' + str(s) for s in range(4)])
     plt.legend(method_type)
@@ -469,59 +470,70 @@ def PlotEvaluation(vectors, method_type):
     plt.title('Reward Eval')
 
 
-def RunSimulationsOnMdp(mdp, runs_for_specific_mdp=10):
-    # creating simulation inputs
-    random_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run)
-    gittins_chains_input = SimulatorInput(SimulatedModel(mdp), agent_num=main_agents_to_run * 3)
+def SimulatorFactory(method_type, mdp, agents_to_run):
+    if method_type == 'random':
+        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run))
+    if method_type == 'reward':
+        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run * 3))
+    if method_type == 'error':
+        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run * 3))
+    if method_type == 'sweeping':
+        return PrioritizedSweeping(ProblemInput(SimulatedModel(mdp), agent_num=1))
+    raise IOError('unrecognized methid type:' + method_type)
 
-    random_simulation_input = AgentSimulationInput(prioritizer=Prioritizer(), steps=main_steps, parameter=None,
-                                                   agents_to_run=main_agents_to_run)
-    gittins_error_simulation_input = AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=main_steps,
-                                                          parameter='error',
-                                                          agents_to_run=main_agents_to_run)
-    gittins_reward_simulation_input = AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=main_steps,
-                                                          parameter='reward',
-                                                          agents_to_run=main_agents_to_run)
 
+def SimInputFactory(method_type, simulation_steps, agents_to_run):
+    if method_type == 'random':
+        return AgentSimulationInput(prioritizer=Prioritizer(), steps=simulation_steps, parameter=None,
+                                    agents_to_run=agents_to_run)
+    if method_type == 'reward':
+        return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
+                                    parameter='reward',
+                                    agents_to_run=agents_to_run)
+    if method_type == 'error':
+        return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
+                                    parameter='error',
+                                    agents_to_run=agents_to_run)
+    if method_type == 'sweeping':
+        return SimulationInput(steps=simulation_steps*agents_to_run)
+
+    raise IOError('unrecognized method type:' + method_type)
+
+
+def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_mdp, method_type_list):
     # creating simulation
-    random_chains_simulator = Simulator(random_chains_input)
-    gittins_reward_chains_simulator = Simulator(gittins_chains_input)
-    gittins_error_chains_simulator = Simulator(gittins_chains_input)
+    simulators = {method: SimulatorFactory(method, mdp, agents_to_run) for method in method_type_list}
+    simulator_inputs = {method: SimInputFactory(method, simulation_steps, agents_to_run) for method in method_type_list}
 
-    simulator_inputs = {'random': random_simulation_input,
-                        'reward': gittins_error_simulation_input,
-                        'error': gittins_reward_simulation_input}
-    simulators = {'random': random_chains_simulator,
-                  'reward': gittins_reward_chains_simulator,
-                  'error': gittins_error_chains_simulator}
-    method_type = ['random', 'error', 'reward']
-    chain_activation = {key: 0 for key in method_type}
-    reward_eval = {key: 0 for key in method_type}
+    chain_activation = {key: 0 for key in method_type_list}
+    reward_eval = {key: 0 for key in method_type_list}
 
     for i in range(runs_for_specific_mdp):
-        for method in method_type:
 
-            print('simulate ' + method + ' run_num=' + str(i))
+        for method in method_type_list:
             simulators[method].simulate(simulator_inputs[method])
-            chain_activation[method] += (np.asarray(simulators[method].critic.chain_activations) / runs_for_specific_mdp)
+            chain_activation[method] += (
+                    np.asarray(simulators[method].critic.chain_activations) / runs_for_specific_mdp)
             reward_eval[method] += (np.asarray(simulators[method].evaluate_policy) / runs_for_specific_mdp)
-            print('simulate finished, %s agents activated' % sum(random_chains_simulator.critic.chain_activations))
+            # print('simulate finished, %s agents activated' % sum(simulators[method].critic.chain_activations))
 
     return chain_activation, reward_eval
 
 
 if __name__ == '__main__':
-    main_steps = 50
-    main_agents_to_run = 10
     n = 21
-    method_type = ['random', 'error', 'reward']
+    method_type_list = ['random', 'error', 'reward', 'sweeping']
     mdp_num = 1
 
     for i in range(mdp_num):
         mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss')
 
-        activations, reward_eval = RunSimulationsOnMdp(mdp, runs_for_specific_mdp=5)
-        CompareActivations(activations, 2, method_type)
-        PlotEvaluation(reward_eval, method_type)
+        activations, reward_eval = RunSimulationsOnMdp(mdp,
+                                                       simulation_steps=5000,
+                                                       agents_to_run=10,
+                                                       runs_for_specific_mdp=5,
+                                                       method_type_list=method_type_list)
+        CompareActivations(activations, 2, method_type_list)
+        PlotEvaluation(reward_eval, method_type_list)
 
     print('all done')

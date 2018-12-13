@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class SimulatorInput:
+class ProblemInput:
     def __init__(self, MDP_model, agent_num, gamma=0.9, epsilon=0.1):
         self.MDP_model = MDP_model
         self.agent_num = agent_num
@@ -10,20 +10,19 @@ class SimulatorInput:
 
 
 class SimulationInput:
-    def __init__(self, prioritizer, steps, parameter, agents_to_run=1):
-        self.prioritizer = prioritizer
+    def __init__(self, steps):
         self.steps = steps
-        self.parameter = parameter
-        self.agents_to_run = agents_to_run
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, steps, parameter, agents_to_run, agent_num, grades_freq=10, reset_freq=50):
-        super().__init__(prioritizer, steps, parameter)
-        self.agent_num = agent_num
+    def __init__(self, prioritizer, steps, parameter, agents_to_run, grades_freq=10, reset_freq=50):
+        super().__init__(steps)
+        self.prioritizer = prioritizer
         self.agents_to_run = agents_to_run
         self.grades_freq = grades_freq
         self.reset_freq = reset_freq
+        self.parameter = parameter
+        self.agents_to_run = agents_to_run
 
 
 class EvaluatedModel:
