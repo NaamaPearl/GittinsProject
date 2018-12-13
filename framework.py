@@ -1,5 +1,5 @@
 import numpy as np
-import random
+
 
 class SimulatorInput:
     def __init__(self, MDP_model, agent_num, gamma=0.9, epsilon=0.1):
@@ -18,8 +18,9 @@ class SimulationInput:
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, steps, parameter, agents_to_run, grades_freq=10, reset_freq=50):
+    def __init__(self, prioritizer, steps, parameter, agents_to_run, agent_num, grades_freq=10, reset_freq=50):
         super().__init__(prioritizer, steps, parameter)
+        self.agent_num = agent_num
         self.agents_to_run = agents_to_run
         self.grades_freq = grades_freq
         self.reset_freq = reset_freq
@@ -32,16 +33,13 @@ class EvaluatedModel:
         self.V_hat = None
         self.Q_hat = None
         self.TD_error = None
-        self.policy = None
 
     def ResetData(self, state_num, actions):
         self.r_hat = np.zeros((state_num, actions))
         self.P_hat = [np.zeros((actions, state_num)) for _ in range(state_num)]
-        self.policy = [random.randint(0, actions - 1) for _ in range(state_num)]
         self.V_hat = np.zeros(state_num)
         self.Q_hat = np.zeros((state_num,actions))
         self.TD_error = np.zeros((state_num,actions))
-
 
 
 class PrioritizedObject:
