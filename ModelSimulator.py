@@ -422,13 +422,16 @@ class PrioritizedSweeping(Simulator):
 
     def simulate(self, sim_input: SimulationInput):
         super().simulate(sim_input)
+        reset_freq = sim_input.reset_freq * 10
 
-        for _ in range(sim_input.steps):
+        for i in range(sim_input.steps):
             state_action: StateActionPair = heapq.heappop(self.state_action).object
             next_state = self.SampleStateAction(state_action)
             self.critic.Update(next_state.chain)
             heapq.heappush(self.state_action, PrioritizedObject(state_action, -abs(state_action.TD_error)))
 
+            if i % reset_freq  == reset_freq - 1:
+                self.evaluate_policy.append(self.EvaluatePolicy(50))
 
 # class ChainsSimulator(Simulator):
 #     def __init__(self, sim_input: SimulatorInput):
@@ -529,9 +532,9 @@ if __name__ == '__main__':
         mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss')
 
         activations, reward_eval = RunSimulationsOnMdp(mdp,
-                                                       simulation_steps=5000,
+                                                       simulation_steps=1000,
                                                        agents_to_run=10,
-                                                       runs_for_specific_mdp=5,
+                                                       runs_for_specific_mdp=2,
                                                        method_type_list=method_type_list)
         CompareActivations(activations, 2, method_type_list)
         PlotEvaluation(reward_eval, method_type_list)

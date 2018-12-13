@@ -10,17 +10,18 @@ class ProblemInput:
 
 
 class SimulationInput:
-    def __init__(self, steps):
+    def __init__(self, steps, reset_freq=50):
         self.steps = steps
+        self.reset_freq = reset_freq
+
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, steps, parameter, agents_to_run, grades_freq=10, reset_freq=50):
+    def __init__(self, prioritizer, steps, parameter, agents_to_run, grades_freq=10):
         super().__init__(steps)
         self.prioritizer = prioritizer
         self.agents_to_run = agents_to_run
         self.grades_freq = grades_freq
-        self.reset_freq = reset_freq
         self.parameter = parameter
         self.agents_to_run = agents_to_run
 
