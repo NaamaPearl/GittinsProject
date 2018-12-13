@@ -14,7 +14,7 @@ class SimulationInput:
         self.prioritizer = prioritizer
         self.steps = steps
         self.parameter = parameter
-        self.agents_to_tun = agents_to_run
+        self.agents_to_run = agents_to_run
 
 
 class AgentSimulationInput(SimulationInput):
