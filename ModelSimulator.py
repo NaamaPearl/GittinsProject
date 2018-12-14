@@ -3,7 +3,6 @@ from Prioritizer import Prioritizer, GittinsPrioritizer
 from MDPModel import *
 from functools import reduce
 from framework import *
-from matplotlib import pyplot as plt
 from Critic import *
 import heapq
 
@@ -13,7 +12,7 @@ class StateActionPair:
     Q_hat_mat = []
     TD_error_mat = []
     r_hat_mat = []
-    T_bored_num = 0
+    T_bored_num = 3
     T_bored_val = 5
 
     def __init__(self, state, action):
@@ -220,7 +219,7 @@ class Simulator:
     def FindChain(self, idx):
         return self.MDP_model.FindChain(idx)
 
-    def ImprovePolicy(self):
+    def ImprovePolicy(self, *argv):
         for state in self.states:
             state.policy_action = state.best_action.action
 
@@ -275,11 +274,25 @@ class Simulator:
                 reward += self.MDP_model.GetReward(agent.curr_state.policy_action)
                 agent.curr_state = self.states[self.MDP_model.GetNextState(agent.curr_state.policy_action)]
 
-        return reward / good_agents
+        self.evaluate_policy.append(reward / good_agents)
 
     def simulate(self, sim_input):
         self.InitParams()
         self.InitStatics()
+
+        for i in range(sim_input.steps):
+            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run)
+            if i % sim_input.grades_freq == sim_input.grades_freq - 1:
+                self.ImprovePolicy(sim_input, i)
+
+            if i % sim_input.reset_freq == sim_input.reset_freq - 1:
+                self.EvaluatePolicy(50)
+
+            if (i % 5000) == 0:
+                print('simulate step %d' % i)
+
+    def SimulateOneStep(self, agents_to_run):
+        pass
 
     # @property
     # def V_hat(self):
@@ -338,26 +351,19 @@ class AgentSimulator(Simulator):
                        for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
         return self.MDP_model.MDP_model.P, reward_mat
 
-    def ApproxModel(self, prioritizer: Prioritizer, parameter, iteration):
-        self.graded_states = prioritizer.GradeStates(self.states, self.policy, self.GetStatsForGittins(parameter),
-                                                     iteration < self.MDP_model.n * 4)
-        self.ImprovePolicy()
+    def ImprovePolicy(self, *argv):
+        sim_input: AgentSimulationInput = argv[0]
+        iteration_num = argv[1]
+        self.graded_states = sim_input.prioritizer.GradeStates(self.states,
+                                                               self.policy,
+                                                               self.GetStatsForGittins(sim_input.parameter),
+                                                               iteration_num < self.MDP_model.n * 4)
         self.ReGradeAllAgents()
+        super().ImprovePolicy()
 
-    def simulate(self, sim_input: AgentSimulationInput):
-        super().simulate(sim_input)
-
-        for i in range(sim_input.steps):
-            self.SimulateOneStep(sim_input.agents_to_run)
-            if i % sim_input.grades_freq == sim_input.grades_freq - 1:
-                self.ApproxModel(sim_input.prioritizer, sim_input.parameter, i)  # prioritize agents & states
-
-            if i % sim_input.reset_freq == sim_input.reset_freq - 1:
-                self.ResetAgents(self.agents.qsize())
-                self.evaluate_policy.append(self.EvaluatePolicy(50))
-
-            if (i % 5000) == 0:
-                print('simulate step %d' % i)
+    def EvaluatePolicy(self, trajectory_len):
+        self.ResetAgents(self.agents.qsize())
+        super().EvaluatePolicy(trajectory_len)
 
     def ReGradeAllAgents(self):
         """invoked after states re-prioritization. Replaces queue"""
@@ -405,28 +411,18 @@ class AgentSimulator(Simulator):
 class PrioritizedSweeping(Simulator):
     def __init__(self, sim_input: ProblemInput):
         super().__init__(sim_input)
-        state_actions_list = [act for action_list in [state.actions for state in self.states] for act in action_list]
+        state_actions_list = reduce(lambda a, b: a+b, [state.actions for state in self.states])
         self.state_action = [PrioritizedObject(state_action, -np.inf) for state_action in state_actions_list]
         heapq.heapify(self.state_action)
 
-    def simulate(self, sim_input: SimulationInput):
-        super().simulate(sim_input)
-        reset_freq = sim_input.reset_freq * 10
-        improve_freq = sim_input.grades_freq * 10
-
-        for i in range(sim_input.steps):
+    def SimulateOneStep(self, agents_to_run):
+        for _ in range(agents_to_run):
             state_action: StateActionPair = heapq.heappop(self.state_action).object
             next_state = self.SampleStateAction(state_action)
             self.critic.Update(next_state.chain)
 
             score = -np.inf if state_action.visitations < StateActionPair.T_bored_num else -abs(state_action.TD_error)
             heapq.heappush(self.state_action, PrioritizedObject(state_action, score))
-
-            if i % improve_freq == improve_freq - 1:
-                self.ImprovePolicy()
-
-            if i % reset_freq == reset_freq - 1:
-                self.evaluate_policy.append(self.EvaluatePolicy(50))
 
 
 # class ChainsSimulator(Simulator):
@@ -476,6 +472,6 @@ def SimInputFactory(method_type, simulation_steps, agents_to_run):
                                     parameter='error',
                                     agents_to_run=agents_to_run)
     if method_type == 'sweeping':
-        return SimulationInput(steps=simulation_steps * agents_to_run)
+        return SimulationInput(steps=simulation_steps, agents_to_run=agents_to_run)
 
     raise IOError('unrecognized method type:' + method_type)

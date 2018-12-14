@@ -50,7 +50,7 @@ if __name__ == '__main__':
         mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss')
 
         activations, reward_eval = RunSimulationsOnMdp(mdp,
-                                                       simulation_steps=5000,
+                                                       simulation_steps=10000,
                                                        agents_to_run=10,
                                                        runs_for_specific_mdp=5,
                                                        method_type_list=method_type_list)

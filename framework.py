@@ -1,24 +1,6 @@
 import numpy as np
 
 
-def SimInputFactory(method_type, simulation_steps, agents_to_run):
-    if method_type == 'random':
-        return AgentSimulationInput(prioritizer=Prioritizer(), steps=simulation_steps, parameter=None,
-                                    agents_to_run=agents_to_run)
-    if method_type == 'reward':
-        return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
-                                    parameter='reward',
-                                    agents_to_run=agents_to_run)
-    if method_type == 'error':
-        return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
-                                    parameter='error',
-                                    agents_to_run=agents_to_run)
-    if method_type == 'sweeping':
-        return SimulationInput(steps=simulation_steps*agents_to_run)
-
-    raise IOError('unrecognized method type:' + method_type)
-
-
 class ProblemInput:
     def __init__(self, MDP_model, agent_num, gamma=0.9, epsilon=0.1):
         self.MDP_model = MDP_model
@@ -28,19 +10,18 @@ class ProblemInput:
 
 
 class SimulationInput:
-    def __init__(self, steps, reset_freq=50, grades_freq=10):
+    def __init__(self, steps, agents_to_run, reset_freq=50, grades_freq=10):
         self.steps = steps
         self.reset_freq = reset_freq
         self.grades_freq = grades_freq
+        self.agents_to_run = agents_to_run
 
 
 class AgentSimulationInput(SimulationInput):
     def __init__(self, prioritizer, steps, parameter, agents_to_run):
-        super().__init__(steps)
+        super().__init__(steps, agents_to_run)
         self.prioritizer = prioritizer
-        self.agents_to_run = agents_to_run
         self.parameter = parameter
-        self.agents_to_run = agents_to_run
 
 
 class EvaluatedModel:
