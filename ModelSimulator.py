@@ -288,9 +288,6 @@ class Simulator:
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 self.EvaluatePolicy(50)
 
-            if (i % 5000) == 0:
-                print('simulate step %d' % i)
-
     def SimulateOneStep(self, agents_to_run):
         pass
 
