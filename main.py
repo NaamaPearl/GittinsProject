@@ -30,14 +30,12 @@ def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_
     reward_eval = {key: 0 for key in method_type_list}
 
     for i in range(runs_for_specific_mdp):
-        print('run num ' + str(i))
+
         for method in method_type_list:
-            print('     method ' + method)
             simulators[method].simulate(simulator_inputs[method])
             chain_activation[method] += (
                     np.asarray(simulators[method].critic.chain_activations) / runs_for_specific_mdp)
             reward_eval[method] += (np.asarray(simulators[method].evaluate_policy) / runs_for_specific_mdp)
-            print('         policy=' + str(simulators[method].policy))
             # print('simulate finished, %s agents activated' % sum(simulators[method].critic.chain_activations))
 
     return chain_activation, reward_eval
@@ -45,14 +43,14 @@ def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_
 
 if __name__ == '__main__':
     n = 21
-    method_type_list = ['random', 'sweeping']
+    method_type_list = ['sweeping', 'random', 'error', 'reward']  # ['random', 'error', 'reward', 'sweeping']
     mdp_num = 1
 
     for i in range(mdp_num):
         mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss')
 
         activations, reward_eval = RunSimulationsOnMdp(mdp,
-                                                       simulation_steps=1000,
+                                                       simulation_steps=5000,
                                                        agents_to_run=10,
                                                        runs_for_specific_mdp=1,
                                                        method_type_list=method_type_list)

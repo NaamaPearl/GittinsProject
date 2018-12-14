@@ -10,16 +10,17 @@ class ProblemInput:
 
 
 class SimulationInput:
-    def __init__(self, steps, agents_to_run, reset_freq=50, grades_freq=10):
+    def __init__(self, steps, agents_to_run, eval_freq=50, reset_freq=50, grades_freq=10):
         self.steps = steps
         self.reset_freq = reset_freq
         self.grades_freq = grades_freq
+        self.evaluate_freq = eval_freq
         self.agents_to_run = agents_to_run
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, steps, parameter, agents_to_run):
-        super().__init__(steps, agents_to_run)
+    def __init__(self, prioritizer, steps, parameter, agents_to_run, eval_freq=50):
+        super().__init__(steps, agents_to_run, eval_freq)
         self.prioritizer = prioritizer
         self.parameter = parameter
 
@@ -57,6 +58,9 @@ class PrioritizedObject:
 
     def __hash__(self):
         return hash(object)
+
+    def __str__(self):
+        return str(self.object) + 'value' + str(self.reward)
 
     @property
     def idx(self):
