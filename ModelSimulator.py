@@ -15,6 +15,9 @@ class StateActionPair:
     T_bored_num = 3
     T_bored_val = 5
 
+    def __str__(self):
+        return 'state #' + str(self.state.idx) + ', action #' + str(self.action)
+
     def __init__(self, state, action):
         self.state: SimulatedState = state
         self.action = action
@@ -53,8 +56,6 @@ class StateActionPair:
 
     @property
     def TD_error(self):
-        if self.visitations < StateActionPair.T_bored_num:
-            return StateActionPair.T_bored_val + abs(StateActionPair.TD_error_mat[self.state.idx][self.action])
         return StateActionPair.TD_error_mat[self.state.idx][self.action]
 
     @TD_error.setter
@@ -72,6 +73,9 @@ class SimulatedState:
         self.idx: int = idx
         self.actions = [StateActionPair(self, a) for a in range(SimulatedState.action_num)]
         self.chain = chain
+
+    def __str__(self):
+        return 'state #' + str(self.idx)
 
     @property
     def V_hat(self):
