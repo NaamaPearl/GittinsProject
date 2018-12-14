@@ -13,7 +13,6 @@ class StateActionPair:
     TD_error_mat = []
     r_hat_mat = []
     T_bored_num = 3
-    T_bored_val = 5
 
     def __str__(self):
         return 'state #' + str(self.state.idx) + ', action #' + str(self.action)
@@ -26,6 +25,10 @@ class StateActionPair:
     def __gt__(self, other):
         assert isinstance(other, StateActionPair)
         return self.Q_hat > other.Q_hat
+
+    @property
+    def chain(self):
+        return self.state.chain
 
     @property
     def r_hat(self):
@@ -75,7 +78,7 @@ class SimulatedState:
         self.chain = chain
 
     def __str__(self):
-        return 'state #' + str(self.idx)
+        return 'state #' + str(self.idx) + ' #visitations ' + str(self.visitations)
 
     @property
     def V_hat(self):
@@ -289,11 +292,13 @@ class Simulator:
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
 
-            if i % sim_input.reset_freq == sim_input.reset_freq - 1:
+            if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
                 self.EvaluatePolicy(50)
+            if i % sim_input.reset_freq == sim_input.reset_freq - 1:
+                self.Reset()
 
-            if (i % 5000) == 0:
-                print('simulate step %d' % i)
+    def Reset(self):
+        pass
 
     def SimulateOneStep(self, agents_to_run):
         pass
@@ -365,10 +370,6 @@ class AgentSimulator(Simulator):
         self.ReGradeAllAgents()
         super().ImprovePolicy()
 
-    def EvaluatePolicy(self, trajectory_len):
-        self.ResetAgents(self.agents.qsize())
-        super().EvaluatePolicy(trajectory_len)
-
     def ReGradeAllAgents(self):
         """invoked after states re-prioritization. Replaces queue"""
         new_queue = Q.PriorityQueue()
@@ -385,8 +386,8 @@ class AgentSimulator(Simulator):
         """find top-priority agents, and activate them for a single step"""
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
         for agent in agents_list:
-            self.SimulateAgent(agent)
             self.critic.Update(agent.chain)
+            self.SimulateAgent(agent)
             self.agents.put(self.GradeAgent(agent))
 
     def ChooseAction(self, state: SimulatedState):
@@ -400,6 +401,9 @@ class AgentSimulator(Simulator):
 
         next_state = self.SampleStateAction(state_action)
         agent.curr_state = next_state
+
+    def Reset(self):
+        self.ResetAgents(self.agents.qsize())
 
     def ResetAgents(self, agents_num):
         self.agents = Q.PriorityQueue()
@@ -415,18 +419,23 @@ class AgentSimulator(Simulator):
 class PrioritizedSweeping(Simulator):
     def __init__(self, sim_input: ProblemInput):
         super().__init__(sim_input)
-        state_actions_list = reduce(lambda a, b: a+b, [state.actions for state in self.states])
-        self.state_action = [PrioritizedObject(state_action, -np.inf) for state_action in state_actions_list]
-        heapq.heapify(self.state_action)
+        self.state_action_heap = None
+
+    def InitParams(self):
+        super().InitParams()
+        state_actions_list = reduce(lambda a, b: a + b, [state.actions for state in self.states[1:]])
+        self.state_action_heap = [PrioritizedObject(state_action, -np.inf) for state_action in state_actions_list]
+        heapq.heapify(self.state_action_heap)
 
     def SimulateOneStep(self, agents_to_run):
         for _ in range(agents_to_run):
-            state_action: StateActionPair = heapq.heappop(self.state_action).object
-            next_state = self.SampleStateAction(state_action)
-            self.critic.Update(next_state.chain)
+            state_action: StateActionPair = heapq.heappop(self.state_action_heap).object
+            self.critic.Update(state_action.chain)
 
-            score = -np.inf if state_action.visitations < StateActionPair.T_bored_num else -abs(state_action.TD_error)
-            heapq.heappush(self.state_action, PrioritizedObject(state_action, score))
+            self.SampleStateAction(state_action)
+
+            score = -np.inf if state_action.visitations <=   StateActionPair.T_bored_num else -abs(state_action.TD_error)
+            heapq.heappush(self.state_action_heap, PrioritizedObject(state_action, score))
 
 
 # class ChainsSimulator(Simulator):

@@ -43,7 +43,7 @@ def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_
 
 if __name__ == '__main__':
     n = 21
-    method_type_list = ['sweeping']  # ['random', 'error', 'reward', 'sweeping']
+    method_type_list = ['sweeping', 'random', 'error', 'reward']  # ['random', 'error', 'reward', 'sweeping']
     mdp_num = 1
 
     for i in range(mdp_num):
@@ -52,7 +52,7 @@ if __name__ == '__main__':
         activations, reward_eval = RunSimulationsOnMdp(mdp,
                                                        simulation_steps=5000,
                                                        agents_to_run=10,
-                                                       runs_for_specific_mdp=5,
+                                                       runs_for_specific_mdp=1,
                                                        method_type_list=method_type_list)
         CompareActivations(activations, 2, method_type_list)
         PlotEvaluation(reward_eval, method_type_list)

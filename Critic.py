@@ -17,4 +17,5 @@ class ChainMDPCritic(Critic):
         self.chain_activations = [0 for _ in range(chain_num)]
 
     def Update(self, chain):
-        self.chain_activations[chain] += 1
+        if chain is not None:
+            self.chain_activations[chain] += 1
