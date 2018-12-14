@@ -12,7 +12,7 @@ class StateActionPair:
     Q_hat_mat = []
     TD_error_mat = []
     r_hat_mat = []
-    T_bored_num = 3
+    T_bored_num = 5
 
     def __str__(self):
         return 'state #' + str(self.state.idx) + ', action #' + str(self.action)
@@ -25,6 +25,12 @@ class StateActionPair:
     def __gt__(self, other):
         assert isinstance(other, StateActionPair)
         return self.Q_hat > other.Q_hat
+
+    def __eq__(self, other):
+        return self.action == other.action and self.state.idx == other.state.idx
+
+    def __hash__(self):
+        return hash((self.state, self.action, self.visitations))
 
     @property
     def chain(self):
@@ -76,6 +82,7 @@ class SimulatedState:
         self.idx: int = idx
         self.actions = [StateActionPair(self, a) for a in range(SimulatedState.action_num)]
         self.chain = chain
+        self.predecessor = set()
 
     def __str__(self):
         return 'state #' + str(self.idx) + ' #visitations ' + str(self.visitations)
@@ -261,6 +268,7 @@ class Simulator:
 
         new_est_p_row = curr_num_of_tran / (state_action.visitations + 1)
         state_action.P_hat = new_est_p_row
+        next_state.predecessor.add(state_action)
 
     @staticmethod
     def UpdateReward(state_action: StateActionPair, new_reward: int):
@@ -419,24 +427,35 @@ class AgentSimulator(Simulator):
 class PrioritizedSweeping(Simulator):
     def __init__(self, sim_input: ProblemInput):
         super().__init__(sim_input)
-        self.state_action_heap = None
+        self.state_action_dict = None
 
     def InitParams(self):
         super().InitParams()
-        state_actions_list = reduce(lambda a, b: a + b, [state.actions for state in self.states[1:]])
-        self.state_action_heap = [PrioritizedObject(state_action, -np.inf) for state_action in state_actions_list]
-        heapq.heapify(self.state_action_heap)
+        self.state_action_dict = {(state.idx, state_action_pair.action): PrioritizedObject(state_action_pair, np.inf)
+                                  for state in self.states for state_action_pair in state.actions}
+        # self.priority_q = Q.PriorityQueue()
+        # [self.priority_q.put(PrioritizedObject(state_action, -np.inf)) for state_action in self.state_action_dict]
 
     def SimulateOneStep(self, agents_to_run):
         for _ in range(agents_to_run):
-            state_action: StateActionPair = heapq.heappop(self.state_action_heap).object
-            self.critic.Update(state_action.chain)
+            max_key = max(self.state_action_dict, key=self.state_action_dict.get)
+            main_prio: PrioritizedObject = self.state_action_dict[max_key]
+            main_state_action: StateActionPair = main_prio.object
+            self.critic.Update(main_state_action.chain)
 
-            self.SampleStateAction(state_action)
+            self.SampleStateAction(main_state_action)
 
-            score = -np.inf if state_action.visitations <=   StateActionPair.T_bored_num else -abs(state_action.TD_error)
-            heapq.heappush(self.state_action_heap, PrioritizedObject(state_action, score))
+            if main_state_action.visitations > StateActionPair.T_bored_num:
+                main_prio.reward = abs(main_state_action.TD_error) # TODO: add reward as property of prioritized object
 
+                for iter_key in self.state_action_dict:
+                    iter_prio = self.state_action_dict[iter_key]
+                    if iter_prio.object != main_state_action:
+                        if iter_prio.object in main_state_action.state.predecessor:
+                            p = self.evaluated_model.P_hat[iter_prio.object.state.idx][iter_prio.object.action][main_state_action.state.idx]
+                            if p == 0:
+                                raise ValueError('transmision probabilty should not be 0')
+                            iter_prio.reward = max(p * main_prio.reward, iter_prio.reward)
 
 # class ChainsSimulator(Simulator):
 #     def __init__(self, sim_input: SimulatorInput):

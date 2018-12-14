@@ -60,7 +60,7 @@ class PrioritizedObject:
         return hash(object)
 
     def __str__(self):
-        return str(self.object) + 'value' + str(self.reward)
+        return str(self.object) + ' value=' + str(self.reward)
 
     @property
     def idx(self):
