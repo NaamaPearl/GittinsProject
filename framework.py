@@ -32,13 +32,15 @@ class EvaluatedModel:
         self.V_hat = None
         self.Q_hat = None
         self.TD_error = None
+        self.visitations = None
 
     def ResetData(self, state_num, actions):
         self.r_hat = np.zeros((state_num, actions))
         self.P_hat = [np.zeros((actions, state_num)) for _ in range(state_num)]
         self.V_hat = np.zeros(state_num)
-        self.Q_hat = np.zeros((state_num,actions))
-        self.TD_error = np.zeros((state_num,actions))
+        self.Q_hat = np.zeros((state_num, actions))
+        self.TD_error = np.zeros((state_num, actions))
+        self.visitations = np.zeros((state_num, actions))
 
 
 class PrioritizedObject:
@@ -65,3 +67,4 @@ class PrioritizedObject:
     @property
     def idx(self):
         return self.object.idx
+
