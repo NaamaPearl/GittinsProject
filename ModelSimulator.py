@@ -347,10 +347,10 @@ class Simulator:
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
-
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
                 self.EvaluatePolicy(50)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
+                print('simulate step ' + str(i))
                 self.Reset()
 
     def Reset(self):
@@ -482,7 +482,7 @@ class PrioritizedSweeping(Simulator):
         self.state_actions_score = np.inf * np.ones((self.MDP_model.n, self.MDP_model.actions))
         super().InitParams()
         self.state_actions = [[SweepingPrioObject(state_action, StateActionScore(state_action))
-                               for state_action in state.actions] for state in self.states]
+                               for state_action in state.actions] for state in self.states[1:]]
 
     def InitStatics(self):
         StateActionScore.score_mat = self.state_actions_score
@@ -491,17 +491,17 @@ class PrioritizedSweeping(Simulator):
     def SimulateOneStep(self, agents_to_run):
         for _ in range(agents_to_run):
             best: SweepingPrioObject = max([max(state) for state in self.state_actions])
-            if not best.active:
-                raise ValueError
+            # if not best.active:
+            #     raise ValueError
             best_state_action: StateActionPair = best.object
             self.critic.Update(best_state_action.chain)
 
             self.SampleStateAction(best_state_action)
 
             if best_state_action.visitations > StateActionPair.T_bored_num:
-                best_state_action.active = False
+                # best_state_action.active = False
                 best.reward.score = abs(best_state_action.TD_error)
-                self.UpdateScore(best)
+                # self.UpdateScore(best)
 
     # class ChainsSimulator(Simulator):
     #     def __init__(self, sim_input: SimulatorInput):
@@ -527,8 +527,7 @@ class PrioritizedSweeping(Simulator):
     def UpdateScore(self, state_action_pr: PrioritizedObject):
         state_action = state_action_pr.object
 
-        for predecessor in state_action.state.predecessor.difference(
-                {state_action}):  # TODO what if state has probability to stay in the same state
+        for predecessor in state_action.state.predecessor.difference({state_action}):  # TODO what if state has probability to stay in the same state
             p = self.evaluated_model.P_hat[predecessor.state.idx][predecessor.action][state_action.state.idx]
             if p == 0:
                 raise ValueError('transmission probability should not be 0')

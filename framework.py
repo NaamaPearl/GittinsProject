@@ -72,9 +72,10 @@ class PrioritizedObject:
 class SweepingPrioObject(PrioritizedObject):
     def __init__(self, obj, r):
         super().__init__(obj, r)
-        self.active = True
+        # self.active = True
 
     def __gt__(self, other):
-        return self.active * super().__gt__(other)
+        return super().__gt__(other)
+        # return self.active * super().__gt__(other)
 
 
