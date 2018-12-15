@@ -62,9 +62,19 @@ class PrioritizedObject:
         return hash(object)
 
     def __str__(self):
-        return str(self.object) + ' value=' + str(self.reward)
+        return str(self.object) + str(self.reward)
 
     @property
     def idx(self):
         return self.object.idx
+
+
+class SweepingPrioObject(PrioritizedObject):
+    def __init__(self, obj, r):
+        super().__init__(obj, r)
+        self.active = True
+
+    def __gt__(self, other):
+        return self.active * super().__gt__(other)
+
 

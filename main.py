@@ -43,7 +43,7 @@ def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_
 
 if __name__ == '__main__':
     n = 21
-    method_type_list = ['sweeping']  # ['random', 'error', 'reward', 'sweeping']
+    method_type_list = ['sweeping'] #['random', 'error', 'reward', 'sweeping']
     mdp_num = 1
 
     for i in range(mdp_num):
