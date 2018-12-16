@@ -19,10 +19,12 @@ class SimulationInput:
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, steps, parameter, agents_to_run, eval_freq=50):
+    def __init__(self, prioritizer, steps, parameter, agents_to_run, eval_freq=50, **kwargs):
         super().__init__(steps, agents_to_run, eval_freq)
         self.prioritizer = prioritizer
         self.parameter = parameter
+        self.look_ahead = kwargs['look_ahead']
+        self.reward_discount_factor = kwargs['reward_discount_factor']
 
 
 class EvaluatedModel:

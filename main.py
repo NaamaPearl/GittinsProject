@@ -24,7 +24,8 @@ def PlotEvaluation(vectors, method_type):
 def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_mdp, method_type_list):
     # creating simulation
     simulators = {method: SimulatorFactory(method, mdp, agents_to_run) for method in method_type_list}
-    simulator_inputs = {method: SimInputFactory(method, simulation_steps, agents_to_run) for method in method_type_list}
+    simulator_inputs = {method: SimInputFactory(method, simulation_steps, agents_to_run, look_ahead=2,
+                                                reward_discount_factor=1) for method in method_type_list}
 
     chain_activation = {key: 0 for key in method_type_list}
     reward_eval = {key: 0 for key in method_type_list}

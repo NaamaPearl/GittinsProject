@@ -13,41 +13,50 @@ class Prioritizer:
         self.r = None
         self.P = None
 
-    def GradeStates(self, states, policy, p_r, random_prio=False):
-        return {state.idx: random.random() for state in states}
+    def GradeStates(self, **kwargs):
+        return {state.idx: random.random() for state in kwargs['states']}
 
 
 class GittinsPrioritizer(Prioritizer):
-    def InitProbMat(self, p):
-        prob_mat = np.zeros((self.n, self.n))
+    def InitProbMat(self, p, look_ahead):
+        prob_mat = [np.zeros((self.n, self.n)) for _ in range(look_ahead)]
         for state in range(self.n):
             action = self.policy[state]
-            prob_mat[state] = p[state][action]
+            prob_mat[0][state] = p[state][action]
+
+        for i in range(1, look_ahead):
+            prob_mat[i] = prob_mat[i - 1] @ prob_mat[0]
 
         return prob_mat
 
-    def InitRewardVec(self, reward_mat):
+    def InitRewardVec(self, reward_mat, look_ahead, gamma):
+        immediate_r = np.zeros(self.n)
         r = np.zeros(self.n)
         for idx in range(self.n):
-            r[idx] = reward_mat[idx][self.policy[idx]]
+            immediate_r[idx] = reward_mat[idx][self.policy[idx]]
+
+        for state_idx in range(self.n):
+            for i in range(1, look_ahead):
+                p = self.P[i][state_idx]
+                r[state_idx] += (gamma * (p @ immediate_r))
 
         return r
 
-    def GradeStates(self, states, policy, p_r, random_prio=False):
+    def GradeStates(self, **kwargs):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.
         """
 
-        if random_prio:
-            return super().GradeStates(states, policy, p_r)
+        if kwargs['random_prio']:
+            return super().GradeStates(**kwargs)
 
-        self.n = len(states)
-        self.policy = policy
-        self.r = self.InitRewardVec(p_r[1])
-        self.P = self.InitProbMat(p_r[0])
+        self.n = len(kwargs['states'])
+        self.policy = kwargs['policy']
+        self.P = self.InitProbMat(kwargs['p'], kwargs['look_ahead'])
+        r = self.InitRewardVec(kwargs['r'], kwargs['look_ahead'], kwargs['discount'])
 
-        rs_list = [PrioritizedObject(s, r) for s, r in zip(states, self.r)]
+        rs_list = [PrioritizedObject(s, r) for s, r in zip(kwargs['states'], r)]
         result = {}
         score = 1  # score is order of extraction
 
@@ -70,7 +79,7 @@ class GittinsPrioritizer(Prioritizer):
         """
     calculate new transition probabilities, after optimal state omission (invoked after removal)
     """
-        P = self.P
+        P = self.P[-1]
         for state1 in rs_list:
             s1 = state1.object.idx
             if P[s1, opt_s.idx] > 0:  # only update P for states from which opt_s is reachable
@@ -87,7 +96,7 @@ class GittinsPrioritizer(Prioritizer):
         calc state's index after omission
         """
         action = self.policy[opt_s.idx]
-        P = self.P
+        P = self.P[-1]
         state_idx = state.idx
         opt_state_idx = opt_s.idx
 
