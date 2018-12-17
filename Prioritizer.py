@@ -41,6 +41,7 @@ class GittinsPrioritizer(Prioritizer):
             immediate_r[idx] = reward_mat[idx][self.policy[idx]]
 
         for state_idx in range(self.n):
+            r[state_idx] = immediate_r[state_idx]
             for i in range(1, look_ahead):
                 p = self.P[i][state_idx]
                 r[state_idx] += (gamma * (p @ immediate_r))

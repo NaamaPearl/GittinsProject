@@ -4,7 +4,6 @@ from MDPModel import *
 from functools import reduce
 from framework import *
 from Critic import *
-import heapq
 
 
 class StateActionPair:
@@ -188,6 +187,7 @@ class SimulatedModel:
         self.MDP_model: MDPModel = mdp_model
         self.policy_dynamics = np.zeros((mdp_model.n, mdp_model.n))
         self.policy_expected_rewards = np.zeros(mdp_model.n)
+        self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(mdp_model.n)]
 
     def CalcPolicyData(self, policy):
         for i, a in enumerate(policy):
@@ -252,12 +252,10 @@ class Simulator:
         self.gamma = sim_input.gamma
         self.epsilon = sim_input.epsilon
         self.evaluated_model = EvaluatedModel()
-        self.evaluate_policy = None
         self.policy = None
         self.critic = None
-        self.states = None
 
-        self.InitParams()
+        self.InitParams(eval_type=sim_input.eval_type)
 
     def InitStatics(self):
         SimulatedState.policy = self.policy
@@ -269,23 +267,19 @@ class Simulator:
         StateActionPair.r_hat_mat = self.evaluated_model.r_hat
         StateActionPair.visitations_mat = self.evaluated_model.visitations
 
-    def InitParams(self):
-        self.critic = CriticFactory.Generate(type=self.MDP_model.MDP_model.type, chain_num=self.MDP_model.chain_num)
+    def InitParams(self, **kwargs):
+        self.critic = CriticFactory.Generate(model=self.MDP_model.MDP_model,
+                                             evaluator_type=kwargs['eval_type'])
         state_num = self.MDP_model.n
         SimulatedState.action_num = self.MDP_model.actions
-        self.evaluate_policy = []
         self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
-        self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(state_num)]
         self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
         self.MDP_model.CalcPolicyData(self.policy)
 
         self.InitStatics()
 
-    def FindChain(self, idx):
-        return self.MDP_model.FindChain(idx)
-
     def ImprovePolicy(self, *argv):
-        for state in self.states:
+        for state in self.MDP_model.states:
             state.policy_action = state.best_action.action
 
         self.MDP_model.CalcPolicyData(self.policy)
@@ -301,7 +295,7 @@ class Simulator:
         state_action.Q_hat += a_n * state_action.TD_error
 
     def SampleStateAction(self, state_action: StateActionPair):
-        next_state = self.states[self.MDP_model.GetNextState(state_action)]
+        next_state = self.MDP_model.states[self.MDP_model.GetNextState(state_action)]
         reward = self.MDP_model.GetReward(state_action)
         self.UpdateReward(state_action, reward)
         self.UpdateP(state_action, next_state)
@@ -328,22 +322,6 @@ class Simulator:
         state_action.r_hat = (state_action.r_hat * state_action.visitations + new_reward) / (
                 state_action.visitations + 1)
 
-    def EvaluatePolicy(self, trajectory_len):
-        reward = 0
-        good_agents = 0
-        for _ in range(50):
-            agent = Agent(0, self.states[np.random.choice(list(self.MDP_model.init_states_idx))])
-            agent.curr_state = self.states[self.MDP_model.GetNextState(agent.curr_state.policy_action)]
-            if agent.curr_state.chain == 0:
-                continue
-
-            good_agents += 1
-            for _ in range(trajectory_len):
-                reward += self.MDP_model.GetReward(agent.curr_state.policy_action)
-                agent.curr_state = self.states[self.MDP_model.GetNextState(agent.curr_state.policy_action)]
-
-        self.evaluate_policy.append(reward / good_agents)
-
     def simulate(self, sim_input):
         self.InitParams()
 
@@ -352,7 +330,7 @@ class Simulator:
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
-                self.EvaluatePolicy(50)
+                self.critic.EvaluatePolicy(50)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 print('simulate step ' + str(i))
                 self.Reset()
@@ -399,14 +377,14 @@ class AgentSimulator(Simulator):
 
     def InitParams(self):
         super().InitParams()
-        self.graded_states = {state.idx: random.random() for state in self.states}
+        self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
         self.init_prob = self.MDP_model.init_prob
         self.ResetAgents(self.agents_num)
-        self.graded_states = {state.idx: random.random() for state in self.states}
+        self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
         self.init_prob = self.MDP_model.init_prob
 
     def ChooseInitState(self):
-        return np.random.choice(self.states, p=self.init_prob)
+        return np.random.choice(self.MDP_model.states, p=self.init_prob)
 
     def GetStatsForGittins(self, parameter):
         if parameter is None:
@@ -424,7 +402,7 @@ class AgentSimulator(Simulator):
         sim_input: AgentSimulationInput = argv[0]
         iteration_num = argv[1]
         p, r = self.GetStatsForGittins(sim_input.parameter)
-        self.graded_states = sim_input.prioritizer.GradeStates(states=self.states,
+        self.graded_states = sim_input.prioritizer.GradeStates(states=self.MDP_model.states,
                                                                policy=self.policy,
                                                                p=p,
                                                                r=r,
@@ -490,7 +468,7 @@ class PrioritizedSweeping(Simulator):
         self.state_actions_score = np.inf * np.ones((self.MDP_model.n, self.MDP_model.actions))
         super().InitParams()
         self.state_actions = [[SweepingPrioObject(state_action, StateActionScore(state_action))
-                               for state_action in state.actions] for state in self.states[1:]]
+                               for state_action in state.actions] for state in self.MDP_model.states[1:]]
 
     def InitStatics(self):
         StateActionScore.score_mat = self.state_actions_score
