@@ -2,7 +2,7 @@ import numpy as np
 
 
 class ProblemInput:
-    def __init__(self, MDP_model, agent_num, eval_type, gamma=0.9, epsilon=0.1):
+    def __init__(self, MDP_model, agent_num, eval_type, gamma, epsilon=0.1):
         self.MDP_model = MDP_model
         self.agent_num = agent_num
         self.gamma = gamma
@@ -11,17 +11,18 @@ class ProblemInput:
 
 
 class SimulationInput:
-    def __init__(self, steps, agents_to_run, eval_freq=50, reset_freq=50, grades_freq=10):
+    def __init__(self, steps, agents_to_run, trajectory_len, eval_freq=50, reset_freq=50, grades_freq=10):
         self.steps = steps
         self.reset_freq = reset_freq
         self.grades_freq = grades_freq
         self.evaluate_freq = eval_freq
         self.agents_to_run = agents_to_run
+        self.trajectory_len = trajectory_len
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, steps, parameter, agents_to_run, eval_freq=50):
-        super().__init__(steps, agents_to_run, eval_freq)
+    def __init__(self, prioritizer, steps, parameter, agents_to_run, trajectory_len, eval_freq=50):
+        super().__init__(steps, agents_to_run, eval_freq, trajectory_len)
         self.prioritizer = prioritizer
         self.parameter = parameter
 
