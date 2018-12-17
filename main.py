@@ -3,21 +3,23 @@ from ModelSimulator import *
 from framework import *
 
 
-def CompareActivations(vectors, chain_num, method_type):
+def CompareActivations(data_output):
     plt.figure()
     tick_shift = [-0.25, -0.05, 0.15, 0.35]
-    [plt.bar([tick_shift[_iter] + s for s in range(chain_num)], vectors[method_type[_iter]], width=0.1, align='center')
-     for _iter in range(len(vectors))]
+    chain_num = len(data_output[0][0].chain_activation)
+    [plt.bar([tick_shift[_iter] + s for s in range(chain_num)], data_output[_iter][0].chain_activation, width=0.1, align='center')
+     for _iter in range(len(data_output))]
 
     plt.xticks(range(chain_num), ['chain ' + str(s) for s in range(4)])
-    plt.legend(method_type)
+    plt.legend([data_output[_iter][1] for _iter in range(len(data_output))])
     plt.title('Agents Activation per Chains')
 
 
-def PlotEvaluation(vectors, method_type, optimal_policy_reward):
+def PlotEvaluation(data_output, optimal_policy_reward):
     plt.figure()
-    [plt.plot(vectors[method_type[_iter]]) for _iter in range(len(vectors))]
+    [plt.plot(data_output[_iter][0].reward_eval) for _iter in range(len(data_output))]
     plt.axhline(y=optimal_policy_reward, color='r', linestyle='-')
+    method_type = [data_output[_iter][1] for _iter in range(len(data_output))]
     method_type.append('optimal policy value')
     plt.legend(method_type)
     plt.title('Reward Eval')
@@ -58,28 +60,30 @@ def RunSimulations(_method_dict, _mdp_list, runs_per_mdp):
     return result
 
 
-def PlotResults(results):
+def PlotResults(results, opt_policy_reward):
     for i in range(len(results)):
         res = results[i]
 
         data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param))
                                            for param in res[method].keys()] for method in res.keys()])
-        # CompareActivations(data) # TODO - fix
-        # PlotEvaluation(reward_eval, method_type_list, mdp.CalcOptExpectedReward(trajectory_len)) # TODO - fix
+        CompareActivations(data)
+        PlotEvaluation(data, opt_policy_reward)
 
 
 if __name__ == '__main__':
     n = 21
-    mdp_num = 1
+    mdp_num = 1 # TODO doesnt work yet for more than one
     gamma = 0.9
     trajectory_len = 50
     eval_type = 'online'
     agents_to_run = 10
-    method_dict = {'random': [None], 'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
+    method_dict = {'random': [None], 'greedy': ['reward', 'error']}
+    # method_dict = {'random': [None], 'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
     mdp_list = [SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma,
                                   trajectory_len=trajectory_len) for _ in range(mdp_num)]
     simulation_steps = 1000
 
-    PlotResults(RunSimulations(method_dict, mdp_list, runs_per_mdp=1))
+    opt_policy_reward = [mdp.CalcOptExpectedReward(trajectory_len) for mdp in mdp_list]
+    PlotResults(RunSimulations(method_dict, mdp_list, runs_per_mdp=1), opt_policy_reward)
 
     print('all done')
