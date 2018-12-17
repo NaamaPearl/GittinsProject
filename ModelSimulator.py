@@ -1,5 +1,5 @@
 import queue as Q
-from Prioritizer import Prioritizer, GittinsPrioritizer
+from Prioritizer import Prioritizer, GittinsPrioritizer, GreedyPrioritizer
 from MDPModel import *
 from functools import reduce
 from framework import *
@@ -160,6 +160,10 @@ class SimulatedState:
     @property
     def best_action(self):
         return max(self.actions)
+
+    @property
+    def highest_error_action(self):
+        return max(self.actions, key=lambda x: abs(x.TD_error))
 
     @property
     def r_hat(self):
@@ -406,7 +410,7 @@ class AgentSimulator(Simulator):
 
     def GetStatsForGittins(self, parameter):
         if parameter is None:
-            return
+            return None, None
         if parameter == 'reward':
             return self.evaluated_model.P_hat, self.evaluated_model.r_hat
         if parameter == 'error':
@@ -419,12 +423,16 @@ class AgentSimulator(Simulator):
     def ImprovePolicy(self, *argv):
         sim_input: AgentSimulationInput = argv[0]
         iteration_num = argv[1]
-        self.graded_states = sim_input.prioritizer.GradeStates(self.states,
-                                                               self.policy,
-                                                               self.GetStatsForGittins(sim_input.parameter),
-                                                               iteration_num < self.MDP_model.n * 4)
+        p, r = self.GetStatsForGittins(sim_input.parameter)
+        self.graded_states = sim_input.prioritizer.GradeStates(states=self.states,
+                                                               policy=self.policy,
+                                                               p=p,
+                                                               r=r,
+                                                               look_ahead=2,
+                                                               discount=1,
+                                                               random_prio=iteration_num < self.MDP_model.n * 4)
         self.ReGradeAllAgents()
-        super().ImprovePolicy()
+        super().ImprovePolicy(sim_input)
 
     def ReGradeAllAgents(self):
         """invoked after states re-prioritization. Replaces queue"""
@@ -548,7 +556,7 @@ def SimulatorFactory(method_type, mdp, agents_to_run):
     if method_type == 'error':
         return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run * 3))
     if method_type == 'sweeping':
-        return PrioritizedSweeping(ProblemInput(SimulatedModel(mdp), agent_num=1))
+        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run * 3))
     raise IOError('unrecognized methid type:' + method_type)
 
 
@@ -558,13 +566,12 @@ def SimInputFactory(method_type, simulation_steps, agents_to_run):
                                     agents_to_run=agents_to_run)
     if method_type == 'reward':
         return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
-                                    parameter='reward',
-                                    agents_to_run=agents_to_run)
+                                    parameter='reward', agents_to_run=agents_to_run)
     if method_type == 'error':
         return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
-                                    parameter='error',
-                                    agents_to_run=agents_to_run)
+                                    parameter='error', agents_to_run=agents_to_run)
     if method_type == 'sweeping':
-        return SimulationInput(steps=simulation_steps, agents_to_run=agents_to_run)
+        return AgentSimulationInput(prioritizer=GreedyPrioritizer(), steps=simulation_steps,
+                                    parameter='error', agents_to_run=agents_to_run)
 
     raise IOError('unrecognized method type:' + method_type)
