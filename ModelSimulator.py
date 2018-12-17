@@ -170,22 +170,10 @@ class SimulatedState:
         return self.policy_action.r_hat
 
 
-class Agent:
-    def __init__(self, idx, init_state: SimulatedState):
-        self.idx = idx
-        self.curr_state: SimulatedState = init_state
-
-    def __lt__(self, other):
-        return random.choice([True, False])
-
-    @property
-    def chain(self):
-        return self.curr_state.chain
-
-
 class SimulatedModel:
     def __init__(self, mdp_model):
         self.MDP_model: MDPModel = mdp_model
+        SimulatedState.action_num = mdp_model.actions
         self.policy_dynamics = np.zeros((mdp_model.n, mdp_model.n))
         self.policy_expected_rewards = np.zeros(mdp_model.n)
         self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(mdp_model.n)]
@@ -213,16 +201,6 @@ class SimulatedModel:
         if self.MDP_model.reward_type == 'bernuly':
             return params[0] * np.random.binomial(1, params[1])
 
-        # if time_to_run > 1:
-        #     position_vec = np.zeros(self.MDP_model.n)
-        #     position_vec[state_action.state.idx] = 1
-        #
-        #     for i in range(time_to_run - 1):  # first simulation is made in the previous row
-        #         position_vec = self.policy_dynamics @ position_vec
-        #         reward += (gamma ** i * (position_vec @ self.policy_expected_rewards))
-        #
-        # return reward
-
     @property
     def n(self):
         return self.MDP_model.n
@@ -246,17 +224,22 @@ class SimulatedModel:
     def init_states_idx(self):
         return self.MDP_model.init_states_idx
 
+    @property
+    def type(self):
+        return self.MDP_model.type
+
 
 class Simulator:
     def __init__(self, sim_input: ProblemInput):
         self.MDP_model: SimulatedModel = sim_input.MDP_model
+        self.evaluation_type = sim_input.eval_type
         self.gamma = sim_input.gamma
         self.epsilon = sim_input.epsilon
         self.evaluated_model = EvaluatedModel()
         self.policy = None
         self.critic = None
 
-        self.InitParams(eval_type=sim_input.eval_type)
+        self.InitParams(eval_type=self.evaluation_type)
 
     def InitStatics(self):
         SimulatedState.policy = self.policy
@@ -269,7 +252,7 @@ class Simulator:
         StateActionPair.visitations_mat = self.evaluated_model.visitations
 
     def InitParams(self, **kwargs):
-        self.critic = CriticFactory.Generate(model=self.MDP_model.MDP_model,
+        self.critic = CriticFactory.Generate(model=self.MDP_model,
                                              evaluator_type=kwargs['eval_type'])
         state_num = self.MDP_model.n
         SimulatedState.action_num = self.MDP_model.actions
@@ -305,7 +288,7 @@ class Simulator:
         self.Update_Q(state_action, next_state, reward)
         state_action.UpdateVisits()
 
-        return next_state
+        return reward, next_state
 
     def UpdateP(self, state_action: StateActionPair, next_state: SimulatedState):
         curr_num_of_tran = state_action.P_hat * state_action.visitations
@@ -324,14 +307,14 @@ class Simulator:
                 state_action.visitations + 1)
 
     def simulate(self, sim_input):
-        self.InitParams()
+        self.InitParams(eval_type=self.evaluation_type)
 
         for i in range(sim_input.steps):
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
-                self.critic.EvaluatePolicy(sim_input.trajectory_len)
+                self.Evaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 self.Reset()
 
@@ -341,29 +324,8 @@ class Simulator:
     def SimulateOneStep(self, agents_to_run):
         pass
 
-    # @property
-    # def V_hat(self):
-    #     return self.evaluated_model.V_hat
-    #
-    # @property
-    # def Q_hat(self):
-    #     return self.evaluated_model.Q_hat
-    #
-    # @property
-    # def P_hat(self):
-    #     return self.evaluated_model.P_hat
-    #
-    # @property
-    # def r_hat(self):
-    #     return self.evaluated_model.r_hat
-    #
-    # @property
-    # def TD_error(self):
-    #     return self.evaluated_model.TD_error
-    #
-    # @property
-    # def policy(self):
-    #     return self.evaluated_model.policy
+    def Evaluate(self, **kwargs):
+        self.critic.Evaluate(**kwargs)
 
 
 class AgentSimulator(Simulator):
@@ -373,14 +335,16 @@ class AgentSimulator(Simulator):
         self.agents = Q.PriorityQueue()
         self.graded_states = None
         self.init_prob = None
-        self.agents_to_run = None
 
-    def InitParams(self):
-        super().InitParams()
+    def Evaluate(self, **kwargs):
+        kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
+        super().Evaluate(**kwargs)
+
+    def InitParams(self, **kwargs):
+        super().InitParams(**kwargs)
         self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
         self.init_prob = self.MDP_model.init_prob
         self.ResetAgents(self.agents_num)
-        self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
         self.init_prob = self.MDP_model.init_prob
 
     def ChooseInitState(self):
@@ -441,7 +405,8 @@ class AgentSimulator(Simulator):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
         state_action = self.ChooseAction(agent.curr_state)
 
-        next_state = self.SampleStateAction(state_action)
+        reward, next_state = self.SampleStateAction(state_action)
+        agent.accumulated_reward += reward
         agent.curr_state = next_state
 
     def Reset(self):
@@ -464,9 +429,9 @@ class PrioritizedSweeping(Simulator):
         self.state_actions_score = None
         super().__init__(sim_input)
 
-    def InitParams(self):
+    def InitParams(self, **kwargs):
         self.state_actions_score = np.inf * np.ones((self.MDP_model.n, self.MDP_model.actions))
-        super().InitParams()
+        super().InitParams(**kwargs)
         self.state_actions = [[SweepingPrioObject(state_action, StateActionScore(state_action))
                                for state_action in state.actions] for state in self.MDP_model.states[1:]]
 
@@ -526,39 +491,28 @@ class PrioritizedSweeping(Simulator):
             next_state.predecessor.add(state_action)
 
 
-def SimulatorFactory(method_type, mdp, agents_to_run, gamma):
+def SimulatorFactory(method_type, mdp, agents_to_run, gamma, eval_type):
     simulated_mdp = SimulatedModel(mdp)
     if method_type == 'random':
         agent_num = agents_to_run
-    if method_type == 'reward':
-        agent_num = agents_to_run * 3
-    if method_type == 'error':
-        agent_num = agents_to_run * 3
-    if method_type == 'sweeping':
+    elif method_type in ['gittins', 'greedy']:
         agent_num = agents_to_run * 3
     else:
         raise IOError('unrecognized methid type:' + method_type)
 
     return AgentSimulator(
-        ProblemInput(simulated_mdp, agent_num=agent_num, gamma=gamma))
+        ProblemInput(simulated_mdp, agent_num=agent_num, gamma=gamma, eval_type=eval_type))
 
 
-def SimInputFactory(method_type, simulation_steps, agents_to_run, trajectory_len):
+def SimInputFactory(method_type, parameter, simulation_steps, agents_to_run, trajectory_len):
+    simulation_input_type = AgentSimulationInput
+
     if method_type == 'random':
-        simulation_input_type = AgentSimulationInput
         parameter = None
         prioritizer = Prioritizer
-    if method_type == 'reward':
-        simulation_input_type = AgentSimulationInput
-        parameter = 'reward'
+    elif method_type == 'gittins':
         prioritizer = GittinsPrioritizer
-    if method_type == 'error':
-        simulation_input_type = AgentSimulationInput
-        parameter = 'error'
-        prioritizer = GittinsPrioritizer
-    if method_type == 'sweeping':
-        simulation_input_type = AgentSimulationInput
-        parameter = 'error'
+    elif method_type == 'greedy':
         prioritizer = GreedyPrioritizer
     else:
         raise IOError('unrecognized method type:' + method_type)

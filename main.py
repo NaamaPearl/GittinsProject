@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-from framework import *
 from ModelSimulator import *
+from framework import *
 
 
 def CompareActivations(vectors, chain_num, method_type):
@@ -17,49 +17,69 @@ def CompareActivations(vectors, chain_num, method_type):
 def PlotEvaluation(vectors, method_type, optimal_policy_reward):
     plt.figure()
     [plt.plot(vectors[method_type[_iter]]) for _iter in range(len(vectors))]
-    [plt.plot(vectors[method_type[i]]) for i in range(len(vectors))]
     plt.axhline(y=optimal_policy_reward, color='r', linestyle='-')
+    method_type.append('optimal policy value')
     plt.legend(method_type)
     plt.title('Reward Eval')
 
 
-def RunSimulationsOnMdp(_mdp, simulation_steps, agents_to_run, runs_for_specific_mdp, _method_type_list, gamma, trajectory_len):
-    # creating simulation
-    simulators = {method: SimulatorFactory(method, mdp, agents_to_run, gamma) for method in method_type_list}
-    simulator_inputs = {method: SimInputFactory(method, simulation_steps, agents_to_run, trajectory_len) for method in method_type_list}
+def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp):
+    simulation_outputs = {method: {parameter: ChainSimulationOutput() for parameter in method_dict[method]}
+                          for method in method_dict.keys()}
 
-    chain_activation = {key: 0 for key in method_type_list}
-    reward_eval = {key: 0 for key in method_type_list}
+    for i in range(runs_per_mdp):
+        for method in simulators.keys():
+            simulator = simulators[method]
+            for simulation_input in simulation_inputs[method]:
+                simulator.simulate(simulation_input)
 
-    for i in range(runs_for_specific_mdp):
-
-        for method in method_type_list:
-            simulators[method].simulate(simulator_inputs[method])
-            chain_activation[method] += (
-                    np.asarray(simulators[method].critic.chain_activations) / runs_for_specific_mdp)
-            reward_eval[method] += (np.asarray(simulators[method].evaluate_policy) / runs_for_specific_mdp)
+                simulation_output = simulation_outputs[method][simulation_input.parameter]
+                simulation_output.chain_activation += (
+                        np.asarray(simulator.critic.chain_activations) / runs_per_mdp)
+                simulation_output.reward_eval += (np.asarray(simulator.critic.value_vec) / runs_per_mdp)
             # print('simulate finished, %s agents activated' % sum(simulators[method].critic.chain_activations))
 
-    return chain_activation, reward_eval
+    return simulation_outputs
+
+
+def RunSimulations(_method_dict, _mdp_list, runs_per_mdp):
+    simulators = [{
+        method: SimulatorFactory(method, mdp, agents_to_run, gamma, eval_type)
+        for method in _method_dict.keys()} for mdp in _mdp_list]
+
+    simulation_inputs = {method: [
+        SimInputFactory(method, parameter, simulation_steps, agents_to_run, trajectory_len)
+        for parameter in method_dict[method]] for method in method_dict.keys()}
+
+    result = []
+    for i in range(len(mdp_list)):
+        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, runs_per_mdp))
+
+    return result
+
+
+def PlotResults(results):
+    for i in range(len(results)):
+        res = results[i]
+
+        data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param))
+                                           for param in res[method].keys()] for method in res.keys()])
+        # CompareActivations(data) # TODO - fix
+        # PlotEvaluation(reward_eval, method_type_list, mdp.CalcOptExpectedReward(trajectory_len)) # TODO - fix
 
 
 if __name__ == '__main__':
     n = 21
-    method_type_list = ['sweeping']
-    # method_type_list = ['random', 'error', 'reward', 'sweeping']
     mdp_num = 1
     gamma = 0.9
     trajectory_len = 50
+    eval_type = 'online'
+    agents_to_run = 10
+    method_dict = {'random': [None], 'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
+    mdp_list = [SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma,
+                                  trajectory_len=trajectory_len) for _ in range(mdp_num)]
+    simulation_steps = 1000
 
-    for i in range(mdp_num):
-        mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma, trajectory_len=trajectory_len)
-
-        activations, reward_eval = RunSimulationsOnMdp(mdp,
-                                                       simulation_steps=5000,
-                                                       agents_to_run=10,
-                                                       runs_for_specific_mdp=3,
-                                                       method_type_list=method_type_list)
-        CompareActivations(activations, 2, method_type_list)
-        PlotEvaluation(reward_eval, method_type_list, mdp.CalcOptExpectedReward(trajectory_len))
+    PlotResults(RunSimulations(method_dict, mdp_list, runs_per_mdp=1))
 
     print('all done')

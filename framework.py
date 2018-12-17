@@ -1,4 +1,6 @@
 import numpy as np
+import random
+from collections import namedtuple
 
 
 class ProblemInput:
@@ -18,6 +20,29 @@ class SimulationInput:
         self.evaluate_freq = eval_freq
         self.agents_to_run = agents_to_run
         self.trajectory_len = trajectory_len
+
+
+class ChainSimulationOutput:
+    def __init__(self):
+        self.chain_activation = 0
+        self.reward_eval = 0
+
+
+SimulationData = namedtuple('SimulationData', ('input', 'output'))
+
+
+class Agent:
+    def __init__(self, idx, init_state):
+        self.idx = idx
+        self.curr_state = init_state
+        self.accumulated_reward = 0
+
+    def __lt__(self, other):
+        return random.choice([True, False])
+
+    @property
+    def chain(self):
+        return self.curr_state.chain
 
 
 class AgentSimulationInput(SimulationInput):
@@ -79,5 +104,3 @@ class SweepingPrioObject(PrioritizedObject):
     def __gt__(self, other):
         return super().__gt__(other)
         # return self.active * super().__gt__(other)
-
-
