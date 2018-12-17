@@ -14,17 +14,18 @@ def CompareActivations(vectors, chain_num, method_type):
     plt.title('Agents Activation per Chains')
 
 
-def PlotEvaluation(vectors, method_type):
+def PlotEvaluation(vectors, method_type, optimal_policy_reward):
     plt.figure()
     [plt.plot(vectors[method_type[i]]) for i in range(len(vectors))]
+    plt.axhline(y=optimal_policy_reward, color='r', linestyle='-')
     plt.legend(method_type)
     plt.title('Reward Eval')
 
 
-def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_mdp, method_type_list):
+def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_mdp, method_type_list, gamma, trajectory_len):
     # creating simulation
-    simulators = {method: SimulatorFactory(method, mdp, agents_to_run) for method in method_type_list}
-    simulator_inputs = {method: SimInputFactory(method, simulation_steps, agents_to_run) for method in method_type_list}
+    simulators = {method: SimulatorFactory(method, mdp, agents_to_run, gamma) for method in method_type_list}
+    simulator_inputs = {method: SimInputFactory(method, simulation_steps, agents_to_run, trajectory_len) for method in method_type_list}
 
     chain_activation = {key: 0 for key in method_type_list}
     reward_eval = {key: 0 for key in method_type_list}
@@ -43,19 +44,23 @@ def RunSimulationsOnMdp(mdp, simulation_steps, agents_to_run, runs_for_specific_
 
 if __name__ == '__main__':
     n = 21
-    # method_type_list = ['sweeping']
-    method_type_list = ['random', 'error', 'reward', 'sweeping']
+    method_type_list = ['sweeping']
+    # method_type_list = ['random', 'error', 'reward', 'sweeping']
     mdp_num = 1
+    gamma = 0.9
+    trajectory_len = 50
 
     for i in range(mdp_num):
-        mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss')
+        mdp = SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma, trajectory_len=trajectory_len)
 
         activations, reward_eval = RunSimulationsOnMdp(mdp,
                                                        simulation_steps=5000,
                                                        agents_to_run=10,
-                                                       runs_for_specific_mdp=3,
-                                                       method_type_list=method_type_list)
+                                                       runs_for_specific_mdp=1,
+                                                       method_type_list=method_type_list,
+                                                       gamma=gamma,
+                                                       trajectory_len=trajectory_len)
         CompareActivations(activations, 2, method_type_list)
-        PlotEvaluation(reward_eval, method_type_list)
+        PlotEvaluation(reward_eval, method_type_list, mdp.CalcOptExpectedReward(trajectory_len))
 
     print('all done')

@@ -352,9 +352,8 @@ class Simulator:
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
-                self.EvaluatePolicy(50)
+                self.EvaluatePolicy(sim_input.trajectory_len)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
-                print('simulate step ' + str(i))
                 self.Reset()
 
     def Reset(self):
@@ -548,30 +547,42 @@ class PrioritizedSweeping(Simulator):
             next_state.predecessor.add(state_action)
 
 
-def SimulatorFactory(method_type, mdp, agents_to_run):
+def SimulatorFactory(method_type, mdp, agents_to_run, gamma):
+    simulated_mdp = SimulatedModel(mdp)
     if method_type == 'random':
-        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run))
+        agent_num = agents_to_run
     if method_type == 'reward':
-        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run * 3))
+        agent_num = agents_to_run * 3
     if method_type == 'error':
-        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run * 3))
+        agent_num = agents_to_run * 3
     if method_type == 'sweeping':
-        return AgentSimulator(ProblemInput(SimulatedModel(mdp), agent_num=agents_to_run * 3))
-    raise IOError('unrecognized methid type:' + method_type)
+        agent_num = agents_to_run * 3
+    else:
+        raise IOError('unrecognized methid type:' + method_type)
+
+    return AgentSimulator(
+        ProblemInput(simulated_mdp, agent_num=agent_num, gamma=gamma))
 
 
-def SimInputFactory(method_type, simulation_steps, agents_to_run):
+def SimInputFactory(method_type, simulation_steps, agents_to_run, trajectory_len):
     if method_type == 'random':
-        return AgentSimulationInput(prioritizer=Prioritizer(), steps=simulation_steps, parameter=None,
-                                    agents_to_run=agents_to_run)
+        simulation_input_type = AgentSimulationInput
+        parameter = None
+        prioritizer = Prioritizer
     if method_type == 'reward':
-        return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
-                                    parameter='reward', agents_to_run=agents_to_run)
+        simulation_input_type = AgentSimulationInput
+        parameter = 'reward'
+        prioritizer = GittinsPrioritizer
     if method_type == 'error':
-        return AgentSimulationInput(prioritizer=GittinsPrioritizer(), steps=simulation_steps,
-                                    parameter='error', agents_to_run=agents_to_run)
+        simulation_input_type = AgentSimulationInput
+        parameter = 'error'
+        prioritizer = GittinsPrioritizer
     if method_type == 'sweeping':
-        return AgentSimulationInput(prioritizer=GreedyPrioritizer(), steps=simulation_steps,
-                                    parameter='error', agents_to_run=agents_to_run)
+        simulation_input_type = AgentSimulationInput
+        parameter = 'error'
+        prioritizer = GreedyPrioritizer
+    else:
+        raise IOError('unrecognized method type:' + method_type)
 
-    raise IOError('unrecognized method type:' + method_type)
+    return simulation_input_type(prioritizer=prioritizer(), steps=simulation_steps,
+                                 agents_to_run=agents_to_run, parameter=parameter, trajectory_len=trajectory_len)

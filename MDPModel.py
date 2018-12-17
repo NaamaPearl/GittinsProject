@@ -1,9 +1,10 @@
 import numpy as np
 import random
+from functools import reduce
 
-
+threshold = 10 ** -3
 class MDPModel:
-    def __init__(self, n, actions, reward_type, chain_num):
+    def __init__(self, n, actions, reward_type, chain_num, gamma):
         self.n: int = n
         self.type = 'regular'
         self.chain_num = chain_num
@@ -14,6 +15,8 @@ class MDPModel:
         self.reward_type = reward_type
 
         self.r = self.gen_r_mat()
+        self.gamma = gamma
+        self.opt_policy = self.CalcOptPolicy()
 
     def FindChain(self, state_idx):
         return 0
@@ -45,6 +48,35 @@ class MDPModel:
     def GenInitialProbability(self):
         return np.ones(self.n) / self.n
 
+    def CalcOptPolicy(self):
+        V = np.zeros(self.n)
+        V_old = np.ones(self.n)
+        policy = np.zeros(self.n, dtype=int)
+        while any(abs(V - V_old) > threshold):
+            V_old = np.copy(V)
+            for s in range(self.n):
+                r = [params[0] for params in self.r[s]]
+                V_new = r + self.gamma * (self.P[s] @ V_old)
+                V[s] = max(V_new)
+                policy[s] = np.argmax(V_new)
+        return policy
+
+    @property
+    def opt_r(self):
+        return np.array([self.r[s][self.opt_policy[s]][0] for s in range(self.n)])
+
+    @property
+    def opt_P(self):
+        prob_mat = np.zeros((self.n, self.n))
+        for state in range(self.n):
+            action = self.opt_policy[state]
+            prob_mat[state] = self.P[state][action]
+        return prob_mat
+
+    def CalcOptExpectedReward(self, trajectory_len):
+        return reduce((lambda x, y: x + y),
+                      [self.opt_r @ (self.init_prob @ (self.opt_P ** i)) for i in range(trajectory_len)])
+
 
 class RandomSinkMDP(MDPModel):
     def __init__(self, n, actions, reward_type, chain_num):
@@ -57,7 +89,7 @@ class RandomSinkMDP(MDPModel):
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, n, reward_param, reward_type, init_states_idx=frozenset({0})):
+    def __init__(self, n, reward_param, reward_type, gamma, trajectory_len, init_states_idx=frozenset({0})):
         self.chain_num = len(reward_param)
         self.init_states_idx = init_states_idx
         n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
@@ -67,7 +99,7 @@ class SeperateChainsMDP(MDPModel):
                        for i in range(self.chain_num)]
         self.reward_params = reward_param
 
-        super().__init__(n, actions=self.chain_size, reward_type=reward_type, chain_num=self.chain_num)
+        super().__init__(n, actions=self.chain_size, reward_type=reward_type, chain_num=self.chain_num, gamma=gamma)
         self.type = 'chains'
 
     def FindChain(self, state_idx):
@@ -142,8 +174,8 @@ class EyeMDP(MDPModel):
 
 class SingleLineMDP(MDPModel):
     def gen_r_mat(self):
-        r_mat = np.zeros((self.n, self.actions))
-        r_mat[self.n - 2][0] = 1
+        r_mat = [[(0, 0) for _ in range(self.actions)] for _ in range(self.n)]
+        r_mat[self.n - 2][0] = (1, 0)
         return r_mat
 
     def IsSinkState(self, state_idx):
@@ -156,4 +188,5 @@ class SingleLineMDP(MDPModel):
 
 
 if __name__ == '__main__':
+    single_line_msp = SingleLineMDP(n=6, actions=2, reward_type='bernuly', chain_num=1, gamma=0.9, trajectory_len=50)
     print('s')
