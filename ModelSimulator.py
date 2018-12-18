@@ -258,7 +258,7 @@ class Simulator:
 
         self.InitStatics()
 
-    def ImprovePolicy(self, *argv):
+    def ImprovePolicy(self, sim_input, step):
         for state in self.MDP_model.states:
             state.policy_action = state.best_action.action
 
@@ -365,9 +365,7 @@ class AgentSimulator(Simulator):
                        for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
         return self.MDP_model.MDP_model.P, reward_mat
 
-    def ImprovePolicy(self, *argv):
-        sim_input: AgentSimulationInput = argv[0]
-        iteration_num = argv[1]
+    def ImprovePolicy(self, sim_input, iteration_num):
         p, r = self.GetStatsForGittins(sim_input.parameter)
         self.graded_states = sim_input.prioritizer.GradeStates(states=self.MDP_model.states,
                                                                policy=self.policy,
@@ -377,7 +375,7 @@ class AgentSimulator(Simulator):
                                                                discount=1,
                                                                random_prio=iteration_num < self.MDP_model.n * 4)
         self.ReGradeAllAgents()
-        super().ImprovePolicy(sim_input)
+        super().ImprovePolicy(sim_input, iteration_num)
 
     def ReGradeAllAgents(self):
         """invoked after states re-prioritization. Replaces queue"""

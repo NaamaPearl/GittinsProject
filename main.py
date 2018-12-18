@@ -62,7 +62,7 @@ def RunSimulations(_mdp_list, runs_per_mdp, _sim_params):
 
     simulation_inputs = {method: [
         SimInputFactory(method, parameter, _sim_params)
-        for parameter in _sim_params['method_dict']] for method in _sim_params['method_dict'].keys()}
+        for parameter in _sim_params['method_dict'][method]] for method in _sim_params['method_dict'].keys()}
 
     result = []
     for i in range(len(mdp_list)):
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     ## define general simualtion params
     general_sim_params = {'method_dict': {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']},
-                  'steps': 5000,
+                  'steps': 1000,
                   'eval_type': 'offline',
                   'agents_to_run': 10,
                   'trajectory_len': 50,
@@ -105,7 +105,7 @@ if __name__ == '__main__':
                   'eval_freq': 50}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
-    res = RunSimulations(mdp_list, runs_per_mdp=5, _sim_params=general_sim_params)
+    res = RunSimulations(mdp_list, runs_per_mdp=2, _sim_params=general_sim_params)
     PlotResults(res, opt_policy_reward)
 
     print('all done')
