@@ -24,16 +24,19 @@ def PlotEvaluation(data_output, optimal_policy_reward):
         std = np.std(reward_eval, axis=0)
         # plt.plot(reward_eval)
         plt.errorbar(x=list(range(len(std))), y=np.mean(reward_eval, axis=0), yerr=std, marker='^')
-    plt.axhline(y=optimal_policy_reward, color='r', linestyle='-')
+    if len(opt_policy_reward) == 1:
+        plt.axhline(y=optimal_policy_reward, color='r', linestyle='-')
+    else:
+       plt.plot(optimal_policy_reward[0])
     method_type = [data_output[_iter][1] for _iter in range(len(data_output))]
     method_type.insert(0, 'optimal policy value')
     plt.legend(method_type)
     plt.title('Reward Eval')
 
 
-def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp):
-    simulation_outputs = {method: {parameter: ChainSimulationOutput() for parameter in method_dict[method]}
-                          for method in method_dict.keys()}
+def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp, sim_params):
+    simulation_outputs = {method: {parameter: ChainSimulationOutput() for parameter in sim_params['method_dict'][method]}
+                          for method in sim_params['method_dict'].keys()}
 
     for i in range(runs_per_mdp):
         print('     run number ' + str(i))
@@ -52,20 +55,19 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp):
     return simulation_outputs
 
 
-def RunSimulations(_method_dict, _mdp_list, runs_per_mdp):
+def RunSimulations(_mdp_list, runs_per_mdp, _sim_params):
     simulators = [{
-        method: SimulatorFactory(method, mdp, agents_to_run, gamma, eval_type)
-        for method in _method_dict.keys()} for mdp in _mdp_list]
+        method: SimulatorFactory(method, mdp, _sim_params)
+        for method in _sim_params['method_dict'].keys()} for mdp in _mdp_list]
 
     simulation_inputs = {method: [
-        SimInputFactory(method, parameter, simulation_steps, agents_to_run, trajectory_len)
-        for parameter in method_dict[method]] for method in method_dict.keys()}
+        SimInputFactory(method, parameter, _sim_params)
+        for parameter in _sim_params['method_dict']] for method in _sim_params['method_dict'].keys()}
 
     result = []
     for i in range(len(mdp_list)):
         print('run MDP num ' + str(i))
-        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, runs_per_mdp))
-
+        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, runs_per_mdp, _sim_params))
     return result
 
 
@@ -80,19 +82,24 @@ def PlotResults(results, opt_policy_reward):
 
 
 if __name__ == '__main__':
+
+    ## building the MDP's
     n = 21
     mdp_num = 1 # TODO doesnt work yet for more than one
     gamma = 0.9
-    trajectory_len = 50
-    eval_type = 'online'
-    agents_to_run = 10
-    # method_dict = {'random': [None], 'greedy': ['reward', 'error']}
-    method_dict = {'random': [None], 'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
-    mdp_list = [SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma,
-                                  trajectory_len=trajectory_len) for _ in range(mdp_num)]
-    simulation_steps = 5000
+    mdp_list = [SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma)
+                for _ in range(mdp_num)]
 
-    opt_policy_reward = [mdp.CalcOptExpectedReward(trajectory_len) for mdp in mdp_list]
-    PlotResults(RunSimulations(method_dict, mdp_list, runs_per_mdp=5), opt_policy_reward)
+    ## define general simualtion params
+    general_sim_params = {'method_dict': {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']},
+                  'steps': 5000,
+                  'eval_type': 'offline',
+                  'agents_to_run': 10,
+                  'trajectory_len': 50,
+                  'gamma': gamma,
+                  'eval_freq': 50}
+
+    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
+    PlotResults(RunSimulations(mdp_list, runs_per_mdp=5, _sim_params=general_sim_params), opt_policy_reward)
 
     print('all done')

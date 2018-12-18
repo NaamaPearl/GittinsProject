@@ -318,6 +318,8 @@ class Simulator:
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 self.Reset()
 
+        self.CalcResults()
+
     def Reset(self):
         pass
 
@@ -327,6 +329,9 @@ class Simulator:
     def Evaluate(self, **kwargs):
         self.critic.Evaluate(**kwargs)
 
+    def CalcResults(self):
+        if self.evaluation_type == 'online':
+            self.critic.value_vec = np.cumsum(self.critic.value_vec)
 
 class AgentSimulator(Simulator):
     def __init__(self, sim_input: ProblemInput):
@@ -338,6 +343,8 @@ class AgentSimulator(Simulator):
 
     def Evaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
+        kwargs['running_agents'] = min(reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
+                                       kwargs['running_agents'])
         super().Evaluate(**kwargs)
 
     def InitParams(self, **kwargs):
@@ -491,20 +498,20 @@ class PrioritizedSweeping(Simulator):
             next_state.predecessor.add(state_action)
 
 
-def SimulatorFactory(method_type, mdp, agents_to_run, gamma, eval_type):
+def SimulatorFactory(method_type, mdp, sim_params):
     simulated_mdp = SimulatedModel(mdp)
     if method_type == 'random':
-        agent_num = agents_to_run
+        agent_num = sim_params['agents_to_run']
     elif method_type in ['gittins', 'greedy']:
-        agent_num = agents_to_run * 3
+        agent_num = sim_params['agents_to_run'] * 3
     else:
-        raise IOError('unrecognized methid type:' + method_type)
+        raise IOError('unrecognized method type:' + method_type)
 
     return AgentSimulator(
-        ProblemInput(simulated_mdp, agent_num=agent_num, gamma=gamma, eval_type=eval_type))
+        ProblemInput(simulated_mdp, agent_num=agent_num, gamma=sim_params['gamma'], eval_type=sim_params['eval_type']))
 
 
-def SimInputFactory(method_type, parameter, simulation_steps, agents_to_run, trajectory_len):
+def SimInputFactory(method_type, parameter, sim_params):
     simulation_input_type = AgentSimulationInput
 
     if method_type == 'random':
@@ -517,5 +524,5 @@ def SimInputFactory(method_type, parameter, simulation_steps, agents_to_run, tra
     else:
         raise IOError('unrecognized method type:' + method_type)
 
-    return simulation_input_type(prioritizer=prioritizer(), steps=simulation_steps,
-                                 agents_to_run=agents_to_run, parameter=parameter, trajectory_len=trajectory_len)
+    return simulation_input_type(prioritizer=prioritizer(), steps=sim_params['steps'],
+                                 agents_to_run=sim_params['agents_to_run'], parameter=parameter, trajectory_len=sim_params['trajectory_len'])

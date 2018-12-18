@@ -1,6 +1,7 @@
 import numpy as np
 import random
 from functools import reduce
+from itertools import groupby
 
 threshold = 10 ** -3
 class MDPModel:
@@ -73,9 +74,17 @@ class MDPModel:
             prob_mat[state] = self.P[state][action]
         return prob_mat
 
-    def CalcOptExpectedReward(self, trajectory_len):
-        return reduce((lambda x, y: x + y),
-                      [self.opt_r @ (self.init_prob @ (self.opt_P ** i)) for i in range(trajectory_len)])
+    def CalcOptExpectedReward(self, params):
+        if params['eval_type'] == 'offline':
+            return reduce((lambda x, y: x + y),
+                          [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
+                           for i in range(params['trajectory_len'])])
+        if params['eval_type'] == 'online':
+            expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
+                                   for i in range(params['steps'])]
+            batch_reward = [sum(group)
+                              for group in np.array_split(expected_reward_vec, params['steps'] / params['eval_freq'])]
+            return np.cumsum(batch_reward)
 
 
 class RandomSinkMDP(MDPModel):
@@ -89,7 +98,7 @@ class RandomSinkMDP(MDPModel):
 
 
 class SeperateChainsMDP(MDPModel):
-    def __init__(self, n, reward_param, reward_type, gamma, trajectory_len, init_states_idx=frozenset({0})):
+    def __init__(self, n, reward_param, reward_type, gamma, init_states_idx=frozenset({0})):
         self.chain_num = len(reward_param)
         self.init_states_idx = init_states_idx
         n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
@@ -152,6 +161,8 @@ class SeperateChainsMDP(MDPModel):
 
         return super().gen_row_of_P(succesors, state_idx)
 
+    def CalcOptExpectedReward(self, trajectory_len):
+        return self.chain_num * super().CalcOptExpectedReward(trajectory_len)
 
 # class StarMDP(SeperateChainsMDP):
 #     def get_succesors(self, state_idx, action):
@@ -188,5 +199,5 @@ class SingleLineMDP(MDPModel):
 
 
 if __name__ == '__main__':
-    single_line_msp = SingleLineMDP(n=6, actions=2, reward_type='bernuly', chain_num=1, gamma=0.9, trajectory_len=50)
+    single_line_msp = SingleLineMDP(n=6, actions=2, reward_type='bernuly', chain_num=1, gamma=0.9)
     print('s')
