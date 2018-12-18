@@ -80,7 +80,7 @@ def PlotResults(results, opt_policy_reward):
 
 
 if __name__ == '__main__':
-    n = 21
+    n = 31
     mdp_num = 1 # TODO doesnt work yet for more than one
     gamma = 0.9
     trajectory_len = 50
@@ -88,11 +88,16 @@ if __name__ == '__main__':
     agents_to_run = 10
     # method_dict = {'random': [None], 'greedy': ['reward', 'error']}
     method_dict = {'random': [None], 'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
-    mdp_list = [SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma,
-                                  trajectory_len=trajectory_len) for _ in range(mdp_num)]
+    mdp_list = [SeperateChainsMDP(n=n,
+                                  reward_param={1: {'bernoulli_p': 1, 'gauss_params': (5, 1, 1)},
+                                                2: {'bernoulli_p': 0.1, 'gauss_params': (50, 1, 1)}},
+                                  reward_type='gauss',
+                                  gamma=gamma,
+                                  chain_num=3)
+                for _ in range(mdp_num)]
     simulation_steps = 5000
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(trajectory_len) for mdp in mdp_list]
-    PlotResults(RunSimulations(method_dict, mdp_list, runs_per_mdp=5), opt_policy_reward)
-
+    res = RunSimulations(method_dict, mdp_list, runs_per_mdp=5)
+    PlotResults(res, opt_policy_reward)
     print('all done')
