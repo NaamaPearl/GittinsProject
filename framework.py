@@ -25,7 +25,7 @@ class SimulationInput:
 class ChainSimulationOutput:
     def __init__(self):
         self.chain_activation = 0
-        self.reward_eval = 0
+        self.reward_eval = []
 
 
 SimulationData = namedtuple('SimulationData', ('input', 'output'))
