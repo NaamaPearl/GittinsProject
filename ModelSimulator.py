@@ -181,7 +181,7 @@ class SimulatedModel:
     def CalcPolicyData(self, policy):
         for i, a in enumerate(policy):
             self.policy_dynamics[i] = self.MDP_model.P[i][a]
-            self.policy_expected_rewards[i] = self.MDP_model.r[i][a][0]
+            self.policy_expected_rewards[i] = self.MDP_model.r[i][a].expected_reward
 
     def GetNextState(self, state_action, run_time=1):
         n_s = np.random.choice(range(self.MDP_model.n), p=self.MDP_model.P[state_action.state.idx][state_action.action])
@@ -195,11 +195,7 @@ class SimulatedModel:
         return np.linalg.inv(np.eye(self.MDP_model.n) - gamma * self.policy_dynamics) @ self.policy_expected_rewards
 
     def GetReward(self, state_action):
-        params = self.MDP_model.r[state_action.state.idx][state_action.action]
-        if self.MDP_model.reward_type == 'gauss':
-            return np.random.normal(params[0], params[1])
-        if self.MDP_model.reward_type == 'bernuly':
-            return params[0] * np.random.binomial(1, params[1])
+        return self.MDP_model.r[state_action.state.idx][state_action.action].GiveReward()
 
     @property
     def n(self):

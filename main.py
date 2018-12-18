@@ -87,7 +87,12 @@ if __name__ == '__main__':
     n = 21
     mdp_num = 1 # TODO doesnt work yet for more than one
     gamma = 0.9
-    mdp_list = [SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma)
+    mdp_list = [SeperateChainsMDP(n=n,
+                                  reward_param={1: {'bernoulli_p': 1, 'gauss_params': (5, 1, 1)},
+                                                2: {'bernoulli_p': 0.1, 'gauss_params': (50, 1, 1)}},
+                                  reward_type='gauss',
+                                  gamma=gamma,
+                                  chain_num=3)
                 for _ in range(mdp_num)]
 
     ## define general simualtion params
@@ -100,6 +105,7 @@ if __name__ == '__main__':
                   'eval_freq': 50}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
-    PlotResults(RunSimulations(mdp_list, runs_per_mdp=5, _sim_params=general_sim_params), opt_policy_reward)
+    res = RunSimulations(mdp_list, runs_per_mdp=5, _sim_params=general_sim_params)
+    PlotResults(res, opt_policy_reward)
 
     print('all done')
