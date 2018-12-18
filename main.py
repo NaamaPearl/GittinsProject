@@ -5,7 +5,8 @@ from framework import *
 
 def CompareActivations(data_output):
     plt.figure()
-    tick_shift = [-0.25, -0.05, 0.15, 0.35]
+    tick_shift = np.linspace(-0.35, 0.35, len(data_output))
+    # tick_shift = [-0.25, -0.05, 0.15, 0.35]
     chain_num = len(data_output[0][0].chain_activation)
     [plt.bar([tick_shift[_iter] + s for s in range(chain_num)], data_output[_iter][0].chain_activation, width=0.1, align='center')
      for _iter in range(len(data_output))]
@@ -20,12 +21,12 @@ def PlotEvaluation(data_output, optimal_policy_reward):
 
     for _iter in range(len(data_output)):
         reward_eval = np.array(data_output[_iter][0].reward_eval)
-        std = np.std(reward_eval, axis=0, )
+        std = np.std(reward_eval, axis=0)
         # plt.plot(reward_eval)
-        plt.errorbar(x=list(range(len(std))), y=np.mean(reward_eval, axis=0), yerr=std, linestyle='None', marker='^')
+        plt.errorbar(x=list(range(len(std))), y=np.mean(reward_eval, axis=0), yerr=std, marker='^')
     plt.axhline(y=optimal_policy_reward, color='r', linestyle='-')
     method_type = [data_output[_iter][1] for _iter in range(len(data_output))]
-    method_type.append('optimal policy value')
+    method_type.insert(0, 'optimal policy value')
     plt.legend(method_type)
     plt.title('Reward Eval')
 
@@ -89,9 +90,9 @@ if __name__ == '__main__':
     method_dict = {'random': [None], 'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
     mdp_list = [SeperateChainsMDP(n=n, reward_param=((0, 0, 0), (5, 1, 1)), reward_type='gauss', gamma=gamma,
                                   trajectory_len=trajectory_len) for _ in range(mdp_num)]
-    simulation_steps = 1000
+    simulation_steps = 5000
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(trajectory_len) for mdp in mdp_list]
-    PlotResults(RunSimulations(method_dict, mdp_list, runs_per_mdp=1), opt_policy_reward)
+    PlotResults(RunSimulations(method_dict, mdp_list, runs_per_mdp=5), opt_policy_reward)
 
     print('all done')
