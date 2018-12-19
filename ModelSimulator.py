@@ -329,6 +329,7 @@ class Simulator:
         if self.evaluation_type == 'online':
             self.critic.value_vec = np.cumsum(self.critic.value_vec)
 
+
 class AgentSimulator(Simulator):
     def __init__(self, sim_input: ProblemInput):
         self.agents_num = sim_input.agent_num
@@ -339,8 +340,9 @@ class AgentSimulator(Simulator):
 
     def Evaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
-        kwargs['running_agents'] = min(reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
-                                       kwargs['running_agents'])
+        kwargs['running_agents'] = min(
+            reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
+            kwargs['running_agents'])
         super().Evaluate(**kwargs)
 
     def InitParams(self, **kwargs):
@@ -398,7 +400,7 @@ class AgentSimulator(Simulator):
             self.agents.put(self.GradeAgent(agent))
 
     def ChooseAction(self, state: SimulatedState):
-        if random.random() < self.epsilon or state.visitations < (self.MDP_model.actions * 5):
+        if random.random() < self.epsilon:
             return np.random.choice(state.actions)
         return state.policy_action
 
@@ -479,7 +481,8 @@ class PrioritizedSweeping(Simulator):
     def UpdateScore(self, state_action_pr: PrioritizedObject):
         state_action = state_action_pr.object
 
-        for predecessor in state_action.state.predecessor.difference({state_action}):  # TODO what if state has probability to stay in the same state
+        for predecessor in state_action.state.predecessor.difference(
+                {state_action}):  # TODO what if state has probability to stay in the same state
             p = self.evaluated_model.P_hat[predecessor.state.idx][predecessor.action][state_action.state.idx]
             if p == 0:
                 raise ValueError('transmission probability should not be 0')
@@ -519,4 +522,5 @@ def SimInputFactory(method_type, parameter, sim_params):
         raise IOError('unrecognized method type:' + method_type)
 
     return simulation_input_type(prioritizer=prioritizer(), steps=sim_params['steps'],
-                                 agents_to_run=sim_params['agents_to_run'], parameter=parameter, trajectory_len=sim_params['trajectory_len'])
+                                 agents_to_run=sim_params['agents_to_run'], parameter=parameter,
+                                 trajectory_len=sim_params['trajectory_len'])

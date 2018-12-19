@@ -8,7 +8,8 @@ def CompareActivations(data_output):
     tick_shift = np.linspace(-0.35, 0.35, len(data_output))
     # tick_shift = [-0.25, -0.05, 0.15, 0.35]
     chain_num = len(data_output[0][0].chain_activation)
-    [plt.bar([tick_shift[_iter] + s for s in range(chain_num)], data_output[_iter][0].chain_activation, width=0.1, align='center')
+    [plt.bar([tick_shift[_iter] + s for s in range(chain_num)], data_output[_iter][0].chain_activation, width=0.1,
+             align='center')
      for _iter in range(len(data_output))]
 
     plt.xticks(range(chain_num), ['chain ' + str(s) for s in range(4)])
@@ -27,7 +28,7 @@ def PlotEvaluation(data_output, optimal_policy_reward):
     if len(opt_policy_reward) == 1:
         plt.axhline(y=optimal_policy_reward, color='r', linestyle='-')
     else:
-       plt.plot(optimal_policy_reward[0])
+        plt.plot(optimal_policy_reward[0])
     method_type = [data_output[_iter][1] for _iter in range(len(data_output))]
     method_type.insert(0, 'optimal policy value')
     plt.legend(method_type)
@@ -35,8 +36,9 @@ def PlotEvaluation(data_output, optimal_policy_reward):
 
 
 def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp, sim_params):
-    simulation_outputs = {method: {parameter: ChainSimulationOutput() for parameter in sim_params['method_dict'][method]}
-                          for method in sim_params['method_dict'].keys()}
+    simulation_outputs = {
+        method: {parameter: ChainSimulationOutput() for parameter in sim_params['method_dict'][method]}
+        for method in sim_params['method_dict'].keys()}
 
     for i in range(runs_per_mdp):
         print('     run number ' + str(i))
@@ -68,7 +70,7 @@ def RunSimulations(_mdp_list, runs_per_mdp, _sim_params):
     for i in range(len(mdp_list)):
         print('run MDP num ' + str(i))
         result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, runs_per_mdp, _sim_params))
-    return result
+    return simulators, result
 
 
 def PlotResults(results, opt_policy_reward):
@@ -76,36 +78,36 @@ def PlotResults(results, opt_policy_reward):
         res = results[i]
 
         data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param))
-                                           for param in res[method].keys()] for method in res.keys()])
+                                            for param in res[method].keys()] for method in res.keys()])
         CompareActivations(data)
         PlotEvaluation(data, opt_policy_reward)
 
 
 if __name__ == '__main__':
-
-    ## building the MDP's
+    # building the MDP's
     n = 21
-    mdp_num = 1 # TODO doesnt work yet for more than one
+    mdp_num = 1  # TODO doesnt work yet for more than one
     gamma = 0.9
     mdp_list = [SeperateChainsMDP(n=n,
-                                  reward_param={1: {'bernoulli_p': 1, 'gauss_params': (5, 1, 1)},
-                                                2: {'bernoulli_p': 0.1, 'gauss_params': (50, 1, 1)}},
-                                  reward_type='gauss',
+                                  reward_param={1: {'bernoulli_p': 0.6, 'gauss_params': (1, 1, 1)},
+                                                'trap': {'bernoulli_p': 1, 'gauss_params': (-10, 0, 0)},
+                                                'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': (4, 0, 2)}},
                                   gamma=gamma,
-                                  chain_num=3)
+                                  traps_num=1,
+                                  chain_num=2)
                 for _ in range(mdp_num)]
 
-    ## define general simualtion params
+    # define general simulation params
     general_sim_params = {'method_dict': {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']},
-                  'steps': 1000,
-                  'eval_type': 'offline',
-                  'agents_to_run': 10,
-                  'trajectory_len': 50,
-                  'gamma': gamma,
-                  'eval_freq': 50}
+                          'steps': 1000,
+                          'eval_type': 'offline',
+                          'agents_to_run': 10,
+                          'trajectory_len': 50,
+                          'gamma': gamma,
+                          'eval_freq': 50}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
-    res = RunSimulations(mdp_list, runs_per_mdp=2, _sim_params=general_sim_params)
+    simulators, res = RunSimulations(mdp_list, runs_per_mdp=2, _sim_params=general_sim_params)
     PlotResults(res, opt_policy_reward)
 
     print('all done')
