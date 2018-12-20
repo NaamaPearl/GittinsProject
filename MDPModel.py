@@ -178,7 +178,8 @@ class SeperateChainsMDP(MDPModel):
         if chain is None:
             successors = set(range(self.n))  # self.chains[action]
         else:
-            successors = {1 + self.chain_size * chain + action}
+            succ_num = 2
+            successors = set(np.random.choice(list(self.chains[chain]), succ_num))
 
         for successor in successors:
             if successor in self.traps:

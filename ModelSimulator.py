@@ -400,6 +400,8 @@ class AgentSimulator(Simulator):
             self.agents.put(self.GradeAgent(agent))
 
     def ChooseAction(self, state: SimulatedState):
+        if random.random() < self.epsilon or state.visitations < (self.MDP_model.actions * 5):
+            return np.random.choice(state.actions)
         if random.random() < self.epsilon:
             return np.random.choice(state.actions)
         return state.policy_action
