@@ -103,18 +103,19 @@ if __name__ == '__main__':
         with open('pnina', 'rb') as f:
             mdp_list.append(pickle.load(f))
     else:
-        mdp_list = [ChainsLineMDP(n=31,
-                                  action=4,
-                                  succ_num=2,
-                                  op_succ_num=4,
-                                  chain_num=2,
-                                  gamma=0.9,
-                                  traps_num=0,
-                                  line_indexes=list(range(17, 23)),
-                                  reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
-                                                'trap': {'bernoulli_p': 0.15, 'gauss_params': ((104, 0), 0)},
-                                                'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': ((1, 3), 1)},
-                                                'line_end': {'bernoulli_p': 0.9, 'gauss_params': ((33, 0), 0)}})
+        mdp_list = [ChainsTunnelMDP(n=31,
+                                    action=4,
+                                    succ_num=2,
+                                    op_succ_num=5,
+                                    chain_num=2,
+                                    gamma=0.9,
+                                    traps_num=0,
+                                    tunnel_indexes=list(range(17, 23)),
+                                    reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
+                                                  'trap': {'bernoulli_p': 0.15, 'gauss_params': ((104, 0), 0)},
+                                                  'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': ((1, 3), 1)},
+                                                  'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                                  'tunnel_end': {'bernoulli_p': 0.9, 'gauss_params': ((33, 0), 0)}})
                     for _ in range(mdp_num)]
 
     # define general simulation params

@@ -243,30 +243,32 @@ class SeperateChainsMDP(MDPModel):
         return self.chains[1:]
 
 
-class ChainsLineMDP(SeperateChainsMDP):
-    def __init__(self, n, action, succ_num, reward_param, gamma, chain_num, op_succ_num, line_indexes, traps_num=0):
-        self.line_indexes = line_indexes
+class ChainsTunnelMDP(SeperateChainsMDP):
+    def __init__(self, n, action, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
+        self.tunnel_indexes = tunnel_indexes
         super().__init__(n, action, succ_num, reward_param, gamma, chain_num, op_succ_num, traps_num)
 
     def IsStateActionRewarded(self, state_idx, action):
-        if state_idx in self.line_indexes:
-            return state_idx == self.line_indexes[-1] and action == 0
+        if state_idx == self.tunnel_indexes[-1]:
+            return action == 0
 
         return super().IsStateActionRewarded(state_idx, action)
 
     def get_succesors(self, state_idx, action, **kwargs):
-        if state_idx not in self.line_indexes or state_idx == self.line_indexes[-1]:
-            kwargs['forbidden_states']=self.line_indexes[1:]
+        if state_idx not in self.tunnel_indexes or state_idx == self.tunnel_indexes[-1]:
+            kwargs['forbidden_states']= self.tunnel_indexes[1:]
             return super().get_succesors(state_idx, action, **kwargs)
         if action == 0:
-            inner_idx = state_idx - self.line_indexes[0]
-            return {self.line_indexes[inner_idx + 1]}
+            inner_idx = state_idx - self.tunnel_indexes[0]
+            return {self.tunnel_indexes[inner_idx + 1]}
 
-        return {self.line_indexes[0]}
+        return {self.tunnel_indexes[0]}
 
     def GetRewardParams(self, state_idx, act):
-        if state_idx == self.line_indexes[-1]:
-            return self.reward_params['line_end']
+        if state_idx == self.tunnel_indexes[-1]:
+            return self.reward_params['tunnel_end']
+        if state_idx in self.tunnel_indexes:
+            return self.reward_params['lead_to_tunnel']
         return super().GetRewardParams(state_idx, act,)
 
 
