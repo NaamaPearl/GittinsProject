@@ -3,6 +3,23 @@ import random
 from collections import namedtuple
 
 
+class StateScore:
+    def __init__(self, state, score):
+        self.state = state
+        self.score = score
+
+    @property
+    def idx(self):
+        return self.state.idx
+
+    def __gt__(self, other):
+        if self.score > other.score:
+            return True
+        if self.score < other.score:
+            return False
+        return self.state.visitations < other.state.visitations
+
+
 class ProblemInput:
     def __init__(self, **kwargs):
         self.MDP_model = kwargs['MDP_model']
@@ -50,6 +67,9 @@ class AgentSimulationInput(SimulationInput):
         super().__init__(**kwargs)
         self.prioritizer = prioritizer
         self.parameter = parameter
+        self.gittins_look_ahead = kwargs['gittins_look_ahead']
+        self.gittins_discount = kwargs['gittins_discount']
+        self.T_bored = kwargs['T_bored']
 
 
 class EvaluatedModel:
@@ -94,13 +114,3 @@ class PrioritizedObject:
     @property
     def idx(self):
         return self.object.idx
-
-
-class SweepingPrioObject(PrioritizedObject):
-    def __init__(self, obj, r):
-        super().__init__(obj, r)
-        # self.active = True
-
-    def __gt__(self, other):
-        return super().__gt__(other)
-        # return self.active * super().__gt__(other)

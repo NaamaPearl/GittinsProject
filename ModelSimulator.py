@@ -355,7 +355,7 @@ class AgentSimulator(Simulator):
     def ChooseInitState(self):
         return np.random.choice(self.MDP_model.states, p=self.init_prob)
 
-    def GetStatsForGittins(self, parameter):
+    def GetStatsForPrioritizer(self, parameter):
         if parameter is None:
             return None, None
         if parameter == 'reward':
@@ -368,14 +368,15 @@ class AgentSimulator(Simulator):
         return self.MDP_model.MDP_model.P, reward_mat
 
     def ImprovePolicy(self, sim_input, iteration_num):
-        p, r = self.GetStatsForGittins(sim_input.parameter)
+        p, r = self.GetStatsForPrioritizer(sim_input.parameter)
         self.graded_states = sim_input.prioritizer.GradeStates(states=self.MDP_model.states,
                                                                policy=self.policy,
                                                                p=p,
                                                                r=r,
-                                                               look_ahead=2,
-                                                               discount=1,
-                                                               random_prio=False)
+                                                               look_ahead=sim_input.gittins_look_ahead,
+                                                               discount=sim_input.gittins_discount,
+                                                               visits=np.sum(np.array(self.evaluated_model.visitations), axis=1),
+                                                               T_bored=sim_input.T_bored)
         self.ReGradeAllAgents()
         super().ImprovePolicy(sim_input, iteration_num)
 
@@ -435,7 +436,7 @@ class PrioritizedSweeping(Simulator):
     def InitParams(self, **kwargs):
         self.state_actions_score = np.inf * np.ones((self.MDP_model.n, self.MDP_model.actions))
         super().InitParams(**kwargs)
-        self.state_actions = [[SweepingPrioObject(state_action, StateActionScore(state_action))
+        self.state_actions = [[PrioritizedObject(state_action, StateActionScore(state_action))
                                for state_action in state.actions] for state in self.MDP_model.states[1:]]
 
     def InitStatics(self):
@@ -444,7 +445,7 @@ class PrioritizedSweeping(Simulator):
 
     def SimulateOneStep(self, agents_to_run):
         for _ in range(agents_to_run):
-            best: SweepingPrioObject = max([max(state) for state in self.state_actions])
+            best: PrioritizedObject = max([max(state) for state in self.state_actions])
             # if not best.active:
             #     raise ValueError
             best_state_action: StateActionPair = best.object

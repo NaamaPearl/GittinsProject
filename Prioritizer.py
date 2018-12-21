@@ -1,7 +1,5 @@
 import numpy as np
-import random
-from framework import PrioritizedObject
-
+from framework import PrioritizedObject, StateScore
 
 epsilon = 10 ** -5
 
@@ -14,12 +12,17 @@ class Prioritizer:
         self.P = None
 
     def GradeStates(self, **kwargs):
-        return {state.idx: random.random() for state in kwargs['states']}
+        return {state.idx: kwargs['visits'][state.idx] for state in kwargs['states']}
+
+    def RandomPriorityRun(self, **kwargs):
+        return np.any(kwargs['visits'] < kwargs['T_bored'])
 
 
 class GreedyPrioritizer(Prioritizer):
     def GradeStates(self, **kwargs):
-        return {s: -max(abs(kwargs['r'][s])) for s in range(len(kwargs['states']))}
+        if self.RandomPriorityRun(**kwargs):
+            return super().GradeStates(**kwargs)
+        return {s: -max(kwargs['r'][s]) for s in range(len(kwargs['states']))}
 
 
 class GittinsPrioritizer(Prioritizer):
@@ -54,7 +57,7 @@ class GittinsPrioritizer(Prioritizer):
         Operates Iteratively, until all states are ordered.
         """
 
-        if kwargs['random_prio']:
+        if self.RandomPriorityRun(**kwargs):
             return super().GradeStates(**kwargs)
 
         self.n = len(kwargs['states'])
@@ -62,7 +65,7 @@ class GittinsPrioritizer(Prioritizer):
         self.P = self.InitProbMat(kwargs['p'], kwargs['look_ahead'])
         r = self.InitRewardVec(kwargs['r'], kwargs['look_ahead'], kwargs['discount'])
 
-        rs_list = [PrioritizedObject(s, r) for s, r in zip(kwargs['states'], r)]
+        rs_list = [PrioritizedObject(s, StateScore(s, r)) for s, r in zip(kwargs['states'], r)]
         result = {}
         score = 1  # score is order of extraction
 
@@ -74,7 +77,7 @@ class GittinsPrioritizer(Prioritizer):
             score += 1
 
             for rewarded_state in rs_list:
-                self.CalcIndex(rewarded_state, opt_state)  # calc index after omission, for all remaining states
+                self.CalcIndex(rewarded_state.reward, opt_state.reward)  # calc index after omission, for all remaining states
 
             self.CalcNewProb(rs_list, opt_state)  # calc new transition matrix
         last_state = rs_list.pop()
@@ -97,7 +100,7 @@ class GittinsPrioritizer(Prioritizer):
         P[opt_s.idx] = 0
         P[:, opt_s.idx] = 0
 
-    def CalcIndex(self, state: PrioritizedObject, opt_s: PrioritizedObject):
+    def CalcIndex(self, state: StateScore, opt_s: StateScore):
         """
         calc state's index after omission
         """
@@ -117,7 +120,7 @@ class GittinsPrioritizer(Prioritizer):
         t_opt_expect = 1 / (2 * (1 - p_opt_stay) ** 2)
         p_opt_back = P[state_idx, opt_state_idx] * sum_p_opt * (np.sum(P[opt_state_idx, :]) - p_opt_stay)
 
-        R = p_sub_optimal * state.reward + p_opt_back * (state.reward + opt_s.reward + opt_s.reward * t_opt_expect)
+        R = p_sub_optimal * state.score + p_opt_back * (state.score + opt_s.score + opt_s.score * t_opt_expect)
         W = p_sub_optimal + p_opt_back * 2 + p_opt_back * t_opt_expect
 
         state.reward = R / W
