@@ -89,26 +89,20 @@ def PlotResults(results, opt_policy_reward):
 
 if __name__ == '__main__':
     # building the MDP's
-    n = 31
-    mdp_num = 1  # TODO doesnt work yet for more than one
-    gamma = 0.9
-    mdp_list = [SeperateChainsMDP(n=n,
+    mdp_num = 1
+    mdp_list = [SeperateChainsMDP(n=31,
+                                  traps_num=0,
+                                  chain_num=2,
+                                  gamma=0.9,
                                   reward_param={1: {'bernoulli_p': 1, 'gauss_params': (10, 1, 3)},
                                                 'trap': {'bernoulli_p': 1, 'gauss_params': (-10, 0, 0)},
-                                                'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': (4, 0, 0)}},
-                                  gamma=gamma,
-                                  traps_num=0,
-                                  chain_num=2)
+                                                'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': (4, 0, 0)}})
                 for _ in range(mdp_num)]
 
     # define general simulation params
     general_sim_params = {'method_dict': {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']},
-                          'steps': 1000,
-                          'eval_type': 'offline',
-                          'agents_to_run': 10,
-                          'trajectory_len': 50,
-                          'gamma': gamma,
-                          'eval_freq': 50}
+                          'steps': 1000, 'eval_type': 'offline', 'agents_to_run': 10, 'trajectory_len': 50,
+                          'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 100, 'grades_freq': 10}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
     simulators, res = RunSimulations(mdp_list, runs_per_mdp=1, _sim_params=general_sim_params)

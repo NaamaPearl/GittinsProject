@@ -4,22 +4,22 @@ from collections import namedtuple
 
 
 class ProblemInput:
-    def __init__(self, MDP_model, agent_num, eval_type, gamma, epsilon=0.1):
-        self.MDP_model = MDP_model
-        self.agent_num = agent_num
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.eval_type = eval_type
+    def __init__(self, **kwargs):
+        self.MDP_model = kwargs['MDP_model']
+        self.agent_num = kwargs['agent_num']
+        self.gamma = kwargs['gamma']
+        self.epsilon = kwargs['epsilon']
+        self.eval_type = kwargs['eval_type']
 
 
 class SimulationInput:
-    def __init__(self, steps, agents_to_run, trajectory_len, eval_freq=50, reset_freq=50, grades_freq=10):
-        self.steps = steps
-        self.reset_freq = reset_freq
-        self.grades_freq = grades_freq
-        self.evaluate_freq = eval_freq
-        self.agents_to_run = agents_to_run
-        self.trajectory_len = trajectory_len
+    def __init__(self, **kwargs):
+        self.steps = kwargs['steps']
+        self.reset_freq = kwargs['reset_freq']
+        self.grades_freq = kwargs['grades_freq']
+        self.evaluate_freq = kwargs['eval_freq']
+        self.agents_to_run = kwargs['agents_to_run']
+        self.trajectory_len = kwargs['trajectory_len']
 
 
 class ChainSimulationOutput:
@@ -46,8 +46,8 @@ class Agent:
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, steps, parameter, agents_to_run, trajectory_len, eval_freq=50):
-        super().__init__(steps, agents_to_run, eval_freq, trajectory_len)
+    def __init__(self, prioritizer, parameter, **kwargs):
+        super().__init__(**kwargs)
         self.prioritizer = prioritizer
         self.parameter = parameter
 

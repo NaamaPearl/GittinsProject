@@ -497,7 +497,7 @@ class PrioritizedSweeping(Simulator):
             next_state.predecessor.add(state_action)
 
 
-def SimulatorFactory(method_type, mdp, sim_params):
+def SimulatorFactory(method_type, mdp: MDPModel, sim_params):
     simulated_mdp = SimulatedModel(mdp)
     if method_type == 'random':
         agent_num = sim_params['agents_to_run']
@@ -507,7 +507,7 @@ def SimulatorFactory(method_type, mdp, sim_params):
         raise IOError('unrecognized method type:' + method_type)
 
     return AgentSimulator(
-        ProblemInput(simulated_mdp, agent_num=agent_num, gamma=sim_params['gamma'], eval_type=sim_params['eval_type']))
+        ProblemInput(MDP_model=simulated_mdp, agent_num=agent_num, gamma=mdp.gamma, **sim_params))
 
 
 def SimInputFactory(method_type, parameter, sim_params):
@@ -523,6 +523,4 @@ def SimInputFactory(method_type, parameter, sim_params):
     else:
         raise IOError('unrecognized method type:' + method_type)
 
-    return simulation_input_type(prioritizer=prioritizer(), steps=sim_params['steps'],
-                                 agents_to_run=sim_params['agents_to_run'], parameter=parameter,
-                                 trajectory_len=sim_params['trajectory_len'])
+    return simulation_input_type(prioritizer=prioritizer(), parameter=parameter, **sim_params)
