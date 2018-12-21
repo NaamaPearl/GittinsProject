@@ -88,12 +88,12 @@ def PlotResults(results, opt_policy_reward):
 
 
 if __name__ == '__main__':
-    # building the MDP's
+    # building the MDPs
     mdp_num = 1
     mdp_list = [SeperateChainsMDP(n=31,
-                                  traps_num=0,
                                   chain_num=2,
                                   gamma=0.9,
+                                  traps_num=0,
                                   reward_param={1: {'bernoulli_p': 1, 'gauss_params': (10, 1, 3)},
                                                 'trap': {'bernoulli_p': 1, 'gauss_params': (-10, 0, 0)},
                                                 'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': (4, 0, 0)}})

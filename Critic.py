@@ -77,6 +77,7 @@ class ChainMDPCritic(Critic):
     def __init__(self, chain_num, **kwargs):
         self.chain_num = chain_num
         self.chain_activations = None
+        self.time_chain_activation = None
         super().__init__(**kwargs)
 
     def Update(self, chain):
@@ -86,3 +87,8 @@ class ChainMDPCritic(Critic):
     def Reset(self):
         super().Reset()
         self.chain_activations = [0 for _ in range(self.chain_num)]
+        self.time_chain_activation = [[] for _ in range(self.chain_num)]
+
+    def Evaluate(self, **kwargs):
+        super().Evaluate(**kwargs)
+        [self.time_chain_activation[chain].append(self.chain_activations[chain]) for chain in range(self.chain_num)]

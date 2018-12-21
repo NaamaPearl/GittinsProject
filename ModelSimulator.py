@@ -375,7 +375,7 @@ class AgentSimulator(Simulator):
                                                                r=r,
                                                                look_ahead=2,
                                                                discount=1,
-                                                               random_prio=iteration_num < self.MDP_model.n * 4)
+                                                               random_prio=False)
         self.ReGradeAllAgents()
         super().ImprovePolicy(sim_input, iteration_num)
 
@@ -401,8 +401,6 @@ class AgentSimulator(Simulator):
 
     def ChooseAction(self, state: SimulatedState):
         if random.random() < self.epsilon or state.visitations < (self.MDP_model.actions * 5):
-            return np.random.choice(state.actions)
-        if random.random() < self.epsilon:
             return np.random.choice(state.actions)
         return state.policy_action
 
