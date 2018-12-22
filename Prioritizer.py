@@ -29,8 +29,7 @@ class GittinsPrioritizer(Prioritizer):
     def InitProbMat(self, p, look_ahead):
         prob_mat = [np.zeros((self.n, self.n)) for _ in range(look_ahead)]
         for state in range(self.n):
-            action = self.policy[state]
-            prob_mat[0][state] = p[state][action]
+            prob_mat[0][state] = p[state][self.policy[state]]
 
         for i in range(1, look_ahead):
             prob_mat[i] = prob_mat[i - 1] @ prob_mat[0]

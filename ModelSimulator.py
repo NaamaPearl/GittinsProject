@@ -158,6 +158,12 @@ class SimulatedState:
         return reduce(lambda a, b: a + b, [state_action.visitations for state_action in self.actions])
 
     @property
+    def min_visitations(self):
+        visitations_list = [state_action.visitations for state_action in self.actions]
+        min_idx = int(np.argmin(visitations_list))
+        return visitations_list[min_idx], min_idx
+
+    @property
     def best_action(self):
         return max(self.actions)
 
@@ -306,7 +312,7 @@ class Simulator:
         self.InitParams(eval_type=self.evaluation_type)
 
         for i in range(sim_input.steps):
-            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run)
+            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run, T_board=sim_input.T_bored)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
@@ -319,7 +325,7 @@ class Simulator:
     def Reset(self):
         pass
 
-    def SimulateOneStep(self, agents_to_run):
+    def SimulateOneStep(self, agents_to_run, **kwargs):
         pass
 
     def Evaluate(self, **kwargs):
@@ -375,7 +381,7 @@ class AgentSimulator(Simulator):
                                                                r=r,
                                                                look_ahead=sim_input.gittins_look_ahead,
                                                                discount=sim_input.gittins_discount,
-                                                               visits=np.sum(np.array(self.evaluated_model.visitations), axis=1),
+                                                               visits=np.min(self.evaluated_model.visitations, axis=1),
                                                                T_bored=sim_input.T_bored)
         self.ReGradeAllAgents()
         super().ImprovePolicy(sim_input, iteration_num)
@@ -392,22 +398,25 @@ class AgentSimulator(Simulator):
     def GradeAgent(self, agent):
         return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
-    def SimulateOneStep(self, agents_to_run):
+    def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
         for agent in agents_list:
             self.critic.Update(agent.chain)
-            self.SimulateAgent(agent)
+            self.SimulateAgent(agent, kwargs['T_board'])
             self.agents.put(self.GradeAgent(agent))
 
-    def ChooseAction(self, state: SimulatedState):
+    def ChooseAction(self, state: SimulatedState, T_board):
+        min_visits, min_action = state.min_visitations
+        if min_visits < T_board:
+            return state.actions[min_action]
         if random.random() < self.epsilon or state.visitations < (self.MDP_model.actions * 5):
             return np.random.choice(state.actions)
         return state.policy_action
 
-    def SimulateAgent(self, agent: Agent):
+    def SimulateAgent(self, agent: Agent, T_board):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
-        state_action = self.ChooseAction(agent.curr_state)
+        state_action = self.ChooseAction(agent.curr_state, T_board)
 
         reward, next_state = self.SampleStateAction(state_action)
         agent.accumulated_reward += reward

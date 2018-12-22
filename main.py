@@ -55,8 +55,8 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp, sim_params)
         print('     run number ' + str(i))
         for method in simulators.keys():
             print('method: ' + method)
-            simulator = simulators[method]
             for simulation_input in simulation_inputs[method]:
+                simulator = simulators[method][simulation_input.parameter]
                 simulator.simulate(simulation_input)
 
                 simulation_output = simulation_outputs[method][simulation_input.parameter]
@@ -70,8 +70,9 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp, sim_params)
 
 def RunSimulations(_mdp_list, runs_per_mdp, _sim_params):
     simulators = [{
-        method: SimulatorFactory(method, mdp, _sim_params)
-        for method in _sim_params['method_dict'].keys()} for mdp in _mdp_list]
+        method: {parameter: SimulatorFactory(method, mdp, _sim_params)
+                 for parameter in _sim_params['method_dict'][method]} for method in _sim_params['method_dict'].keys()}
+        for mdp in _mdp_list]
 
     simulation_inputs = {method: [
         SimInputFactory(method, parameter, _sim_params)
@@ -97,32 +98,29 @@ def PlotResults(results, _opt_policy_reward, eval_type, eval_freq):
 if __name__ == '__main__':
     # building the MDPs
     mdp_num = 1
+    tunnel_length = 5
     load = False
     if load:
         mdp_list = []
         with open('pnina', 'rb') as f:
             mdp_list.append(pickle.load(f))
     else:
-        mdp_list = [ChainsTunnelMDP(n=31,
-                                    action=4,
-                                    succ_num=2,
-                                    op_succ_num=5,
-                                    chain_num=2,
-                                    gamma=0.9,
-                                    traps_num=0,
-                                    tunnel_indexes=list(range(17, 23)),
+        mdp_list = [ChainsTunnelMDP(n=31, action=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
+                                    tunnel_indexes=list(range(17, 17 + tunnel_length)),
                                     reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
                                                   'trap': {'bernoulli_p': 0.15, 'gauss_params': ((104, 0), 0)},
                                                   'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': ((1, 3), 1)},
                                                   'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                  'tunnel_end': {'bernoulli_p': 0.9, 'gauss_params': ((33, 0), 0)}})
+                                                  'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 10)}})
                     for _ in range(mdp_num)]
 
     # define general simulation params
-    general_sim_params = {'method_dict': {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']},
-                          'steps': 5000, 'eval_type': 'offline', 'agents_to_run': 10, 'trajectory_len': 100,
+    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
+    # _method_dict = {'greedy': ['reward', 'error']}
+    general_sim_params = {'method_dict': _method_dict,
+                          'steps': 10000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
                           'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
-                          'gittins_look_ahead': 5, 'gittins_discount': 1, 'T_bored': 1}
+                          'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
     simulators, res = RunSimulations(mdp_list, runs_per_mdp=2, _sim_params=general_sim_params)

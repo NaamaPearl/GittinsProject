@@ -81,11 +81,8 @@ class MDPModel:
             return np.array(self.gen_row_of_P(succesors, state_idx))
 
     def gen_row_of_P(self, succesors, state_idx):
-        row = np.zeros(self.n)
-        for idx in succesors:
-            row[idx] = random.random()
-        row /= row.sum()
-        return row
+        row = np.array([random.random() if idx in succesors else 0 for idx in range(self.n)])
+        return row / sum(row)
 
     def GetRewardParams(self, state_idx, action):
         return None
@@ -193,14 +190,20 @@ class SeperateChainsMDP(MDPModel):
             if state_idx < 1 + (i + 1) * self.chain_size:
                 return i
 
+    def CreateForbiddenStates(self, input_vec):
+        if input_vec is None:
+            return set(self.init_states_idx)
+        return set(input_vec).union(self.init_states_idx)
+
     def get_succesors(self, state_idx, action, **kwargs):
+        forbidden_states = self.CreateForbiddenStates(kwargs.get('forbidden_states'))
+
         chain = self.FindChain(state_idx)
         if chain is None:
-            successors = set(range(self.n))  # self.chains[action]
+            successors = set(range(self.n)).difference(forbidden_states)  # self.chains[action]
         else:
-            forbidden_states = set(kwargs.get('forbidden_states'))
-            successors = set(np.random.choice(list(kwargs['succ_list'][state_idx].difference(forbidden_states)),
-                                              self.succ_num))
+            possible_successors = list(kwargs['succ_list'][state_idx].difference(forbidden_states))
+            successors = set(np.random.choice(possible_successors, self.succ_num))
 
         for successor in successors:
             if successor in self.traps:
@@ -230,8 +233,7 @@ class SeperateChainsMDP(MDPModel):
 
     def gen_row_of_P(self, succesors, state_idx):
         if state_idx in self.init_states_idx:
-            res = np.ones(self.n)
-            res[0] = 0
+            res = np.array([1 if state in succesors else 0 for state in range(self.n)])
             return res / sum(res)
 
         return super().gen_row_of_P(succesors, state_idx)
@@ -256,7 +258,7 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
     def get_succesors(self, state_idx, action, **kwargs):
         if state_idx not in self.tunnel_indexes or state_idx == self.tunnel_indexes[-1]:
-            kwargs['forbidden_states']= self.tunnel_indexes[1:]
+            kwargs['forbidden_states'] = self.tunnel_indexes[1:]
             return super().get_succesors(state_idx, action, **kwargs)
         if action == 0:
             inner_idx = state_idx - self.tunnel_indexes[0]
