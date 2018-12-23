@@ -29,8 +29,11 @@ def PlotEvaluationForParam(data_output, optimal_policy_reward, param, mdp_i, eva
     for _iter in range(len(data_output)):
         if data_output[_iter][2] == param:
             reward_eval = np.array(data_output[_iter][0].reward_eval)
+            y = np.mean(reward_eval, axis=0)
             std = np.std(reward_eval, axis=0)
-            plt.errorbar(steps, y=np.mean(reward_eval, axis=0), yerr=std, marker='^', label=data_output[_iter][1])
+            plt.plot(steps, y, label=data_output[_iter][1])
+            plt.fill_between(steps, y + std/2, y - std/2, alpha=0.5)
+            # plt.errorbar(steps, y=np.mean(reward_eval, axis=0), yerr=std, marker='^', label=data_output[_iter][1])
             # method_type.append(data_output[_iter][1])
     if eval_type == 'offline':
         plt.axhline(y=optimal_policy_reward, color='r', linestyle='-', label='optimal policy expected reward')
