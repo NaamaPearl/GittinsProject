@@ -1,7 +1,7 @@
 import numpy as np
 from functools import reduce
 from abc import abstractmethod
-from framework import Agent
+from Simulator.SimulatorBasics import Agent
 
 
 class Evaluator:

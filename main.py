@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
-from ModelSimulator import *
-from framework import *
 import pickle
+from Simulator.Simulator import *
 
 
 def CompareActivations(data_output, mdp_i):
@@ -108,17 +107,15 @@ if __name__ == '__main__':
         mdp_list = [ChainsTunnelMDP(n=31, action=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
                                     tunnel_indexes=list(range(17, 17 + tunnel_length)),
                                     reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
-                                                  'trap': {'bernoulli_p': 0.15, 'gauss_params': ((104, 0), 0)},
-                                                  'leads_to_trap': {'bernoulli_p': 1, 'gauss_params': ((1, 3), 1)},
                                                   'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                  'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 10)}})
+                                                  'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
                     for _ in range(mdp_num)]
 
     # define general simulation params
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
     # _method_dict = {'greedy': ['reward', 'error']}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 10000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
+                          'steps': 5000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
                           'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
                           'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1}
 

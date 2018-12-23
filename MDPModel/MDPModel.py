@@ -1,42 +1,9 @@
 import numpy as np
 import random
 from functools import reduce
-from abc import abstractmethod
+from MDPModel.RewardGenerator import RewardGeneratorFactory
 
 threshold = 10 ** -3
-
-
-class RewardGenerator:
-    def __init__(self):
-        self.expected_reward = 0
-
-    @abstractmethod
-    def GiveReward(self):
-        return 0
-
-
-class RandomRewardGenerator(RewardGenerator):
-    def __init__(self, gauss_params, bernoulli_p):
-        super().__init__()
-        self.bernoulli_p = bernoulli_p
-        self.gauss_mu = np.random.normal(gauss_params[0][0], gauss_params[0][1])
-        self.gauss_sigma = gauss_params[1]
-        self.expected_reward = self.gauss_mu * self.bernoulli_p
-
-    def GiveReward(self):
-        return np.random.binomial(1, self.bernoulli_p) * np.random.normal(self.gauss_mu, self.gauss_sigma)
-
-
-class RewardGeneratorFactory:
-    @staticmethod
-    def Generate(rewarded_state, reward_params):
-        if rewarded_state:
-            if reward_params is None:
-                return RandomRewardGenerator(bernoulli_p=random.random(),
-                                             gauss_params=((random.random(), random.random()), random.random()))
-            return RandomRewardGenerator(gauss_params=reward_params['gauss_params'],
-                                         bernoulli_p=reward_params.get('bernoulli_p'))
-        return RewardGenerator()
 
 
 class MDPModel:
@@ -87,11 +54,11 @@ class MDPModel:
     def GetRewardParams(self, state_idx, action):
         return None
 
-    def gen_r_mat(self, **kwargs):
+    def gen_r_mat(self):
         res = [[] for _ in range(self.n)]
         for state_idx in range(self.n):
             res[state_idx] = [RewardGeneratorFactory.Generate(self.IsStateActionRewarded(state_idx, act),
-                                                              self.GetRewardParams(state_idx, act))
+                                                              reward_params=self.GetRewardParams(state_idx, act))
                               for act in range(self.actions)]
 
         return res
@@ -190,13 +157,11 @@ class SeperateChainsMDP(MDPModel):
             if state_idx < 1 + (i + 1) * self.chain_size:
                 return i
 
-    def CreateForbiddenStates(self, input_vec):
-        if input_vec is None:
-            return set(self.init_states_idx)
-        return set(input_vec).union(self.init_states_idx)
-
     def get_succesors(self, state_idx, action, **kwargs):
-        forbidden_states = self.CreateForbiddenStates(kwargs.get('forbidden_states'))
+        try:
+            forbidden_states = set(kwargs['forbidden_states']).union(self.init_states_idx)
+        except KeyError:
+            forbidden_states = self.init_states_idx
 
         chain = self.FindChain(state_idx)
         if chain is None:
@@ -271,7 +236,7 @@ class ChainsTunnelMDP(SeperateChainsMDP):
             return self.reward_params['tunnel_end']
         if state_idx in self.tunnel_indexes:
             return self.reward_params['lead_to_tunnel']
-        return super().GetRewardParams(state_idx, act,)
+        return super().GetRewardParams(state_idx, act, )
 
 
 # class StarMDP(SeperateChainsMDP):

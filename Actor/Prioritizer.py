@@ -1,31 +1,41 @@
 import numpy as np
-from framework import PrioritizedObject, StateScore
+from Framework.PrioritizedObject import PrioritizedObject
+from MDPModel.MDPBasics import StateScore
+import random
 
 epsilon = 10 ** -5
 
 
+def VisitsPriorityRun(**kwargs):
+    return np.any(kwargs['visits'] < kwargs['T_bored'])
+
+
+def GradeStatesWithVisits(**kwargs):
+    return {state.idx: kwargs['visits'][state.idx] for state in kwargs['states']}
+
+
 class Prioritizer:
+    def GradeStates(self, **kwargs):
+        if VisitsPriorityRun(**kwargs):
+            return GradeStatesWithVisits(**kwargs)
+        return self.GradeStatesInner(**kwargs)
+
+    def GradeStatesInner(self, **kwargs):
+        return {state.idx: random.random() for state in kwargs['states']}
+
+
+class GreedyPrioritizer(Prioritizer):
+    def GradeStatesInner(self, **kwargs):
+        return {state.idx: -max(kwargs['r'][state.idx]) for state in kwargs['states']}
+
+
+class GittinsPrioritizer(Prioritizer):
     def __init__(self):
         self.n = None
         self.policy = None
         self.r = None
         self.P = None
 
-    def GradeStates(self, **kwargs):
-        return {state.idx: kwargs['visits'][state.idx] for state in kwargs['states']}
-
-    def RandomPriorityRun(self, **kwargs):
-        return np.any(kwargs['visits'] < kwargs['T_bored'])
-
-
-class GreedyPrioritizer(Prioritizer):
-    def GradeStates(self, **kwargs):
-        if self.RandomPriorityRun(**kwargs):
-            return super().GradeStates(**kwargs)
-        return {s: -max(kwargs['r'][s]) for s in range(len(kwargs['states']))}
-
-
-class GittinsPrioritizer(Prioritizer):
     def InitProbMat(self, p, look_ahead):
         prob_mat = [np.zeros((self.n, self.n)) for _ in range(look_ahead)]
         for state in range(self.n):
@@ -50,14 +60,11 @@ class GittinsPrioritizer(Prioritizer):
 
         return r
 
-    def GradeStates(self, **kwargs):
+    def GradeStatesInner(self, **kwargs):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.
         """
-
-        if self.RandomPriorityRun(**kwargs):
-            return super().GradeStates(**kwargs)
 
         self.n = len(kwargs['states'])
         self.policy = kwargs['policy']
@@ -76,7 +83,8 @@ class GittinsPrioritizer(Prioritizer):
             score += 1
 
             for rewarded_state in rs_list:
-                self.CalcIndex(rewarded_state.reward, opt_state.reward)  # calc index after omission, for all remaining states
+                self.CalcIndex(rewarded_state.reward,
+                               opt_state.reward)  # calc index after omission, for all remaining states
 
             self.CalcNewProb(rs_list, opt_state)  # calc new transition matrix
         last_state = rs_list.pop()
