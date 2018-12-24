@@ -31,9 +31,9 @@ class AgentSimulationInput(SimulationInput):
 
 
 class ChainSimulationOutput:
-    def __init__(self):
+    def __init__(self, eval_type_list):
         self.chain_activation = 0
-        self.reward_eval = []
+        self.reward_eval = {eval_type: [] for eval_type in eval_type_list}
 
 
 SimulationData = namedtuple('SimulationData', ('input', 'output'))

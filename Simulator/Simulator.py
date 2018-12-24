@@ -107,8 +107,8 @@ class Simulator:
         self.critic.Evaluate(**kwargs)
 
     def CalcResults(self):
-        if self.evaluation_type == 'online':
-            self.critic.value_vec = np.cumsum(self.critic.value_vec)
+        if 'online' in self.evaluation_type:
+            self.critic.value_vec['online'] = np.cumsum(self.critic.value_vec['online'])
 
 
 class AgentSimulator(Simulator):
@@ -185,7 +185,8 @@ class AgentSimulator(Simulator):
         min_visits, min_action = state.min_visitations
         if min_visits < T_board:
             return state.actions[min_action]
-        if random.random() < self.epsilon or state.visitations < (self.MDP_model.actions * 5):
+
+        if random.random() < self.epsilon:
             return np.random.choice(state.actions)
         return state.policy_action
 
