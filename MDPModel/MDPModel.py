@@ -95,19 +95,16 @@ class MDPModel:
         return prob_mat
 
     def CalcOptExpectedReward(self, params):
-        res_dict = {}
-        eval_vec_len = int(params['steps'] / params['eval_freq'])
-        if 'offline' in params['eval_type']:
-            offline_val = reduce((lambda x, y: x + y),
-                                [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
-                                 for i in range(params['trajectory_len'])])
-            res_dict['offline'] = np.array([offline_val] * eval_vec_len)
-        if 'online' in params['eval_type']:
+        if params['eval_type'] == 'offline':
+            return reduce((lambda x, y: x + y),
+                          [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
+                           for i in range(params['trajectory_len'])])
+        if params['eval_type'] == 'online':
             expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
                                    for i in range(params['steps'])]
             batch_reward = [sum(group)
                             for group in np.array_split(expected_reward_vec, params['steps'] / params['eval_freq'])]
-            res_dict['online'] = np.cumsum(batch_reward)
+            return np.cumsum(batch_reward)
 
 
 class RandomSinkMDP(MDPModel):
@@ -207,7 +204,7 @@ class SeperateChainsMDP(MDPModel):
         return super().gen_row_of_P(succesors, state_idx)
 
     def CalcOptExpectedReward(self, trajectory_len):
-        return super().CalcOptExpectedReward(trajectory_len)
+        return self.chain_num * super().CalcOptExpectedReward(trajectory_len)
 
     def GetActiveChains(self):
         return self.chains[1:]

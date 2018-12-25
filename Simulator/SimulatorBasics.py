@@ -56,7 +56,6 @@ class SimulatedModel:
     def type(self):
         return self.MDP_model.type
 
-
 class Agent:
     def __init__(self, idx, init_state):
         self.idx = idx

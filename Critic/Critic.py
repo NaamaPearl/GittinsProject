@@ -4,18 +4,17 @@ from abc import abstractmethod
 from Simulator.SimulatorBasics import Agent
 
 
-class PolicyEvaluator:
-    @staticmethod
-    def EvaluatePolicy(**kwargs):
-        return {'online': reduce(lambda a, b: a + b, kwargs['agents_reward']) / kwargs['running_agents']}
+class Evaluator:
+    @abstractmethod
+    def EvaluatePolicy(self, **kwargs):
+        pass
 
 
-class OfflinePolicyEvaluator(PolicyEvaluator):
+class OfflinePolicyEvaluator(Evaluator):
     def __init__(self, model):
         self.model = model
 
     def EvaluatePolicy(self, **kwargs):
-        res_dict = super().EvaluatePolicy(**kwargs)
         reward = 0
         good_agents = 0
         for _ in range(50):
@@ -28,17 +27,23 @@ class OfflinePolicyEvaluator(PolicyEvaluator):
             for _ in range(kwargs['trajectory_len']):
                 reward += self.model.GetReward(agent.curr_state.policy_action)
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-        res_dict['offline'] = reward / good_agents
-        return res_dict
+
+        return reward / good_agents
+
+
+class OnlinePolicyEvaluator(Evaluator):
+    @staticmethod
+    def EvaluatePolicy(**kwargs):
+        return reduce(lambda a, b: a + b, kwargs['agents_reward']) / kwargs['running_agents']
 
 
 class EvaluatorFactory:
     @staticmethod
     def Generate(evaluator_type, **kwargs):
-        if 'offline' in evaluator_type:
+        if evaluator_type == 'online':
+            return OnlinePolicyEvaluator()
+        if evaluator_type == 'offline':
             return OfflinePolicyEvaluator(kwargs['model'])
-        else:
-            return PolicyEvaluator()
 
 
 class CriticFactory:
@@ -53,20 +58,19 @@ class CriticFactory:
 
 class Critic:
     def __init__(self, **kwargs):
-        self.evaluator: PolicyEvaluator = EvaluatorFactory().Generate(**kwargs)
-        self.value_vec = {eval_type: [] for eval_type in kwargs['evaluator_type']}
+        self.evaluator: Evaluator = EvaluatorFactory().Generate(**kwargs)
+        self.value_vec = None
 
-        self.Reset(**kwargs)
+        self.Reset()
 
     def Update(self, chain):
         pass
 
     def Evaluate(self, **kwargs):
-        eval_res = self.evaluator.EvaluatePolicy(**kwargs)
-        [self.value_vec[key].append(eval_res[key]) for key in eval_res.keys()]
+        self.value_vec.append(self.evaluator.EvaluatePolicy(**kwargs))
 
-    def Reset(self, **kwargs):
-        self.value_vec = {eval_type: [] for eval_type in kwargs['evaluator_type']}
+    def Reset(self):
+        self.value_vec = []
 
 
 class ChainMDPCritic(Critic):
@@ -80,8 +84,8 @@ class ChainMDPCritic(Critic):
         if chain is not None:
             self.chain_activations[chain] += 1
 
-    def Reset(self, **kwargs):
-        super().Reset(**kwargs)
+    def Reset(self):
+        super().Reset()
         self.chain_activations = [0 for _ in range(self.chain_num)]
         self.time_chain_activation = [[] for _ in range(self.chain_num)]
 
