@@ -107,8 +107,8 @@ class Simulator:
         self.critic.Evaluate(**kwargs)
 
     def CalcResults(self):
-        if 'online' in self.evaluation_type:
-            self.critic.value_vec['online'] = np.cumsum(self.critic.value_vec['online'])
+        if self.evaluation_type == 'online':
+            self.critic.value_vec = np.cumsum(self.critic.value_vec)
 
 
 class AgentSimulator(Simulator):
@@ -121,9 +121,9 @@ class AgentSimulator(Simulator):
 
     def Evaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
-        kwargs['running_agents'] = min(
-            reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
-            kwargs['running_agents'])
+        # kwargs['running_agents'] = min(
+        #     reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
+        #     kwargs['running_agents'])
         super().Evaluate(**kwargs)
 
     def InitParams(self, **kwargs):
@@ -185,8 +185,7 @@ class AgentSimulator(Simulator):
         min_visits, min_action = state.min_visitations
         if min_visits < T_board:
             return state.actions[min_action]
-
-        if random.random() < self.epsilon:
+        if random.random() < self.epsilon or state.visitations < (self.MDP_model.actions * 5):
             return np.random.choice(state.actions)
         return state.policy_action
 
@@ -284,7 +283,7 @@ class PrioritizedSweeping(Simulator):
 def SimulatorFactory(method_type, mdp: MDPModel, sim_params):
     simulated_mdp = SimulatedModel(mdp)
     if method_type == 'random':
-        agent_num = sim_params['agents_to_run']
+        agent_num = sim_params['agents_to_run'] * 3  # TODO- unite optines
     elif method_type in ['gittins', 'greedy']:
         agent_num = sim_params['agents_to_run'] * 3
     else:
