@@ -17,40 +17,45 @@ def CompareActivations(data_output, mdp_i):
     plt.title('Agents Activation per Chains for mdp num ' + str(mdp_i))
 
 
-def PlotEvaluation(data_output, optimal_policy_reward, mdp_i, eval_type, eval_freq):
+def PlotEvaluation(data_output, optimal_policy_reward, mdp_i, eval_type, eval_freq, eval_count):
     params = ['reward', 'error', 'all']
-    [PlotEvaluationForParam(data_output, optimal_policy_reward, param, mdp_i, eval_type, eval_freq) for param in params]
+    [PlotEvaluationForParam(data_output, optimal_policy_reward, param, mdp_i, eval_type, eval_freq, eval_count)
+     for param in params]
 
 
-def PlotEvaluationForParam(data_output, optimal_policy_reward, param, mdp_i, eval_type, eval_freq):
-    plt.figure()
-    # method_type = []
-    steps = np.array(list(range(data_output[0][0].reward_eval[0].shape[0]))) * eval_freq
+def PlotEvaluationForParam(data_output, optimal_policy_reward, param, mdp_i, eval_type_list, eval_freq, eval_count):
+    fig, ax = plt.subplots(nrows=1, ncols=len(eval_type_list))
+    steps = np.array(list(range(eval_count))) * eval_freq
     for _iter in range(len(data_output)):
         if data_output[_iter][2] == param or param == 'all':
-            reward_eval = np.array(data_output[_iter][0].reward_eval)
-            y = np.mean(reward_eval, axis=0)
-            std = np.std(reward_eval, axis=0)
-            plt.plot(steps, y, label=data_output[_iter][1])
-            plt.fill_between(steps, y + std/2, y - std/2, alpha=0.5)
-            # plt.errorbar(steps, y=np.mean(reward_eval, axis=0), yerr=std, marker='^', label=data_output[_iter][1])
-            # method_type.append(data_output[_iter][1])
-    if eval_type == 'offline':
-        plt.axhline(y=optimal_policy_reward, color='r', linestyle='-', label='optimal policy expected reward')
+            for i, eval_type in enumerate(eval_type_list):
+                reward_eval = data_output[_iter][0].reward_eval.get(eval_type)
+                y = np.mean(reward_eval, axis=0)
+                std = np.std(reward_eval, axis=0)
+                ax[i].plot(steps, y, label=data_output[_iter][1])
+                ax[i].fill_between(steps, y + std/2, y - std/2, alpha=0.5)
+    title_list = ['Reward Evaluation - ' + eval_type for eval_type in eval_type_list]
+    title_list += '\nbased on ' + param if param != 'all' else ''
+    [ax[i].set_title(title) for i, title in enumerate(title_list)]
+    [ax[i].legend() for i, _ in enumerate(eval_type_list)]
+    # if eval_type == 'offline':
+    #     plt.axhline(y=optimal_policy_reward, color='r', linestyle='-', label='optimal policy expected reward')
     # elif eval_type == 'online':
     #     plt.plot(steps, optimal_policy_reward, 'optimal policy expected reward')
     # method_type.insert(0, 'optimal policy expected reward')
+
     plt.legend()
     plt.xlabel('simulation steps')
     plt.ylabel('evaluated reward')
-    plt.title(eval_type + ' Reward Evaluation - prioritize agents by ' + param
-              + '\naverage of ' + str(len(data_output[0][0].reward_eval)) + ' runs'
-              + '\nfor mdp num ' + str(mdp_i))
+    # plt.title(eval_type + ' Reward Evaluation - prioritize agents by ' + param
+    #           + '\naverage of ' + str(len(data_output[0][0].reward_eval)) + ' runs'
+    #           + '\nfor mdp num ' + str(mdp_i))
 
 
 def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp, sim_params):
     simulation_outputs = {
-        method: {parameter: ChainSimulationOutput() for parameter in sim_params['method_dict'][method]}
+        method: {parameter: ChainSimulationOutput(sim_params['eval_type'])
+                 for parameter in sim_params['method_dict'][method]}
         for method in sim_params['method_dict'].keys()}
 
     for i in range(runs_per_mdp):
@@ -64,7 +69,7 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp, sim_params)
                 simulation_output = simulation_outputs[method][simulation_input.parameter]
                 simulation_output.chain_activation += (
                         np.asarray(simulator.critic.chain_activations) / runs_per_mdp)
-                simulation_output.reward_eval.append(np.asarray(simulator.critic.value_vec))
+                simulation_output.reward_eval.add(simulator.critic.value_vec)
             # print('simulate finished, %s agents activated' % sum(simulators[method].critic.chain_activations))
 
     return simulation_outputs
@@ -87,14 +92,14 @@ def RunSimulations(_mdp_list, runs_per_mdp, _sim_params):
     return simulators, result
 
 
-def PlotResults(results, _opt_policy_reward, eval_type, eval_freq):
+def PlotResults(results, _opt_policy_reward, eval_type, eval_freq, eval_count):
     for mdp_i in range(len(results)):
         res = results[mdp_i]
 
         data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param), param)
                                             for param in res[method].keys()] for method in res.keys()])
         CompareActivations(data, mdp_i)
-        PlotEvaluation(data, _opt_policy_reward[mdp_i], mdp_i, eval_type, eval_freq)
+        PlotEvaluation(data, _opt_policy_reward[mdp_i], mdp_i, eval_type, eval_freq, eval_count)
 
 
 if __name__ == '__main__':
@@ -118,12 +123,13 @@ if __name__ == '__main__':
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 6000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
+                          'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'trajectory_len': 100,
                           'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
                           'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
     simulators, res = RunSimulations(mdp_list, runs_per_mdp=2, _sim_params=general_sim_params)
-    PlotResults(res, opt_policy_reward, general_sim_params['eval_type'], general_sim_params['eval_freq'])
+    eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
+    PlotResults(res, opt_policy_reward, general_sim_params['eval_type'], general_sim_params['eval_freq'], eval_count)
 
     print('all done')

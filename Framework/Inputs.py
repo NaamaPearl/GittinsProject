@@ -1,5 +1,5 @@
 from collections import namedtuple
-
+import numpy as np
 
 class ProblemInput:
     def __init__(self, **kwargs):
@@ -31,9 +31,24 @@ class AgentSimulationInput(SimulationInput):
 
 
 class ChainSimulationOutput:
-    def __init__(self):
+    def __init__(self, eval_type_list):
         self.chain_activation = 0
-        self.reward_eval = []
+        self.reward_eval = RewardEvaluation(eval_type_list)
+
+
+class RewardEvaluation:
+    def __init__(self, eval_type_list):
+        self.reward_eval_list = {eval_type: [] for eval_type in eval_type_list}
+
+    def add(self, reward_dict):
+        for k, v in reward_dict.items():
+            v = np.array(v)
+            if k == 'online':
+                v = np.cumsum(v)
+            self.reward_eval_list[k].append(v)
+
+    def get(self, eval_type):
+        return np.array(self.reward_eval_list[eval_type])
 
 
 SimulationData = namedtuple('SimulationData', ('input', 'output'))

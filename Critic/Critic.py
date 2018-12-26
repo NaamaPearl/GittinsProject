@@ -39,12 +39,14 @@ class OnlinePolicyEvaluator(Evaluator):
 
 class EvaluatorFactory:
     @staticmethod
-    def Generate(evaluator_type, **kwargs):
-        if evaluator_type == 'online':
+    def Generate(eval_type, **kwargs):
+        if eval_type == 'online':
             return OnlinePolicyEvaluator()
-        if evaluator_type == 'offline':
+        if eval_type == 'offline':
             return OfflinePolicyEvaluator(kwargs['model'])
 
+    def GenEvaluatorDict(self, eval_type_list, **kwargs):
+        return {eval_type: self.Generate(eval_type, **kwargs) for eval_type in eval_type_list}
 
 class CriticFactory:
     @staticmethod
@@ -58,19 +60,20 @@ class CriticFactory:
 
 class Critic:
     def __init__(self, **kwargs):
-        self.evaluator: Evaluator = EvaluatorFactory().Generate(**kwargs)
-        self.value_vec = None
-
+        self.eval_type_list = kwargs['evaluator_type']
+        self.evaluator_dict = EvaluatorFactory().GenEvaluatorDict(kwargs['evaluator_type'], **kwargs)
+        self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
         self.Reset()
 
     def Update(self, chain):
         pass
 
-    def Evaluate(self, **kwargs):
-        self.value_vec.append(self.evaluator.EvaluatePolicy(**kwargs))
+    def CriticEvaluate(self, **kwargs):
+        [self.value_vec[eval_type].append(self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs))
+         for eval_type in self.eval_type_list]
 
     def Reset(self):
-        self.value_vec = []
+        self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
 
 
 class ChainMDPCritic(Critic):
@@ -89,6 +92,6 @@ class ChainMDPCritic(Critic):
         self.chain_activations = [0 for _ in range(self.chain_num)]
         self.time_chain_activation = [[] for _ in range(self.chain_num)]
 
-    def Evaluate(self, **kwargs):
-        super().Evaluate(**kwargs)
+    def CriticEvaluate(self, **kwargs):
+        super().CriticEvaluate(**kwargs)
         [self.time_chain_activation[chain].append(self.chain_activations[chain]) for chain in range(self.chain_num)]

@@ -91,11 +91,9 @@ class Simulator:
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
-                self.Evaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run)
+                self.SimEvaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 self.Reset()
-
-        self.CalcResults()
 
     def Reset(self):
         pass
@@ -103,12 +101,8 @@ class Simulator:
     def SimulateOneStep(self, agents_to_run, **kwargs):
         pass
 
-    def Evaluate(self, **kwargs):
-        self.critic.Evaluate(**kwargs)
-
-    def CalcResults(self):
-        if self.evaluation_type == 'online':
-            self.critic.value_vec = np.cumsum(self.critic.value_vec)
+    def SimEvaluate(self, **kwargs):
+        self.critic.CriticEvaluate(**kwargs)
 
 
 class AgentSimulator(Simulator):
@@ -119,12 +113,12 @@ class AgentSimulator(Simulator):
         self.graded_states = None
         self.init_prob = None
 
-    def Evaluate(self, **kwargs):
+    def SimEvaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
         # kwargs['running_agents'] = min(
         #     reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
         #     kwargs['running_agents'])
-        super().Evaluate(**kwargs)
+        super().SimEvaluate(**kwargs)
 
     def InitParams(self, **kwargs):
         super().InitParams(**kwargs)
