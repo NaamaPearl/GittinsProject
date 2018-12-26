@@ -24,8 +24,14 @@ class MDPModel:
         self.opt_policy = self.CalcOptPolicy()
 
     def BuildP(self, **kwargs):
-        return [np.array([self.gen_P_matrix(state_idx, self.get_succesors(state_idx, action, **kwargs))
+        possible_successors = self.GenPossibleSuccessors()
+
+        return [np.array([self.gen_P_matrix(state_idx,
+                                            self.get_successors(state_idx, action, possible_successors, **kwargs))
                           for action in range(self.actions)]) for state_idx in range(self.n)]
+
+    def GenPossibleSuccessors(self, **kwargs):
+        return [list(range(self.n))]
 
     def GetActiveChains(self):
         return list(range(self.n))
@@ -36,8 +42,8 @@ class MDPModel:
     def FindChain(self, state_idx):
         return 0
 
-    def get_succesors(self, state_idx, action, **kwargs):
-        return set(range(self.n))
+    def get_successors(self, state_idx, action, possible_successors, **kwargs):
+        return set(random.sample(possible_successors[state_idx], self.succ_num))
 
     def gen_P_matrix(self, state_idx, succesors):
         if self.IsSinkState(state_idx):
@@ -137,15 +143,39 @@ class SeperateChainsMDP(MDPModel):
     # def IsSinkState(self, state_idx):
     #     return state_idx in self.traps
 
-    def BuildP(self):
-        succ_list = []
-        for state_idx in range(self.n):
-            chain = self.FindChain(state_idx)
-            if chain is None:
-                succ_list.append([])
-            else:
-                succ_list.append(set(np.random.choice(list(self.chains[self.FindChain(state_idx)]), self.op_succ_num)))
-        return super().BuildP(succ_list=succ_list)
+    # def BuildP(self):
+    #     succ_list = []
+    #     for state_idx in range(self.n):
+    #         chain = self.FindChain(state_idx)
+    #         if chain is None:
+    #             succ_list.append([])
+    #         else:
+    #             succ_list.append(set(np.random.choice(list(self.chains[self.FindChain(state_idx)]), self.op_succ_num)))
+    #     return super().BuildP(succ_list=succ_list)
+
+    def GenPossibleSuccessors(self, **kwargs):
+        try:
+            forbidden_states = set(kwargs['forbidden_states']).union(self.init_states_idx)
+        except KeyError:
+            forbidden_states = self.init_states_idx
+
+        possible_per_chain = [chain.difference(forbidden_states) for chain in self.chains]
+        return [self.GenPossibleSuccessorsPerState(self.FindChain(s), possible_per_chain) for s in range(self.n)]
+
+    def GenPossibleSuccessorsPerState(self, chain_num, possible_per_chain):
+        if chain_num is None:
+            successors = [set(opt) for opt in possible_per_chain]
+        else:
+            successors = set(random.sample(possible_per_chain[chain_num], self.op_succ_num))
+
+        return successors
+
+    def get_successors(self, state_idx, action, possible_successors, **kwargs):
+        if state_idx in self.init_states_idx:
+            max_states = min([len(chain_states) for chain_states in possible_successors[state_idx]])
+            return reduce(lambda a, b: a.union(b), [set(random.sample(chain_succ, max_states))
+                                                    for chain_succ in possible_successors[state_idx]])
+        return super().get_successors(state_idx, action, possible_successors, **kwargs)
 
     def IsStateActionRewarded(self, state_idx, action):
         return self.FindChain(state_idx) not in [None, 0]
@@ -156,25 +186,6 @@ class SeperateChainsMDP(MDPModel):
         for i in range(self.chain_num):
             if state_idx < 1 + (i + 1) * self.chain_size:
                 return i
-
-    def get_succesors(self, state_idx, action, **kwargs):
-        try:
-            forbidden_states = set(kwargs['forbidden_states']).union(self.init_states_idx)
-        except KeyError:
-            forbidden_states = self.init_states_idx
-
-        chain = self.FindChain(state_idx)
-        if chain is None:
-            successors = set(range(self.n)).difference(forbidden_states)  # self.chains[action]
-        else:
-            possible_successors = list(kwargs['succ_list'][state_idx].difference(forbidden_states))
-            successors = set(np.random.choice(possible_successors, self.succ_num))
-
-        for successor in successors:
-            if successor in self.traps:
-                self.leads_to_trap[(state_idx, action)] = successor
-
-        return successors
 
     def GenInitialProbability(self):
         init_prob = np.zeros(self.n)
@@ -221,15 +232,17 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
         return super().IsStateActionRewarded(state_idx, action)
 
-    def get_succesors(self, state_idx, action, **kwargs):
-        if state_idx not in self.tunnel_indexes or state_idx == self.tunnel_indexes[-1]:
-            kwargs['forbidden_states'] = self.tunnel_indexes[1:]
-            return super().get_succesors(state_idx, action, **kwargs)
-        if action == 0:
-            inner_idx = state_idx - self.tunnel_indexes[0]
-            return {self.tunnel_indexes[inner_idx + 1]}
+    def get_successors(self, state_idx, action, possible_successors, **kwargs):
+        if state_idx in self.tunnel_indexes[:-1]:
+            if action == 0:
+                return {self.tunnel_indexes[state_idx - self.tunnel_indexes[0] + 1]}
+            return {self.tunnel_indexes[0]}
 
-        return {self.tunnel_indexes[0]}
+        return super().get_successors(state_idx, action, possible_successors, **kwargs)
+
+    def GenPossibleSuccessors(self, **kwargs):
+        kwargs['forbidden_states'] = self.tunnel_indexes[1:]
+        return super().GenPossibleSuccessors(**kwargs)
 
     def GetRewardParams(self, state_idx, act):
         if state_idx == self.tunnel_indexes[-1]:
@@ -254,7 +267,7 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
 
 class EyeMDP(MDPModel):
-    def get_succesors(self, state_idx, action, **kwargs):
+    def get_successors(self, state_idx, action, **kwargs):
         return {np.mod(state_idx + 1, self.n)}
 
 
@@ -262,7 +275,7 @@ class SingleLineMDP(MDPModel):
     def IsStateActionRewarded(self, state_idx, action):
         return state_idx == self.n - 2 and action == 0
 
-    def get_succesors(self, state_idx, action, **kwargs):
+    def get_successors(self, state_idx, action, **kwargs):
         if action == 0:  # forward -->
             return {(state_idx + 1) % self.n}
         return {0}

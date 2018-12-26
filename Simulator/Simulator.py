@@ -121,9 +121,9 @@ class AgentSimulator(Simulator):
 
     def Evaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
-        kwargs['running_agents'] = min(
-            reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
-            kwargs['running_agents'])
+        # kwargs['running_agents'] = min(
+        #     reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
+        #     kwargs['running_agents'])
         super().Evaluate(**kwargs)
 
     def InitParams(self, **kwargs):
@@ -283,7 +283,7 @@ class PrioritizedSweeping(Simulator):
 def SimulatorFactory(method_type, mdp: MDPModel, sim_params):
     simulated_mdp = SimulatedModel(mdp)
     if method_type == 'random':
-        agent_num = sim_params['agents_to_run']
+        agent_num = sim_params['agents_to_run'] * 3  # TODO- unite optines
     elif method_type in ['gittins', 'greedy']:
         agent_num = sim_params['agents_to_run'] * 3
     else:

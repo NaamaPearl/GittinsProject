@@ -18,7 +18,7 @@ def CompareActivations(data_output, mdp_i):
 
 
 def PlotEvaluation(data_output, optimal_policy_reward, mdp_i, eval_type, eval_freq):
-    params = ['reward', 'error']
+    params = ['reward', 'error', 'all']
     [PlotEvaluationForParam(data_output, optimal_policy_reward, param, mdp_i, eval_type, eval_freq) for param in params]
 
 
@@ -27,7 +27,7 @@ def PlotEvaluationForParam(data_output, optimal_policy_reward, param, mdp_i, eva
     # method_type = []
     steps = np.array(list(range(data_output[0][0].reward_eval[0].shape[0]))) * eval_freq
     for _iter in range(len(data_output)):
-        if data_output[_iter][2] == param:
+        if data_output[_iter][2] == param or param == 'all':
             reward_eval = np.array(data_output[_iter][0].reward_eval)
             y = np.mean(reward_eval, axis=0)
             std = np.std(reward_eval, axis=0)
@@ -115,10 +115,10 @@ if __name__ == '__main__':
                     for _ in range(mdp_num)]
 
     # define general simulation params
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
-    # _method_dict = {'greedy': ['reward', 'error']}
+    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    # _method_dict = {'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 5000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
+                          'steps': 6000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
                           'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
                           'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1}
 
