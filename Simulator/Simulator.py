@@ -280,14 +280,9 @@ class PrioritizedSweeping(Simulator):
             next_state.predecessor.add(state_action)
 
 
-def SimulatorFactory(method_type, mdp: MDPModel, sim_params):
+def SimulatorFactory(mdp: MDPModel, sim_params):
     simulated_mdp = SimulatedModel(mdp)
-    if method_type == 'random':
-        agent_num = sim_params['agents_to_run'] * 3  # TODO- unite optines
-    elif method_type in ['gittins', 'greedy']:
-        agent_num = sim_params['agents_to_run'] * 3
-    else:
-        raise IOError('unrecognized method type:' + method_type)
+    agent_num = sim_params['agents_to_run'] * sim_params['agents_ratio']
 
     return AgentSimulator(
         ProblemInput(MDP_model=simulated_mdp, agent_num=agent_num, gamma=mdp.gamma, **sim_params))

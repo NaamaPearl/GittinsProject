@@ -72,7 +72,7 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, runs_per_mdp, sim_params)
 
 def RunSimulations(_mdp_list, runs_per_mdp, _sim_params):
     simulators = [{
-        method: {parameter: SimulatorFactory(method, mdp, _sim_params)
+        method: {parameter: SimulatorFactory(mdp, _sim_params)
                  for parameter in _sim_params['method_dict'][method]} for method in _sim_params['method_dict'].keys()}
         for mdp in _mdp_list]
 
@@ -118,8 +118,8 @@ if __name__ == '__main__':
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 6000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
-                          'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
+                          'steps': 6000, 'eval_type': 'online', 'agents_to_run': 10, 'agents_ratio': 3,
+                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
                           'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
