@@ -18,7 +18,7 @@ class OfflinePolicyEvaluator(Evaluator):
         reward = 0
         good_agents = 0
         for _ in range(50):
-            agent = Agent(0, self.model.states[np.random.choice(list(self.model.init_states_idx))])
+            agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
             if agent.curr_state.chain == 0:
                 continue

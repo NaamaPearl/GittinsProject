@@ -15,13 +15,8 @@ class SimulatedModel:
             self.policy_dynamics[i] = self.MDP_model.P[i][a]
             self.policy_expected_rewards[i] = self.MDP_model.r[i][a].expected_reward
 
-    def GetNextState(self, state_action, run_time=1):
-        n_s = np.random.choice(range(self.MDP_model.n), p=self.MDP_model.P[state_action.state.idx][state_action.action])
-        if run_time == 1:
-            return n_s
-
-        p = self.policy_dynamics ** (run_time - 1)
-        return np.random.choice(range(self.MDP_model.n), p=p[n_s])
+    def GetNextState(self, state_action):
+        return np.random.choice(range(self.MDP_model.n), p=self.MDP_model.P[state_action.state.idx][state_action.action])
 
     def calculate_V(self, gamma):
         return np.linalg.inv(np.eye(self.MDP_model.n) - gamma * self.policy_dynamics) @ self.policy_expected_rewards

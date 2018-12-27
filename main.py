@@ -34,15 +34,15 @@ def PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_si
                 y = np.mean(reward_eval, axis=0)
                 std = np.std(reward_eval, axis=0)
                 ax[i].plot(steps, y, label=data_output[_iter][1])
-                ax[i].fill_between(steps, y + std/2, y - std/2, alpha=0.5)
+                ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
 
     for i, eval_type in enumerate(general_sim_params['eval_type']):
         ax[i].set_title(eval_type)
         ax[i].legend()
         ax[i].set_xlabel('simulation steps')
         ax[i].set_ylabel('evaluated reward')
-    # if eval_type == 'offline':
-    #     plt.axhline(y=optimal_policy_reward, color='r', linestyle='-', label='optimal policy expected reward')
+        if eval_type == 'offline':
+            plt.axhline(y=optimal_policy_reward, color='r', linestyle='-', label='optimal policy expected reward')
     # elif eval_type == 'online':
     #     plt.plot(steps, optimal_policy_reward, 'optimal policy expected reward')
     # method_type.insert(0, 'optimal policy expected reward')
@@ -68,17 +68,18 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
                 simulator.simulate(simulation_input)
 
                 simulation_output = simulation_outputs[method][simulation_input.parameter]
-                simulation_output.chain_activation += (
-                        np.asarray(simulator.critic.chain_activations) / runs_per_mdp)
                 simulation_output.reward_eval.add(simulator.critic.value_vec)
-            # print('simulate finished, %s agents activated' % sum(simulators[method].critic.chain_activations))
+                try:
+                    simulation_output.chain_activation += (np.asarray(simulator.critic.chain_activations) / runs_per_mdp)
+                except AttributeError:
+                    pass
 
     return simulation_outputs
 
 
 def RunSimulations(_mdp_list, _sim_params):
     simulators = [{
-        method: {parameter: SimulatorFactory(method, mdp, _sim_params)
+        method: {parameter: SimulatorFactory(mdp, _sim_params)
                  for parameter in _sim_params['method_dict'][method]} for method in _sim_params['method_dict'].keys()}
         for mdp in _mdp_list]
 
@@ -99,8 +100,11 @@ def PlotResults(results, _opt_policy_reward, general_sim_params):
 
         data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param), param)
                                             for param in res[method].keys()] for method in res.keys()])
-        CompareActivations(data, mdp_i)
         PlotEvaluation(data, _opt_policy_reward[mdp_i], general_sim_params)
+        try:
+            CompareActivations(data, mdp_i)
+        except TypeError:
+            pass
 
 
 if __name__ == '__main__':
@@ -113,21 +117,21 @@ if __name__ == '__main__':
         with open('pnina', 'rb') as f:
             mdp_list.append(pickle.load(f))
     else:
-        mdp_list = [ChainsTunnelMDP(n=31, action=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
-                                    tunnel_indexes=list(range(17, 17 + tunnel_length)),
-                                    reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
-                                                  'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                  'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
+        mdp_list = [MDPModel(n=31, actions=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
+                             tunnel_indexes=list(range(17, 17 + tunnel_length)),
+                             reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
+                                           'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                           'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
                     for _ in range(mdp_num)]
 
     # define general simulation params
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'trajectory_len': 100,
-                          'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
+                          'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_ratio': 3,
+                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
                           'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1,
-                          'runs_per_mdp': 5}
+                          'runs_per_mdp': 2}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
     simulators, res = RunSimulations(mdp_list, _sim_params=general_sim_params)

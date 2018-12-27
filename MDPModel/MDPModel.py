@@ -7,7 +7,7 @@ threshold = 10 ** -3
 
 
 class MDPModel:
-    def __init__(self, n, actions, chain_num, gamma, traps_num=0):
+    def __init__(self, n, actions, chain_num, gamma, succ_num, traps_num=0, **kwargs):
         self.n: int = n
         self.type = 'regular'
         self.chain_num = chain_num
@@ -16,6 +16,7 @@ class MDPModel:
 
         self.traps = list(np.random.choice(list(self.GetActiveChains()), traps_num))
         self.leads_to_trap = {}
+        self.succ_num = succ_num
         self.P = self.BuildP()
 
         self.r = self.gen_r_mat()
@@ -31,7 +32,7 @@ class MDPModel:
                           for action in range(self.actions)]) for state_idx in range(self.n)]
 
     def GenPossibleSuccessors(self, **kwargs):
-        return [list(range(self.n))]
+        return [list(range(self.n)) for _ in range(self.n)]
 
     def GetActiveChains(self):
         return list(range(self.n))
@@ -40,7 +41,7 @@ class MDPModel:
         return True
 
     def FindChain(self, state_idx):
-        return 0
+        return None
 
     def get_successors(self, state_idx, action, possible_successors, **kwargs):
         return set(random.sample(possible_successors[state_idx], self.succ_num))
@@ -135,7 +136,6 @@ class SeperateChainsMDP(MDPModel):
         self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1))
                        for i in range(self.chain_num)]
         self.reward_params = reward_param
-        self.succ_num = succ_num
         self.op_succ_num = op_succ_num
 
         super().__init__(n, actions=action, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num)
