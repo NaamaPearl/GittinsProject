@@ -124,7 +124,7 @@ class TreeMDP(MDPModel):
 
         self.traps_idx = random.sample(self.GetActiveChains(), traps_num)
         self.init_states_idx = init_states_idx
-        self.reset_states_idx = self.RaffleResetStates(resets_num)
+        self.reset_states_idx = self.GenResetStates(resets_num)
 
         super().__init__(n, actions, chain_num, gamma, succ_num, traps_num, resets_num, **kwargs)
 
@@ -133,9 +133,9 @@ class TreeMDP(MDPModel):
             return self.init_states_idx
         return super().get_successors(state_idx, **kwargs)
 
-    def RaffleResetStates(self, resets_num):
+    def GenResetStates(self, **kwargs):
         possible_resets = set(range(self.n)).difference(self.init_states_idx)
-        return random.sample(possible_resets, resets_num)
+        return random.sample(possible_resets, kwargs['resets_num'])
 
     def GenInitialProbability(self):
         init_prob = np.zeros(self.n)
@@ -263,8 +263,12 @@ class StarMDP(SeperateChainsMDP):
     def get_successors(self, state_idx, **kwargs):
         if state_idx in self.init_states_idx:
             return {min(chain) for chain in self.chains}
+
+        if state_idx in self.reset_states_idx or kwargs['action'] != 0:
+            return self.init_states_idx
+
         line_idx_list = list(self.chains[self.FindChain(state_idx)])
-        return GetSuccessorsInLine(state_idx, line_idx_list, kwargs['action'])
+        return {line_idx_list[state_idx - line_idx_list[0] + 1]}
 
     def IsStateActionRewarded(self, state_idx, action):
         return state_idx not in self.init_states_idx
@@ -274,10 +278,13 @@ class StarMDP(SeperateChainsMDP):
         if chain is None:
             return None
 
-        if state_idx == max(self.chains[chain]):
+        if state_idx in self.reset_states_idx:
             return self.reward_params['final_state']
 
         return self.reward_params['line_state']
+
+    def GenResetStates(self, resets_num):
+        return [max(chain) for chain in self.chains]
 
 
 # class StarMDP(SeperateChainsMDP):

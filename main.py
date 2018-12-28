@@ -118,14 +118,15 @@ if __name__ == '__main__':
         with open('pnina', 'rb') as f:
             mdp_list.append(pickle.load(f))
     else:
-        mdp_list = [TreeMDP(n=31, actions=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
-                            tunnel_indexes=list(range(17, 17 + tunnel_length)), resets_num=3,
-                            reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
-                                          'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                          'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}}),
-                    StarMDP(n=31, actions=4, succ_num=1, op_succ_num=1, chain_num=5, gamma=0.9,
-                            reward_param={'final_state': {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
-                                          'line_state': {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)}})]
+        # mdp_list = [TreeMDP(n=31, actions=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
+        #                     tunnel_indexes=list(range(17, 17 + tunnel_length)), resets_num=3,
+        #                     reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
+        #                                   'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+        #                                   'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
+
+        mdp_list = [StarMDP(n=31, actions=4, succ_num=1, op_succ_num=1, chain_num=5, gamma=0.9,
+                            reward_param={'final_state': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 1)},
+                                          'line_state': {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)}})]
 
     # define general simulation params
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
