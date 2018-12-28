@@ -140,10 +140,10 @@ class AgentSimulator(Simulator):
             return self.evaluated_model.P_hat, self.evaluated_model.r_hat
         if parameter == 'error':
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
-
-        reward_mat = [[self.MDP_model.MDP_model.r[state][action][0] * self.MDP_model.MDP_model.r[state][action][1]
-                       for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
-        return self.MDP_model.MDP_model.P, reward_mat
+        if parameter == 'ground_truth':
+            reward_mat = [[self.MDP_model.MDP_model.r[state][action][0] * self.MDP_model.MDP_model.r[state][action][1]
+                           for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
+            return self.MDP_model.MDP_model.P, reward_mat
 
     def ImprovePolicy(self, sim_input, iteration_num):
         p, r = self.GetStatsForPrioritizer(sim_input.parameter)

@@ -7,15 +7,13 @@ threshold = 10 ** -3
 
 
 class MDPModel:
-    def __init__(self, n, actions, chain_num, gamma, succ_num, traps_num=0, **kwargs):
+    def __init__(self, n, actions, chain_num, gamma, succ_num, traps_num=0, resets_num=0, **kwargs):
         self.n: int = n
         self.type = 'regular'
         self.chain_num = chain_num
         self.actions: int = actions
         self.init_prob = self.GenInitialProbability()
 
-        self.traps = list(np.random.choice(list(self.GetActiveChains()), traps_num))
-        self.leads_to_trap = {}
         self.succ_num = succ_num
         self.P = self.BuildP()
 
@@ -25,11 +23,12 @@ class MDPModel:
         self.opt_policy = self.CalcOptPolicy()
 
     def BuildP(self, **kwargs):
-        possible_successors = self.GenPossibleSuccessors()
+        possible_suc = self.GenPossibleSuccessors()
 
         return [np.array([self.gen_P_matrix(state_idx,
-                                            self.get_successors(state_idx, action, possible_successors, **kwargs))
-                          for action in range(self.actions)]) for state_idx in range(self.n)]
+                                            self.get_successors(state_idx, action=act,
+                                                                possible_successors=possible_suc))
+                          for act in range(self.actions)]) for state_idx in range(self.n)]
 
     def GenPossibleSuccessors(self, **kwargs):
         return [list(range(self.n)) for _ in range(self.n)]
@@ -43,8 +42,8 @@ class MDPModel:
     def FindChain(self, state_idx):
         return None
 
-    def get_successors(self, state_idx, action, possible_successors, **kwargs):
-        return set(random.sample(possible_successors[state_idx], self.succ_num))
+    def get_successors(self, state_idx, **kwargs):
+        return set(random.sample(kwargs['possible_successors'][state_idx], self.succ_num))
 
     def gen_P_matrix(self, state_idx, succesors):
         if self.IsSinkState(state_idx):
@@ -55,6 +54,7 @@ class MDPModel:
             return np.array(self.gen_row_of_P(succesors, state_idx))
 
     def gen_row_of_P(self, succesors, state_idx):
+
         row = np.array([random.random() if idx in succesors else 0 for idx in range(self.n)])
         return row / sum(row)
 
@@ -115,21 +115,41 @@ class MDPModel:
 
         raise ValueError('unexpected evaluation type')
 
-class RandomSinkMDP(MDPModel):
-    def __init__(self, n, actions, chain_num, gamma):
-        self.sink_list = random.sample(range(n), random.randint(0, n))
-        super().__init__(n, actions=actions, chain_num=chain_num, gamma=gamma)
-        self.type = 'random_sink'
 
-    def IsSinkState(self, state_idx):
-        return state_idx in self.sink_list
+class TreeMDP(MDPModel):
+    def __init__(self, n, actions, chain_num, gamma, succ_num, resets_num=0, traps_num=0,
+                 init_states_idx=frozenset({0}), **kwargs):
 
+        self.n = n
 
-class SeperateChainsMDP(MDPModel):
-    def __init__(self, n, action, succ_num, reward_param, gamma, chain_num, op_succ_num,
-                 traps_num=0, init_states_idx=frozenset({0})):
-        self.chain_num = chain_num
+        self.traps_idx = random.sample(self.GetActiveChains(), traps_num)
         self.init_states_idx = init_states_idx
+        self.reset_states_idx = self.RaffleResetStates(resets_num)
+
+        super().__init__(n, actions, chain_num, gamma, succ_num, traps_num, resets_num, **kwargs)
+
+    def get_successors(self, state_idx, **kwargs):
+        if state_idx in self.reset_states_idx:
+            return self.init_states_idx
+        return super().get_successors(state_idx, **kwargs)
+
+    def RaffleResetStates(self, resets_num):
+        possible_resets = set(range(self.n)).difference(self.init_states_idx)
+        return random.sample(possible_resets, resets_num)
+
+    def GenInitialProbability(self):
+        init_prob = np.zeros(self.n)
+        for state in self.init_states_idx:
+            init_prob[state] = 1
+
+        return init_prob / sum(init_prob)
+
+
+class SeperateChainsMDP(TreeMDP):
+    def __init__(self, n, action, succ_num, reward_param, gamma, chain_num, op_succ_num,
+                 traps_num=0):
+        self.chain_num = chain_num
+
         n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
         self.chain_size = int((n - 1) / self.chain_num)
 
@@ -138,21 +158,9 @@ class SeperateChainsMDP(MDPModel):
         self.reward_params = reward_param
         self.op_succ_num = op_succ_num
 
-        super().__init__(n, actions=action, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num)
+        super().__init__(n, actions=action, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num,
+                         succ_num=succ_num)
         self.type = 'chains'
-
-    # def IsSinkState(self, state_idx):
-    #     return state_idx in self.traps
-
-    # def BuildP(self):
-    #     succ_list = []
-    #     for state_idx in range(self.n):
-    #         chain = self.FindChain(state_idx)
-    #         if chain is None:
-    #             succ_list.append([])
-    #         else:
-    #             succ_list.append(set(np.random.choice(list(self.chains[self.FindChain(state_idx)]), self.op_succ_num)))
-    #     return super().BuildP(succ_list=succ_list)
 
     def GenPossibleSuccessors(self, **kwargs):
         try:
@@ -171,12 +179,12 @@ class SeperateChainsMDP(MDPModel):
 
         return successors
 
-    def get_successors(self, state_idx, action, possible_successors, **kwargs):
+    def get_successors(self, state_idx, **kwargs):
         if state_idx in self.init_states_idx:
-            max_states = min([len(chain_states) for chain_states in possible_successors[state_idx]])
+            max_states = min([len(chain_states) for chain_states in kwargs['possible_successors'][state_idx]])
             return reduce(lambda a, b: a.union(b), [set(random.sample(chain_succ, max_states))
-                                                    for chain_succ in possible_successors[state_idx]])
-        return super().get_successors(state_idx, action, possible_successors, **kwargs)
+                                                    for chain_succ in kwargs['possible_successors'][state_idx]])
+        return super().get_successors(state_idx, **kwargs)
 
     def IsStateActionRewarded(self, state_idx, action):
         return self.FindChain(state_idx) not in [None, 0]
@@ -188,23 +196,13 @@ class SeperateChainsMDP(MDPModel):
             if state_idx < 1 + (i + 1) * self.chain_size:
                 return i
 
-    def GenInitialProbability(self):
-        init_prob = np.zeros(self.n)
-        for state in self.init_states_idx:
-            init_prob[state] = 1
-
-        return init_prob / sum(init_prob)
-
     def GetRewardParams(self, state_idx, action):
         chain = self.FindChain(state_idx)
         if chain is None:
             return None
 
-        if state_idx in self.traps:
+        if state_idx in self.traps_idx:
             return self.reward_params['trap']
-
-        if (state_idx, action) in self.leads_to_trap:
-            return self.reward_params['leads_to_trap']
 
         return self.reward_params.get(chain)
 
@@ -222,6 +220,13 @@ class SeperateChainsMDP(MDPModel):
         return self.chains[1:]
 
 
+def GetSuccessorsInLine(state_idx, line_idxs, action):
+    if state_idx == line_idxs[-1] or action != 0:
+        return {line_idxs[0]}
+
+    return {line_idxs[state_idx - line_idxs[0] + 1]}
+
+
 class ChainsTunnelMDP(SeperateChainsMDP):
     def __init__(self, n, action, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
         self.tunnel_indexes = tunnel_indexes
@@ -233,13 +238,11 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
         return super().IsStateActionRewarded(state_idx, action)
 
-    def get_successors(self, state_idx, action, possible_successors, **kwargs):
+    def get_successors(self, state_idx, **kwargs):
         if state_idx in self.tunnel_indexes[:-1]:
-            if action == 0:
-                return {self.tunnel_indexes[state_idx - self.tunnel_indexes[0] + 1]}
-            return {self.tunnel_indexes[0]}
+            return GetSuccessorsInLine(state_idx, self.tunnel_indexes, kwargs['action'])
 
-        return super().get_successors(state_idx, action, possible_successors, **kwargs)
+        return super().get_successors(state_idx, **kwargs)
 
     def GenPossibleSuccessors(self, **kwargs):
         kwargs['forbidden_states'] = self.tunnel_indexes[1:]
@@ -251,6 +254,30 @@ class ChainsTunnelMDP(SeperateChainsMDP):
         if state_idx in self.tunnel_indexes:
             return self.reward_params['lead_to_tunnel']
         return super().GetRewardParams(state_idx, act, )
+
+
+class StarMDP(SeperateChainsMDP):
+    def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num):
+        super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num)
+
+    def get_successors(self, state_idx, **kwargs):
+        if state_idx in self.init_states_idx:
+            return {min(chain) for chain in self.chains}
+        line_idx_list = list(self.chains[self.FindChain(state_idx)])
+        return GetSuccessorsInLine(state_idx, line_idx_list, kwargs['action'])
+
+    def IsStateActionRewarded(self, state_idx, action):
+        return state_idx not in self.init_states_idx
+
+    def GetRewardParams(self, state_idx, action, **kwargs):
+        chain = self.FindChain(state_idx)
+        if chain is None:
+            return None
+
+        if state_idx == max(self.chains[chain]):
+            return self.reward_params['final_state']
+
+        return self.reward_params['line_state']
 
 
 # class StarMDP(SeperateChainsMDP):
@@ -268,7 +295,7 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
 
 class EyeMDP(MDPModel):
-    def get_successors(self, state_idx, action, **kwargs):
+    def get_successors(self, state_idx, **kwargs):
         return {np.mod(state_idx + 1, self.n)}
 
 
@@ -276,8 +303,8 @@ class SingleLineMDP(MDPModel):
     def IsStateActionRewarded(self, state_idx, action):
         return state_idx == self.n - 2 and action == 0
 
-    def get_successors(self, state_idx, action, **kwargs):
-        if action == 0:  # forward -->
+    def get_successors(self, state_idx, **kwargs):
+        if kwargs['action'] == 0:  # forward -->
             return {(state_idx + 1) % self.n}
         return {0}
 
@@ -287,7 +314,8 @@ if __name__ == "__main__":
                             actions=3,
                             chain_num=1,
                             gamma=0.9,
-                            traps_num=0)
+                            traps_num=0,
+                            succ_num=2)
 
     seperate = SeperateChainsMDP(
         n=31,
@@ -296,6 +324,9 @@ if __name__ == "__main__":
         chain_num=2,
         gamma=0.9,
         reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)}},
+        op_succ_num=5
     )
 
+    star = StarMDP(n=31, action=4, chain_num=5, gamma=0.9,
+                   reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)}}, succ_num=3, op_succ_num=3)
     print('doen')

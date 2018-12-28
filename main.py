@@ -70,7 +70,8 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
                 simulation_output = simulation_outputs[method][simulation_input.parameter]
                 simulation_output.reward_eval.add(simulator.critic.value_vec)
                 try:
-                    simulation_output.chain_activation += (np.asarray(simulator.critic.chain_activations) / runs_per_mdp)
+                    simulation_output.chain_activation += (
+                                np.asarray(simulator.critic.chain_activations) / runs_per_mdp)
                 except AttributeError:
                     pass
 
@@ -109,7 +110,7 @@ def PlotResults(results, _opt_policy_reward, general_sim_params):
 
 if __name__ == '__main__':
     # building the MDPs
-    mdp_num = 1
+    # mdp_num = 1
     tunnel_length = 5
     load = False
     if load:
@@ -117,19 +118,21 @@ if __name__ == '__main__':
         with open('pnina', 'rb') as f:
             mdp_list.append(pickle.load(f))
     else:
-        mdp_list = [MDPModel(n=31, actions=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
-                             tunnel_indexes=list(range(17, 17 + tunnel_length)),
-                             reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
-                                           'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                           'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-                    for _ in range(mdp_num)]
+        mdp_list = [TreeMDP(n=31, actions=4, succ_num=2, op_succ_num=5, chain_num=2, gamma=0.9, traps_num=0,
+                            tunnel_indexes=list(range(17, 17 + tunnel_length)), resets_num=3,
+                            reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
+                                          'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                          'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}}),
+                    StarMDP(n=31, actions=4, succ_num=1, op_succ_num=1, chain_num=5, gamma=0.9,
+                            reward_param={'final_state': {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)},
+                                          'line_state': {'bernoulli_p': 1, 'gauss_params': ((10, 3), 1)}})]
 
     # define general simulation params
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_ratio': 3,
-                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
+                          'steps': 8000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_ratio': 3,
+                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 8000, 'grades_freq': 10,
                           'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1,
                           'runs_per_mdp': 2}
 

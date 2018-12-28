@@ -23,7 +23,7 @@ class RandomRewardGenerator(RewardGenerator):
         except KeyError:
             self.bernoulli_p = random.random()
             self.gauss_mu = np.random.normal(0, 50)
-            self.gauss_sigma = random.random()
+            self.gauss_sigma = abs(np.random.normal(10, 4))
 
         self.expected_reward = self.gauss_mu * self.bernoulli_p
 
