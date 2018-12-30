@@ -20,7 +20,7 @@ class OfflinePolicyEvaluator(Evaluator):
         for _ in range(50):
             agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-            if agent.curr_state.chain == 0:
+            if agent.curr_state.chain != 4:  # TODO - make more general
                 continue
 
             good_agents += 1
@@ -47,6 +47,7 @@ class EvaluatorFactory:
 
     def GenEvaluatorDict(self, eval_type_list, **kwargs):
         return {eval_type: self.Generate(eval_type, **kwargs) for eval_type in eval_type_list}
+
 
 class CriticFactory:
     @staticmethod

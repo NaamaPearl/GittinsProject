@@ -124,7 +124,7 @@ class TreeMDP(MDPModel):
 
         self.traps_idx = random.sample(self.GetActiveChains(), traps_num)
         self.init_states_idx = init_states_idx
-        self.reset_states_idx = self.GenResetStates(resets_num)
+        self.reset_states_idx = self.GenResetStates(resets_num=resets_num)
 
         super().__init__(n, actions, chain_num, gamma, succ_num, traps_num, resets_num, **kwargs)
 
@@ -146,7 +146,7 @@ class TreeMDP(MDPModel):
 
 
 class SeperateChainsMDP(TreeMDP):
-    def __init__(self, n, action, succ_num, reward_param, gamma, chain_num, op_succ_num,
+    def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num,
                  traps_num=0):
         self.chain_num = chain_num
 
@@ -155,10 +155,11 @@ class SeperateChainsMDP(TreeMDP):
 
         self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1))
                        for i in range(self.chain_num)]
+        self.active_chains = {chain_num - 1}
         self.reward_params = reward_param
         self.op_succ_num = op_succ_num
 
-        super().__init__(n, actions=action, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num,
+        super().__init__(n, actions=actions, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num,
                          succ_num=succ_num)
         self.type = 'chains'
 
@@ -187,7 +188,7 @@ class SeperateChainsMDP(TreeMDP):
         return super().get_successors(state_idx, **kwargs)
 
     def IsStateActionRewarded(self, state_idx, action):
-        return self.FindChain(state_idx) not in [None, 0]
+        return self.FindChain(state_idx) in self.active_chains
 
     def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
@@ -213,9 +214,6 @@ class SeperateChainsMDP(TreeMDP):
 
         return super().gen_row_of_P(succesors, state_idx)
 
-    def CalcOptExpectedReward(self, general_sim_params):
-        return self.chain_num * super().CalcOptExpectedReward(general_sim_params)
-
     def GetActiveChains(self):
         return self.chains[1:]
 
@@ -228,9 +226,9 @@ def GetSuccessorsInLine(state_idx, line_idxs, action):
 
 
 class ChainsTunnelMDP(SeperateChainsMDP):
-    def __init__(self, n, action, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
+    def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
         self.tunnel_indexes = tunnel_indexes
-        super().__init__(n, action, succ_num, reward_param, gamma, chain_num, op_succ_num, traps_num)
+        super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, traps_num)
 
     def IsStateActionRewarded(self, state_idx, action):
         if state_idx == self.tunnel_indexes[-1]:
@@ -257,12 +255,10 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
 
 class StarMDP(SeperateChainsMDP):
-    def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num):
-        super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num)
-
     def get_successors(self, state_idx, **kwargs):
         if state_idx in self.init_states_idx:
-            return {min(chain) for chain in self.chains}
+            chain_start = [min(chain) for chain in self.chains]
+            return {chain_start[kwargs['action']]}
 
         if state_idx in self.reset_states_idx or kwargs['action'] != 0:
             return self.init_states_idx
@@ -279,9 +275,9 @@ class StarMDP(SeperateChainsMDP):
             return None
 
         if state_idx in self.reset_states_idx:
-            return self.reward_params['final_state']
+            return self.reward_params[chain]['final_state']
 
-        return self.reward_params['line_state']
+        return self.reward_params[chain]['line_state']
 
     def GenResetStates(self, resets_num):
         return [max(chain) for chain in self.chains]
@@ -326,7 +322,7 @@ if __name__ == "__main__":
 
     seperate = SeperateChainsMDP(
         n=31,
-        action=4,
+        actions=4,
         succ_num=2,
         chain_num=2,
         gamma=0.9,

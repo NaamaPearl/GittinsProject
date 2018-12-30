@@ -7,7 +7,8 @@ epsilon = 10 ** -5
 
 
 def VisitsPriorityRun(**kwargs):
-    return np.any(kwargs['visits'] < kwargs['T_bored'])
+    # return np.any(kwargs['visits'] < kwargs['T_bored'])
+    return False
 
 
 def GradeStatesWithVisits(**kwargs):
@@ -130,4 +131,4 @@ class GittinsPrioritizer(Prioritizer):
         R = p_sub_optimal * state.score + p_opt_back * (state.score + opt_s.score + opt_s.score * t_opt_expect)
         W = p_sub_optimal + p_opt_back * 2 + p_opt_back * t_opt_expect
 
-        state.reward = R / W
+        state.score = R / W

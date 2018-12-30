@@ -15,13 +15,16 @@ class RewardGenerator:
 class RandomRewardGenerator(RewardGenerator):
     def __init__(self, **kwargs):
         super().__init__()
-        try:
+        if kwargs.get('bernoulli_p') is None:
+            self.bernoulli_p = 1
+        else:
             self.bernoulli_p = kwargs['bernoulli_p']
+
+        try:
             self.gauss_mu = np.random.normal(kwargs['gauss_params'][0][0], kwargs['gauss_params'][0][1])
             self.gauss_sigma = kwargs['gauss_params'][1]
 
         except KeyError:
-            self.bernoulli_p = random.random()
             self.gauss_mu = np.random.normal(0, 50)
             self.gauss_sigma = abs(np.random.normal(10, 4))
 
@@ -37,7 +40,7 @@ class RewardGeneratorFactory:
         if rewarded_state:
             try:
                 return RandomRewardGenerator(gauss_params=kwargs['reward_params']['gauss_params'],
-                                             bernoulli_p=kwargs['reward_params']['bernoulli_p'])
+                                             bernoulli_p=kwargs['reward_params'].get('bernoulli_p'))
             except TypeError:
                 return RandomRewardGenerator()
         return RewardGenerator()

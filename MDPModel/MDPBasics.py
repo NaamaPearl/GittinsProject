@@ -160,7 +160,11 @@ class SimulatedState:
 
     @property
     def best_action(self):
-        return max(self.actions)
+        if self.visitations == 0:
+            return np.random.choice(self.actions)
+
+        visited_actions = [action for action in self.actions if action.visitations > 0]
+        return max(visited_actions)
 
     @property
     def highest_error_action(self):

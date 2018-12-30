@@ -4,6 +4,7 @@ from Framework.PrioritizedObject import *
 from Critic.Critic import *
 from Simulator.SimulatorBasics import *
 from Framework.Inputs import *
+from collections import Counter
 
 
 class Simulator:
@@ -205,7 +206,8 @@ class AgentSimulator(Simulator):
 
     @property
     def agents_location(self):
-        return [agent.object.curr_state.idx for agent in self.agents.queue]
+        chains_count = Counter([agent.object.chain for agent in self.agents.queue])
+        return chains_count
 
 
 class PrioritizedSweeping(Simulator):
