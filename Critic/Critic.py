@@ -17,33 +17,40 @@ class OfflinePolicyEvaluator(Evaluator):
     def EvaluatePolicy(self, **kwargs):
         reward = 0
         good_agents = 0
-        for _ in range(50):
-            agent = Agent(0, self.model.states[np.random.choice(list(self.model.init_states_idx))])
+        tunnel_reward = {True: 0, False: 0}
+        while good_agents < 50:
+            agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-            if agent.curr_state.chain == 0:
+            if agent.curr_state.chain != 4:  # TODO - make more general
                 continue
 
             good_agents += 1
             for _ in range(kwargs['trajectory_len']):
-                reward += self.model.GetReward(agent.curr_state.policy_action)
+                new_reward = self.model.GetReward(agent.curr_state.policy_action)
+                reward += new_reward
+                tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-
-        return reward / good_agents
+        # tunnel_reward[True] /= good_agents
+        # tunnel_reward[False] /= good_agents
+        return (reward / 50), 0
 
 
 class OnlinePolicyEvaluator(Evaluator):
     @staticmethod
     def EvaluatePolicy(**kwargs):
-        return reduce(lambda a, b: a + b, kwargs['agents_reward']) / kwargs['running_agents']
+        return reduce(lambda a, b: a + b, kwargs['agents_reward']) / kwargs['running_agents'], 0
 
 
 class EvaluatorFactory:
     @staticmethod
-    def Generate(evaluator_type, **kwargs):
-        if evaluator_type == 'online':
+    def Generate(eval_type, **kwargs):
+        if eval_type == 'online':
             return OnlinePolicyEvaluator()
-        if evaluator_type == 'offline':
+        if eval_type == 'offline':
             return OfflinePolicyEvaluator(kwargs['model'])
+
+    def GenEvaluatorDict(self, eval_type_list, **kwargs):
+        return {eval_type: self.Generate(eval_type, **kwargs) for eval_type in eval_type_list}
 
 
 class CriticFactory:
@@ -58,19 +65,23 @@ class CriticFactory:
 
 class Critic:
     def __init__(self, **kwargs):
-        self.evaluator: Evaluator = EvaluatorFactory().Generate(**kwargs)
-        self.value_vec = None
-
+        self.eval_type_list = kwargs['evaluator_type']
+        self.evaluator_dict = EvaluatorFactory().GenEvaluatorDict(kwargs['evaluator_type'], **kwargs)
+        self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
+        self.reward_tunnel = {eval_type: [] for eval_type in self.eval_type_list}
         self.Reset()
 
     def Update(self, chain):
         pass
 
-    def Evaluate(self, **kwargs):
-        self.value_vec.append(self.evaluator.EvaluatePolicy(**kwargs))
+    def CriticEvaluate(self, **kwargs):
+        for eval_type in self.eval_type_list:
+            evaluated_reward, reward_tunnel = self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs)
+            self.value_vec[eval_type].append(evaluated_reward)
+            # self.reward_tunnel[eval_type].append(reward_tunnel)
 
     def Reset(self):
-        self.value_vec = []
+        self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
 
 
 class ChainMDPCritic(Critic):
@@ -89,6 +100,6 @@ class ChainMDPCritic(Critic):
         self.chain_activations = [0 for _ in range(self.chain_num)]
         self.time_chain_activation = [[] for _ in range(self.chain_num)]
 
-    def Evaluate(self, **kwargs):
-        super().Evaluate(**kwargs)
+    def CriticEvaluate(self, **kwargs):
+        super().CriticEvaluate(**kwargs)
         [self.time_chain_activation[chain].append(self.chain_activations[chain]) for chain in range(self.chain_num)]

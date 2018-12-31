@@ -4,6 +4,7 @@ from Framework.PrioritizedObject import *
 from Critic.Critic import *
 from Simulator.SimulatorBasics import *
 from Framework.Inputs import *
+from collections import Counter
 
 
 class Simulator:
@@ -91,11 +92,9 @@ class Simulator:
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
-                self.Evaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run)
+                self.SimEvaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 self.Reset()
-
-        self.CalcResults()
 
     def Reset(self):
         pass
@@ -103,12 +102,11 @@ class Simulator:
     def SimulateOneStep(self, agents_to_run, **kwargs):
         pass
 
-    def Evaluate(self, **kwargs):
-        self.critic.Evaluate(**kwargs)
+    def SimEvaluate(self, **kwargs):
+        self.critic.CriticEvaluate(initial_state=self.RaffleInitialState(), **kwargs)
 
-    def CalcResults(self):
-        if self.evaluation_type == 'online':
-            self.critic.value_vec = np.cumsum(self.critic.value_vec)
+    def RaffleInitialState(self):
+        return np.random.choice(self.MDP_model.states, p=self.MDP_model.MDP_model.init_prob)
 
 
 class AgentSimulator(Simulator):
@@ -119,12 +117,12 @@ class AgentSimulator(Simulator):
         self.graded_states = None
         self.init_prob = None
 
-    def Evaluate(self, **kwargs):
+    def SimEvaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
-        kwargs['running_agents'] = min(
-            reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
-            kwargs['running_agents'])
-        super().Evaluate(**kwargs)
+        # kwargs['running_agents'] = min(
+        #     reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
+        #     kwargs['running_agents'])
+        super().SimEvaluate(**kwargs)
 
     def InitParams(self, **kwargs):
         super().InitParams(**kwargs)
@@ -143,12 +141,14 @@ class AgentSimulator(Simulator):
             return self.evaluated_model.P_hat, self.evaluated_model.r_hat
         if parameter == 'error':
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
-
-        reward_mat = [[self.MDP_model.MDP_model.r[state][action][0] * self.MDP_model.MDP_model.r[state][action][1]
-                       for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
-        return self.MDP_model.MDP_model.P, reward_mat
+        if parameter == 'ground_truth':
+            reward_mat = [[self.MDP_model.MDP_model.r[state][action][0] * self.MDP_model.MDP_model.r[state][action][1]
+                           for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
+            return self.MDP_model.MDP_model.P, reward_mat
 
     def ImprovePolicy(self, sim_input, iteration_num):
+        super().ImprovePolicy(sim_input, iteration_num)
+
         p, r = self.GetStatsForPrioritizer(sim_input.parameter)
         self.graded_states = sim_input.prioritizer.GradeStates(states=self.MDP_model.states,
                                                                policy=self.policy,
@@ -159,7 +159,6 @@ class AgentSimulator(Simulator):
                                                                visits=np.min(self.evaluated_model.visitations, axis=1),
                                                                T_bored=sim_input.T_bored)
         self.ReGradeAllAgents()
-        super().ImprovePolicy(sim_input, iteration_num)
 
     def ReGradeAllAgents(self):
         """invoked after states re-prioritization. Replaces queue"""
@@ -208,7 +207,8 @@ class AgentSimulator(Simulator):
 
     @property
     def agents_location(self):
-        return [agent.object.curr_state.idx for agent in self.agents.queue]
+        chains_count = Counter([agent.object.chain for agent in self.agents.queue])
+        return chains_count
 
 
 class PrioritizedSweeping(Simulator):
@@ -280,14 +280,9 @@ class PrioritizedSweeping(Simulator):
             next_state.predecessor.add(state_action)
 
 
-def SimulatorFactory(method_type, mdp: MDPModel, sim_params):
+def SimulatorFactory(mdp: MDPModel, sim_params):
     simulated_mdp = SimulatedModel(mdp)
-    if method_type == 'random':
-        agent_num = sim_params['agents_to_run']
-    elif method_type in ['gittins', 'greedy']:
-        agent_num = sim_params['agents_to_run'] * 3
-    else:
-        raise IOError('unrecognized method type:' + method_type)
+    agent_num = sim_params['agents_to_run'] * sim_params['agents_ratio']
 
     return AgentSimulator(
         ProblemInput(MDP_model=simulated_mdp, agent_num=agent_num, gamma=mdp.gamma, **sim_params))
