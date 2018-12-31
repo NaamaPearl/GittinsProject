@@ -18,7 +18,7 @@ class OfflinePolicyEvaluator(Evaluator):
         reward = 0
         good_agents = 0
         tunnel_reward = {True: 0, False: 0}
-        for _ in range(50):
+        while good_agents < 50:
             agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
             if agent.curr_state.chain != 4:  # TODO - make more general
@@ -32,7 +32,7 @@ class OfflinePolicyEvaluator(Evaluator):
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
         # tunnel_reward[True] /= good_agents
         # tunnel_reward[False] /= good_agents
-        return (reward / good_agents), 0
+        return (reward / 50), 0
 
 
 class OnlinePolicyEvaluator(Evaluator):

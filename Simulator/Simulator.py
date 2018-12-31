@@ -147,6 +147,8 @@ class AgentSimulator(Simulator):
             return self.MDP_model.MDP_model.P, reward_mat
 
     def ImprovePolicy(self, sim_input, iteration_num):
+        super().ImprovePolicy(sim_input, iteration_num)
+
         p, r = self.GetStatsForPrioritizer(sim_input.parameter)
         self.graded_states = sim_input.prioritizer.GradeStates(states=self.MDP_model.states,
                                                                policy=self.policy,
@@ -157,7 +159,6 @@ class AgentSimulator(Simulator):
                                                                visits=np.min(self.evaluated_model.visitations, axis=1),
                                                                T_bored=sim_input.T_bored)
         self.ReGradeAllAgents()
-        super().ImprovePolicy(sim_input, iteration_num)
 
     def ReGradeAllAgents(self):
         """invoked after states re-prioritization. Replaces queue"""

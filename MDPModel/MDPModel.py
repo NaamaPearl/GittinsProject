@@ -147,7 +147,7 @@ class TreeMDP(MDPModel):
 
 class SeperateChainsMDP(TreeMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num,
-                 traps_num=0):
+                 traps_num=0, **kwargs):
         self.chain_num = chain_num
 
         n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
