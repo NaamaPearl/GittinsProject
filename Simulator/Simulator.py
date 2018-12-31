@@ -92,7 +92,8 @@ class Simulator:
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
-                self.SimEvaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run)
+                self.SimEvaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run,
+                                 gamma=self.gamma)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 self.Reset()
 
