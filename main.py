@@ -115,15 +115,15 @@ if __name__ == '__main__':
                     for _ in range(mdp_num)]
 
     # define general simulation params
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
+    _method_dict = {'random': [None], 'gittins': ['reward', 'error'], 'greedy': ['reward', 'error']}
     # _method_dict = {'greedy': ['reward', 'error']}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 5000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
+                          'steps': 2000, 'eval_type': 'online', 'agents_to_run': 10, 'trajectory_len': 100,
                           'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 1000, 'grades_freq': 10,
                           'gittins_look_ahead': tunnel_length, 'gittins_discount': 1, 'T_bored': 1}
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
-    simulators, res = RunSimulations(mdp_list, runs_per_mdp=2, _sim_params=general_sim_params)
+    simulators, res = RunSimulations(mdp_list, runs_per_mdp=1, _sim_params=general_sim_params)
     PlotResults(res, opt_policy_reward, general_sim_params['eval_type'], general_sim_params['eval_freq'])
 
     print('all done')
