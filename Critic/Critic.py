@@ -18,21 +18,20 @@ class OfflinePolicyEvaluator(Evaluator):
         reward = 0
         good_agents = 0
         tunnel_reward = {True: 0, False: 0}
-        while good_agents < 50:
+        while good_agents < kwargs['good_agents']:
             agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-            if agent.curr_state.chain != 4:  # TODO - make more general
+            if agent.curr_state.chain not in kwargs['active_chains']:  # TODO - make more general
                 continue
 
             good_agents += 1
-            for _ in range(kwargs['trajectory_len']):
+            for i in range(kwargs['trajectory_len']):
                 new_reward = self.model.GetReward(agent.curr_state.policy_action)
-                reward += kwargs['gamma'] * new_reward
+                reward += new_reward * kwargs['gamma'] ** i
                 tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-        # tunnel_reward[True] /= good_agents
-        # tunnel_reward[False] /= good_agents
-        return (reward / 50), 0
+        return reward / (kwargs['good_agents'] * kwargs['chain_num']), 0  # assume next states after initial are evenly
+        # distributed between chains
 
 
 class OnlinePolicyEvaluator(Evaluator):
@@ -100,6 +99,6 @@ class ChainMDPCritic(Critic):
         self.chain_activations = [0 for _ in range(self.chain_num)]
         self.time_chain_activation = [[] for _ in range(self.chain_num)]
 
-    def CriticEvaluate(self, **kwargs):
+    def CriticEvalbuate(self, **kwargs):
         super().CriticEvaluate(**kwargs)
         [self.time_chain_activation[chain].append(self.chain_activations[chain]) for chain in range(self.chain_num)]

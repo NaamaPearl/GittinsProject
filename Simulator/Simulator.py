@@ -104,7 +104,13 @@ class Simulator:
         pass
 
     def SimEvaluate(self, **kwargs):
-        self.critic.CriticEvaluate(initial_state=self.RaffleInitialState(), **kwargs)
+        try:
+            self.critic.CriticEvaluate(initial_state=self.RaffleInitialState(), good_agents=50,
+                                       chain_num=self.MDP_model.MDP_model.chain_num,
+                                       active_chains=self.MDP_model.MDP_model.active_chains, **kwargs)
+        except AttributeError:
+            self.critic.CriticEvaluate(initial_state=self.RaffleInitialState(), good_agents=50,
+                                       chain_num=self.MDP_model.MDP_model.chain_num, **kwargs)
 
     def RaffleInitialState(self):
         return np.random.choice(self.MDP_model.states, p=self.MDP_model.MDP_model.init_prob)
