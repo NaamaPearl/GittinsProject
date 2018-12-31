@@ -142,7 +142,7 @@ if __name__ == '__main__':
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 4000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_ratio': 5,
+                          'steps': 1000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_ratio': 5,
                           'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 8000, 'grades_freq': 10,
                           'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
                           'runs_per_mdp': 2}

@@ -17,6 +17,7 @@ class OfflinePolicyEvaluator(Evaluator):
     def EvaluatePolicy(self, **kwargs):
         reward = 0
         good_agents = 0
+        tunnel_reward = {True: 0, False: 0}
         for _ in range(50):
             agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
@@ -25,16 +26,19 @@ class OfflinePolicyEvaluator(Evaluator):
 
             good_agents += 1
             for _ in range(kwargs['trajectory_len']):
-                reward += self.model.GetReward(agent.curr_state.policy_action)
+                new_reward = self.model.GetReward(agent.curr_state.policy_action)
+                reward += new_reward
+                tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-
-        return reward / good_agents
+        tunnel_reward[True] /= good_agents
+        tunnel_reward[False] /= good_agents
+        return (reward / good_agents), tunnel_reward
 
 
 class OnlinePolicyEvaluator(Evaluator):
     @staticmethod
     def EvaluatePolicy(**kwargs):
-        return reduce(lambda a, b: a + b, kwargs['agents_reward']) / kwargs['running_agents']
+        return reduce(lambda a, b: a + b, kwargs['agents_reward']) / kwargs['running_agents'], 0
 
 
 class EvaluatorFactory:
@@ -64,14 +68,17 @@ class Critic:
         self.eval_type_list = kwargs['evaluator_type']
         self.evaluator_dict = EvaluatorFactory().GenEvaluatorDict(kwargs['evaluator_type'], **kwargs)
         self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
+        self.reward_tunnel = {eval_type: [] for eval_type in self.eval_type_list}
         self.Reset()
 
     def Update(self, chain):
         pass
 
     def CriticEvaluate(self, **kwargs):
-        [self.value_vec[eval_type].append(self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs))
-         for eval_type in self.eval_type_list]
+        for eval_type in self.eval_type_list:
+            evaluated_reward, reward_tunnel = self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs)
+            self.value_vec[eval_type].append(evaluated_reward)
+            self.reward_tunnel[eval_type].append(reward_tunnel)
 
     def Reset(self):
         self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
