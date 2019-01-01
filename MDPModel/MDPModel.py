@@ -164,13 +164,13 @@ class SeperateChainsMDP(TreeMDP):
         self.type = 'chains'
 
     def GenPossibleSuccessors(self, **kwargs):
-        try:
-            forbidden_states = set(kwargs['forbidden_states']).union(self.init_states_idx)
-        except KeyError:
-            forbidden_states = self.init_states_idx
+        forbidden_states = self.GenForbiddenStates()
 
         possible_per_chain = [chain.difference(forbidden_states) for chain in self.chains]
         return [self.GenPossibleSuccessorsPerState(self.FindChain(s), possible_per_chain) for s in range(self.n)]
+
+    def GenForbiddenStates(self):
+        return self.init_states_idx
 
     def GenPossibleSuccessorsPerState(self, chain_num, possible_per_chain):
         if chain_num is None:
@@ -235,6 +235,9 @@ class ChainsTunnelMDP(SeperateChainsMDP):
             return action == 0
 
         return super().IsStateActionRewarded(state_idx, action)
+
+    def GenForbiddenStates(self):
+        return super().GenForbiddenStates().union(set(self.tunnel_indexes[1:]))
 
     def get_successors(self, state_idx, **kwargs):
         if state_idx in self.tunnel_indexes[:-1]:
