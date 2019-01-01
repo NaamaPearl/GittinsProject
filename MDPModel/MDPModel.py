@@ -264,6 +264,11 @@ class StarMDP(SeperateChainsMDP):
     def GenResetStates(self, resets_num):
         return [max(chain) for chain in self.chains]
 
+    def get_successors(self, state_idx, **kwargs):
+        if state_idx in self.init_states_idx:
+            return self.chains[kwargs['action']]
+        return super().get_successors(state_idx, **kwargs)
+
 
 # class StarMDP(SeperateChainsMDP):
 #     def get_succesors(self, state_idx, action):
