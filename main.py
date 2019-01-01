@@ -123,20 +123,17 @@ if __name__ == '__main__':
         with open('pnina', 'rb') as f:
             mdp_list.append(pickle.load(f))
     else:
-        mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
-                                    tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                    reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((100, 13), 1)},
-                                                  'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                  'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((10000, 0), 0)}})]
+        # mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
+        #                             tunnel_indexes=list(range(37, 37 + tunnel_length)),
+        #                             reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((100, 13), 1)},
+        #                                           'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+        #                                           'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((10000, 0), 0)}})]
 
-        # mdp_list = [StarMDP(n=31, actions=3, succ_num=1, op_succ_num=1, chain_num=3, gamma=0.9,
-        #                     reward_param={0: {'final_state': {'gauss_params': ((100, 0), 0)},
-        #                                       'line_state': {'gauss_params': ((-1, 0), 0)}},
-        #                                   1: {'final_state': {'gauss_params': ((0, 0), 1)},
-        #                                       'line_state': {'gauss_params': ((0, 0), 0)}},
-        #                                   2: {'final_state': {'gauss_params': ((1, 0), 0)},
-        #                                       'line_state': {'gauss_params': ((0, 0), 0)}}
-        #                                   })]
+        mdp_list = [StarMDP(n=31, actions=3, succ_num=5, op_succ_num=10, chain_num=3, gamma=0.9,
+                            reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
+                                          2: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
+                                          3: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)}
+                                          })]
 
     # define general simulation params
     # _method_dict = {'greedy': ['error']}

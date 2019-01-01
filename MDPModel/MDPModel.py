@@ -258,29 +258,8 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
 
 class StarMDP(SeperateChainsMDP):
-    def get_successors(self, state_idx, **kwargs):
-        if state_idx in self.init_states_idx:
-            chain_start = [min(chain) for chain in self.chains]
-            return {chain_start[kwargs['action']]}
-
-        if state_idx in self.reset_states_idx or kwargs['action'] != 0:
-            return self.init_states_idx
-
-        line_idx_list = list(self.chains[self.FindChain(state_idx)])
-        return {line_idx_list[state_idx - line_idx_list[0] + 1]}
-
     def IsStateActionRewarded(self, state_idx, action):
         return state_idx not in self.init_states_idx
-
-    def GetRewardParams(self, state_idx, action, **kwargs):
-        chain = self.FindChain(state_idx)
-        if chain is None:
-            return None
-
-        if state_idx in self.reset_states_idx:
-            return self.reward_params[chain]['final_state']
-
-        return self.reward_params[chain]['line_state']
 
     def GenResetStates(self, resets_num):
         return [max(chain) for chain in self.chains]
