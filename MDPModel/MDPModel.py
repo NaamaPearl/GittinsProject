@@ -76,6 +76,15 @@ class MDPModel:
     def GenInitialProbability(self):
         return np.ones(self.n) / self.n
 
+    def CalcPolicyData(self, policy):
+        policy_dynamics = np.zeros((self.n, self.n))
+        policy_expected_rewards = np.zeros(self.n)
+        for i, a in enumerate(policy):
+            policy_dynamics[i] = self.P[i][a]
+            policy_expected_rewards[i] = self.r[i][a].expected_reward
+
+        return policy_dynamics, policy_expected_rewards
+
     def CalcOptPolicy(self):
         V = np.zeros(self.n)
         V_old = np.ones(self.n)
@@ -87,7 +96,10 @@ class MDPModel:
                 V_new = r + (self.P[s] @ (self.gamma * V_old))
                 V[s] = max(V_new)
                 policy[s] = np.argmax(V_new)
-        return policy, V
+
+        opt_dynamics, opt_r = self.CalcPolicyData(policy)
+        opt_V = np.linalg.inv(np.eye(self.n) - self.gamma * opt_dynamics) @ opt_r
+        return policy, opt_V
 
     @property
     def opt_r(self):

@@ -165,19 +165,24 @@ class AgentSimulator(Simulator):
                                                                discount=sim_input.gittins_discount,
                                                                visits=np.min(self.evaluated_model.visitations, axis=1),
                                                                T_bored=sim_input.T_bored)
-        self.ReGradeAllAgents()
+        self.ReGradeAllAgents(sim_input.T_bored)
 
-    def ReGradeAllAgents(self):
+    def ReGradeAllAgents(self, T_board):
         """invoked after states re-prioritization. Replaces queue"""
         new_queue = Q.PriorityQueue()
         while self.agents.qsize() > 0:
             agent = self.agents.get().object
-            new_queue.put(self.GradeAgent(agent))
+            new_queue.put(self.GradeAgent(agent, T_board))
 
         self.agents = new_queue
 
-    def GradeAgent(self, agent):
-        return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
+    def GradeAgent(self, agent, T_board):
+        if agent.curr_state.visitations < T_board:
+            score = -np.inf
+        else:
+            score = self.graded_states[agent.curr_state.idx]
+
+        return PrioritizedObject(agent, score)
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
@@ -185,14 +190,15 @@ class AgentSimulator(Simulator):
         for agent in agents_list:
             self.critic.Update(agent.chain)
             self.SimulateAgent(agent, kwargs['T_board'])
-            self.agents.put(self.GradeAgent(agent))
+            self.agents.put(self.GradeAgent(agent, kwargs['T_board']))
 
     def ChooseAction(self, state: SimulatedState, T_board):
         min_visits, min_action = state.min_visitations
         if min_visits < T_board:
             return state.actions[min_action]
-        if random.random() < self.epsilon or state.visitations < (self.MDP_model.actions * 5):
+        if random.random() < self.epsilon:
             return np.random.choice(state.actions)
+
         return state.policy_action
 
     def SimulateAgent(self, agent: Agent, T_board):

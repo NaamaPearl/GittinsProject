@@ -75,7 +75,7 @@ def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
-    _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.99, traps_num=0,
+    _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
                                  tunnel_indexes=list(range(37, 37 + tunnel_length)),
                                  reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 1), 1)},
                                                'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 1), 1)},
@@ -90,8 +90,8 @@ if __name__ == '__main__':
     # define general simulation params
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_ratio': 6,
-                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 8000, 'grades_freq': 50,
+                          'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 8000, 'grades_freq': 50,
                           'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
                           'runs_per_mdp': 3}
 
