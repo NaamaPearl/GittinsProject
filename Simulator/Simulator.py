@@ -242,7 +242,7 @@ class PrioritizedSweeping(Simulator):
 
             self.SampleStateAction(best_state_action)
 
-            if best_state_action.visitations > StateActionPair.T_bored_num:
+            if best_state_action.visitations > kwargs['T_board']:
                 best.reward.score = abs(best_state_action.TD_error)
 
     def UpdateScore(self, state_action_pr: PrioritizedObject):

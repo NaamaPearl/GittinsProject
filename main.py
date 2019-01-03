@@ -1,20 +1,20 @@
 from Framework.Plotting import *
 
 
-def RunSimulations(mdp_list, _sim_params):
+def RunSimulations(mdp_list, sim_params):
     simulators = [{
-        method: {parameter: SimulatorFactory(mdp, _sim_params)
-                 for parameter in _sim_params['method_dict'][method]} for method in _sim_params['method_dict'].keys()}
+        method: {parameter: SimulatorFactory(mdp, sim_params)
+                 for parameter in sim_params['method_dict'][method]} for method in sim_params['method_dict'].keys()}
         for mdp in mdp_list]
 
     simulation_inputs = {method: [
-        SimInputFactory(method, parameter, _sim_params)
-        for parameter in _sim_params['method_dict'][method]] for method in _sim_params['method_dict'].keys()}
+        SimInputFactory(method, parameter, sim_params)
+        for parameter in sim_params['method_dict'][method]] for method in sim_params['method_dict'].keys()}
 
     result = []
     for i in range(len(mdp_list)):
         print('run MDP num ' + str(i))
-        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, _sim_params))
+        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, sim_params))
     return simulators, result
 
 
@@ -44,6 +44,34 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
     return simulation_outputs
 
 
+def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
+    general_sim_params['eval_type'] = ['offline']
+    sweeper = PrioritizedSweeping(ProblemInput(
+        MDP_model=SimulatedModel(mdp), agent_num=sim_params['agents_to_run'], gamma=mdp.gamma, **sim_params))
+    sweeper.simulate(SimulationInput(**sim_params))
+    sweeping_result = sweeper.critic.value_vec['offline']
+
+    agents_result = []
+    for agent_ratio in agent_ratio_vec:
+        sim_params['agent_ratio'] = agent_ratio
+
+        agent_simulator = SimulatorFactory(mdp, sim_params)
+        agent_simulator.simulate(SimInputFactory('greedy', 'error', sim_params))
+
+        agents_result.append(agent_simulator.critic.value_vec['offline'])
+
+        plt.figure()
+        eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
+        steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
+
+        plt.plot(steps, sweeping_result, label='sweeping')
+        for i in range(len(agents_result)):
+            plt.plot(steps, agents_result[i]['offline'], label=r'$\rho$ = ' + str(agent_ratio_vec[i]))
+
+        plt.legend()
+        plt.show()
+
+
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
@@ -67,8 +95,10 @@ if __name__ == '__main__':
                           'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
                           'runs_per_mdp': 3}
 
+    compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
+
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
-    _simulators, res = RunSimulations(_mdp_list, _sim_params=general_sim_params)
+    _simulators, res = RunSimulations(_mdp_list, sim_params=general_sim_params)
     PlotResults(res, opt_policy_reward, general_sim_params)
 
     print('all done')
