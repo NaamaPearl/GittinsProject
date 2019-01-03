@@ -20,7 +20,7 @@ class MDPModel:
         self.r = self.gen_r_mat()
         self.expected_r = np.array([[self.r[s][a].expected_reward for s in range(self.n)] for a in range(self.actions)])
         self.gamma = gamma
-        self.opt_policy = self.CalcOptPolicy()
+        self.opt_policy, self.V = self.CalcOptPolicy()
 
     def BuildP(self, **kwargs):
         possible_suc = self.GenPossibleSuccessors()
@@ -87,7 +87,7 @@ class MDPModel:
                 V_new = r + (self.P[s] @ (self.gamma * V_old))
                 V[s] = max(V_new)
                 policy[s] = np.argmax(V_new)
-        return policy
+        return policy, V
 
     @property
     def opt_r(self):
@@ -103,9 +103,7 @@ class MDPModel:
 
     def CalcOptExpectedReward(self, params):
         if 'offline' in params['eval_type']:
-            return reduce((lambda x, y: x + y),
-                          [self.gamma ** i * self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
-                           for i in range(params['trajectory_len'])])
+            return self.init_prob @ self.V
         if 'online' in params['eval_type']:
             expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
                                    for i in range(params['steps'])]
