@@ -60,16 +60,16 @@ def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
 
         agents_result.append(agent_simulator.critic.value_vec['offline'])
 
-        plt.figure()
-        eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
-        steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
+    plt.figure()
+    eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
+    steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
 
-        plt.plot(steps, sweeping_result, label='sweeping')
-        for i in range(len(agents_result)):
-            plt.plot(steps, agents_result[i]['offline'], label=r'$\rho$ = ' + str(agent_ratio_vec[i]))
+    plt.plot(steps, sweeping_result, label='sweeping')
+    for i in range(len(agents_result)):
+        plt.plot(steps, agents_result[i]['offline'], label=r'$\rho$ = ' + str(agent_ratio_vec[i]))
 
-        plt.legend()
-        plt.show()
+    plt.legend()
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -77,9 +77,9 @@ if __name__ == '__main__':
     tunnel_length = 5
     _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.99, traps_num=0,
                                  tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 1), 0)},
-                                               'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                               'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
+                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 1), 1)},
+                                               'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 1), 1)},
+                                               'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 1), 1)}})]
 
     # mdp_list = [StarMDP(n=31, actions=3, succ_num=5, op_succ_num=10, chain_num=3, gamma=0.9,
     #                     reward_param={0: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
@@ -95,7 +95,7 @@ if __name__ == '__main__':
                           'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
                           'runs_per_mdp': 3}
 
-    compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
+    # compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
 
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
     _simulators, res = RunSimulations(_mdp_list, sim_params=general_sim_params)
