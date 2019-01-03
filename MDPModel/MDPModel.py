@@ -70,7 +70,7 @@ class MDPModel:
 
         return res
 
-    def IsSinkState(self, state_idx) -> bool:
+    def IsSinkState(self, state_idx):
         return False
 
     def GenInitialProbability(self):
@@ -104,7 +104,7 @@ class MDPModel:
     def CalcOptExpectedReward(self, params):
         if 'offline' in params['eval_type']:
             return reduce((lambda x, y: x + y),
-                          [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
+                          [self.gamma ** i * self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
                            for i in range(params['trajectory_len'])])
         if 'online' in params['eval_type']:
             expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
@@ -155,7 +155,7 @@ class SeperateChainsMDP(TreeMDP):
 
         self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1))
                        for i in range(self.chain_num)]
-        self.active_chains = {chain_num - 1}
+        self.active_chains = self.GetActiveChains()
         self.reward_params = reward_param
         self.op_succ_num = op_succ_num
 
@@ -215,7 +215,7 @@ class SeperateChainsMDP(TreeMDP):
         return super().gen_row_of_P(succesors, state_idx)
 
     def GetActiveChains(self):
-        return self.chains[1:]
+        return {self.chain_num - 1}
 
 
 def GetSuccessorsInLine(state_idx, line_idxs, action):
@@ -258,6 +258,15 @@ class ChainsTunnelMDP(SeperateChainsMDP):
 
 
 class StarMDP(SeperateChainsMDP):
+    def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs):
+        super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs)
+        self.chain_num += 1
+
+    def FindChain(self, state_idx):
+        if state_idx in self.init_states_idx:
+            return self.chain_num - 1
+        return super().FindChain(state_idx)
+
     def IsStateActionRewarded(self, state_idx, action):
         return state_idx not in self.init_states_idx
 
@@ -266,8 +275,11 @@ class StarMDP(SeperateChainsMDP):
 
     def get_successors(self, state_idx, **kwargs):
         if state_idx in self.init_states_idx:
-            return self.chains[kwargs['action']]
+            return self.chains[kwargs['action']].difference(self.reset_states_idx)
         return super().get_successors(state_idx, **kwargs)
+
+    def GetActiveChains(self):
+        return set(range(self.chain_num))
 
 
 # class StarMDP(SeperateChainsMDP):

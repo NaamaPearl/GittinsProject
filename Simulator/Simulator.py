@@ -234,41 +234,16 @@ class PrioritizedSweeping(Simulator):
         StateActionScore.score_mat = self.state_actions_score
         super().InitStatics()
 
-    def SimulateOneStep(self, agents_to_run):
+    def SimulateOneStep(self, agents_to_run, **kwargs):
         for _ in range(agents_to_run):
             best: PrioritizedObject = max([max(state) for state in self.state_actions])
-            # if not best.active:
-            #     raise ValueError
             best_state_action: StateActionPair = best.object
             self.critic.Update(best_state_action.chain)
 
             self.SampleStateAction(best_state_action)
 
             if best_state_action.visitations > StateActionPair.T_bored_num:
-                # best_state_action.active = False
                 best.reward.score = abs(best_state_action.TD_error)
-                # self.UpdateScore(best)
-
-    # class ChainsSimulator(Simulator):
-    #     def __init__(self, sim_input: SimulatorInput):
-    #         self.chain_activations = None
-    #         super().__init__(sim_input)
-    #
-    #     def UpdateActivations(self):
-    #         res = np.zeros(self.MDP_model.chain_num)
-    #         for state in set(self.graded_states).difference(self.MDP_model.init_states_idx):
-    #             res[self.MDP_model.FindChain(state)] += (self.MDP_model.n - self.graded_states[state])
-    #
-    #         for i in range(self.MDP_model.chain_num):
-    #             self.chain_activations[i].append(res[i])
-    #
-    #     # def PlotVisitations(self, mat, title):
-    #     #     plt.figure()
-    #     #     visitation_sum = np.cumsum(mat, axis=1)
-    #     #     [plt.plot(visitation_sum[i]) for i in range(chains_input.MDP_model.actions)]
-    #     #     plt.legend(['chain ' + str(c) for c in range(chains_input.MDP_model.actions)])
-    #     #     plt.title(title)
-    #     #     plt.show()
 
     def UpdateScore(self, state_action_pr: PrioritizedObject):
         state_action = state_action_pr.object

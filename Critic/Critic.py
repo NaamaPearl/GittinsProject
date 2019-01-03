@@ -21,7 +21,7 @@ class OfflinePolicyEvaluator(Evaluator):
         while good_agents < kwargs['good_agents']:
             agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-            if agent.curr_state.chain not in kwargs['active_chains']:  # TODO - make more general
+            if agent.curr_state.chain not in kwargs['active_chains']:
                 continue
 
             good_agents += 1
