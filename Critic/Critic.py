@@ -17,7 +17,7 @@ class OfflinePolicyEvaluator(Evaluator):
     def EvaluatePolicy(self, **kwargs):
         reward = 0
         good_agents = 0
-        tunnel_reward = {True: 0, False: 0}
+        # tunnel_reward = {True: 0, False: 0}
         while good_agents < kwargs['good_agents']:
             agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
@@ -27,8 +27,8 @@ class OfflinePolicyEvaluator(Evaluator):
             good_agents += 1
             for i in range(kwargs['trajectory_len']):
                 new_reward = self.model.GetReward(agent.curr_state.policy_action)
-                reward += new_reward * kwargs['gamma'] ** i
-                tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward
+                reward += (new_reward * kwargs['gamma'] ** i)
+                # tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
         return reward / (kwargs['good_agents'] * kwargs['chain_num']), 0  # assume next states after initial are evenly
         # distributed between chains

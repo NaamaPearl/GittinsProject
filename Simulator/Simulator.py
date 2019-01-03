@@ -51,10 +51,10 @@ class Simulator:
         state = state_action.state
         state.V_hat = state_action.r_hat + self.gamma * state_action.P_hat @ self.evaluated_model.V_hat
 
-    def Update_Q(self, state_action: StateActionPair, next_state: SimulatedState, reward: int):
+    def Update_Q(self, state_action: StateActionPair, next_state: SimulatedState, reward):
         a_n = (state_action.visitations + 1) ** -0.7
         state_action.TD_error = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
-        state_action.Q_hat += a_n * state_action.TD_error
+        state_action.Q_hat += (a_n * state_action.TD_error)
 
     def SampleStateAction(self, state_action: StateActionPair):
         next_state = self.MDP_model.states[self.MDP_model.GetNextState(state_action)]
