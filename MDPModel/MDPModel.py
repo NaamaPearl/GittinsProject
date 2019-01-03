@@ -103,9 +103,7 @@ class MDPModel:
 
     def CalcOptExpectedReward(self, params):
         if 'offline' in params['eval_type']:
-            return reduce((lambda x, y: x + y),
-                          [self.gamma ** i * self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
-                           for i in range(params['trajectory_len'])])
+            return self.init_prob #  TODO - Add V
         if 'online' in params['eval_type']:
             expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
                                    for i in range(params['steps'])]
