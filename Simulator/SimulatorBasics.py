@@ -55,6 +55,7 @@ class Agent:
         self.idx = idx
         self.curr_state = init_state
         self.accumulated_reward = 0
+        self.last_activation = 0
 
     def __lt__(self, other):
         return random.choice([True, False])

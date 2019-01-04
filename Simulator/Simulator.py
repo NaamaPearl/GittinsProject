@@ -80,7 +80,7 @@ class Simulator:
         pass
 
     @staticmethod
-    def UpdateReward(state_action: StateActionPair, new_reward: int):
+    def UpdateReward(state_action: StateActionPair, new_reward):
         state_action.r_hat = (state_action.r_hat * state_action.visitations + new_reward) / (
                 state_action.visitations + 1)
 
@@ -88,7 +88,7 @@ class Simulator:
         self.InitParams(eval_type=self.evaluation_type)
 
         for i in range(sim_input.steps):
-            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run, T_board=sim_input.T_bored)
+            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run, T_board=sim_input.T_bored, iteration_num=i)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
@@ -165,22 +165,29 @@ class AgentSimulator(Simulator):
                                                                discount=sim_input.gittins_discount,
                                                                visits=np.min(self.evaluated_model.visitations, axis=1),
                                                                T_bored=sim_input.T_bored)
-        self.ReGradeAllAgents(sim_input.T_bored)
+        self.ReGradeAllAgents(sim_input.T_bored, iteration_num)
 
-    def ReGradeAllAgents(self, T_board):
+    def ReincarnateAgent(self, agent, iteration_num):
+        if iteration_num - agent.last_activation > 30:
+            agent.last_activation = iteration_num
+            agent.curr_state = self.RaffleInitialState()
+
+        return agent
+
+    def ReGradeAllAgents(self, T_board, iteration_num):
         """invoked after states re-prioritization. Replaces queue"""
         new_queue = Q.PriorityQueue()
         while self.agents.qsize() > 0:
             agent = self.agents.get().object
+            self.ReincarnateAgent(agent, iteration_num)
             new_queue.put(self.GradeAgent(agent, T_board))
 
         self.agents = new_queue
 
     def GradeAgent(self, agent, T_board):
-        if agent.curr_state.visitations < T_board:
-            score = -np.inf
-        else:
-            score = self.graded_states[agent.curr_state.idx]
+        """ Agents in non-visited states / initial states are prioritized"""
+        top_priority = agent.curr_state.visitations < T_board or agent.chain is None
+        score = -np.inf if top_priority else self.graded_states[agent.curr_state.idx]
 
         return PrioritizedObject(agent, score)
 
@@ -189,7 +196,7 @@ class AgentSimulator(Simulator):
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
         for agent in agents_list:
             self.critic.Update(agent.chain)
-            self.SimulateAgent(agent, kwargs['T_board'])
+            self.SimulateAgent(agent, kwargs['T_board'], kwargs['iteration_num'])
             self.agents.put(self.GradeAgent(agent, kwargs['T_board']))
 
     def ChooseAction(self, state: SimulatedState, T_board):
@@ -201,8 +208,10 @@ class AgentSimulator(Simulator):
 
         return state.policy_action
 
-    def SimulateAgent(self, agent: Agent, T_board):
+    def SimulateAgent(self, agent: Agent, T_board, iteration_num):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
+        agent.last_activation = iteration_num
+
         state_action = self.ChooseAction(agent.curr_state, T_board)
 
         reward, next_state = self.SampleStateAction(state_action)
