@@ -8,7 +8,7 @@ from collections import Counter
 
 
 class Simulator:
-    def __init__(self, sim_input: ProblemInput):
+    def __init__(self, sim_input: ProblemInput, name):
         self.MDP_model: SimulatedModel = sim_input.MDP_model
         self.evaluation_type = sim_input.eval_type
         self.gamma = sim_input.gamma
@@ -16,6 +16,7 @@ class Simulator:
         self.evaluated_model = EvaluatedModel()
         self.policy = None
         self.critic = None
+        self.name = name
 
         self.InitParams(eval_type=self.evaluation_type)
 
@@ -117,9 +118,9 @@ class Simulator:
 
 
 class AgentSimulator(Simulator):
-    def __init__(self, sim_input: ProblemInput):
+    def __init__(self, sim_input: ProblemInput, name):
         self.agents_num = sim_input.agent_num
-        super().__init__(sim_input)
+        super().__init__(sim_input, name)
         self.agents = Q.PriorityQueue()
         self.graded_states = None
         self.init_prob = None
@@ -149,8 +150,7 @@ class AgentSimulator(Simulator):
         if parameter == 'error':
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
         if parameter == 'ground_truth':
-            reward_mat = [[self.MDP_model.MDP_model.r[state][action][0] * self.MDP_model.MDP_model.r[state][action][1]
-                           for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
+            reward_mat = list(zip(*self.MDP_model.MDP_model.expected_r))
             return self.MDP_model.MDP_model.P, reward_mat
 
     def ImprovePolicy(self, sim_input, iteration_num):
@@ -168,7 +168,7 @@ class AgentSimulator(Simulator):
         self.ReGradeAllAgents(sim_input.T_bored, iteration_num)
 
     def ReincarnateAgent(self, agent, iteration_num):
-        if iteration_num - agent.last_activation > 30:
+        if iteration_num - agent.last_activation > 30 and self.name != "random":
             agent.last_activation = iteration_num
             agent.curr_state = self.RaffleInitialState()
 
@@ -234,10 +234,10 @@ class AgentSimulator(Simulator):
 
 
 class PrioritizedSweeping(Simulator):
-    def __init__(self, sim_input: ProblemInput):
+    def __init__(self, sim_input: ProblemInput, name):
         self.state_actions = None
         self.state_actions_score = None
-        super().__init__(sim_input)
+        super().__init__(sim_input, name)
 
     def InitParams(self, **kwargs):
         self.state_actions_score = np.inf * np.ones((self.MDP_model.n, self.MDP_model.actions))
@@ -277,12 +277,12 @@ class PrioritizedSweeping(Simulator):
             next_state.predecessor.add(state_action)
 
 
-def SimulatorFactory(mdp: MDPModel, sim_params):
+def SimulatorFactory(mdp: MDPModel, name, sim_params):
     simulated_mdp = SimulatedModel(mdp)
     agent_num = sim_params['agents_to_run'] * sim_params['agents_ratio']
 
     return AgentSimulator(
-        ProblemInput(MDP_model=simulated_mdp, agent_num=agent_num, gamma=mdp.gamma, **sim_params))
+        ProblemInput(MDP_model=simulated_mdp, agent_num=agent_num, gamma=mdp.gamma, name=name, **sim_params), name)
 
 
 def SimInputFactory(method_type, parameter, sim_params):
