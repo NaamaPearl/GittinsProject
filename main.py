@@ -3,7 +3,7 @@ from Framework.Plotting import *
 
 def RunSimulations(mdp_list, sim_params):
     simulators = [{
-        method: {parameter: SimulatorFactory(mdp, method, sim_params)
+        method: {parameter: SimulatorFactory(mdp, sim_params)
                  for parameter in sim_params['method_dict'][method]} for method in sim_params['method_dict'].keys()}
         for mdp in mdp_list]
 
