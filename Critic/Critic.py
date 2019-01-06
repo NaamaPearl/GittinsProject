@@ -25,7 +25,7 @@ class OfflinePolicyEvaluator(Evaluator):
                 continue
 
             good_agents += 1
-            for i in range(kwargs['trajectory_len']):
+            for i in range(1, kwargs['trajectory_len']+1):
                 new_reward = self.model.GetReward(agent.curr_state.policy_action)
                 reward += (new_reward * kwargs['gamma'] ** i)
                 # tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward

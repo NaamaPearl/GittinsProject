@@ -6,27 +6,13 @@ import random
 epsilon = 10 ** -5
 
 
-def VisitsPriorityRun(**kwargs):
-    # return np.any(kwargs['visits'] < kwargs['T_bored'])
-    return False
-
-
-def GradeStatesWithVisits(**kwargs):
-    return {state.idx: kwargs['visits'][state.idx] for state in kwargs['states']}
-
-
 class Prioritizer:
     def GradeStates(self, **kwargs):
-        if VisitsPriorityRun(**kwargs):
-            return GradeStatesWithVisits(**kwargs)
-        return self.GradeStatesInner(**kwargs)
-
-    def GradeStatesInner(self, **kwargs):
         return {state.idx: random.random() for state in kwargs['states']}
 
 
 class GreedyPrioritizer(Prioritizer):
-    def GradeStatesInner(self, **kwargs):
+    def GradeStates(self, **kwargs):
         return {state.idx: -max(kwargs['r'][state.idx]) for state in kwargs['states']}
 
 
@@ -61,7 +47,7 @@ class GittinsPrioritizer(Prioritizer):
 
         return r
 
-    def GradeStatesInner(self, **kwargs):
+    def GradeStates(self, **kwargs):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.

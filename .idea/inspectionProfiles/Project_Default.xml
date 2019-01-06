@@ -24,6 +24,7 @@
           <option value="MDPModel.MDPModel.chains" />
           <option value="MDPModel.MDPModel.chain_num" />
           <option value="MDPModel.MDPModel.FindChain" />
+          <option value="queue.PriorityQueue.queue" />
         </list>
       </option>
     </inspection_tool>
