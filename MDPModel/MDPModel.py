@@ -3,7 +3,7 @@ import random
 from functools import reduce
 from MDPModel.RewardGenerator import RewardGeneratorFactory
 
-threshold = 10 ** -3
+threshold = 10 ** -10
 
 
 class MDPModel:

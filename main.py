@@ -3,7 +3,7 @@ from Framework.Plotting import *
 
 def RunSimulations(mdp_list, sim_params):
     simulators = [{
-        method: {parameter: SimulatorFactory(mdp, sim_params)
+        method: {parameter: SimulatorFactory(mdp, method, sim_params)
                  for parameter in sim_params['method_dict'][method]} for method in sim_params['method_dict'].keys()}
         for mdp in mdp_list]
 
@@ -47,7 +47,7 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
 def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
     general_sim_params['eval_type'] = ['offline']
     sweeper = PrioritizedSweeping(ProblemInput(
-        MDP_model=SimulatedModel(mdp), agent_num=sim_params['agents_to_run'], gamma=mdp.gamma, **sim_params))
+        MDP_model=SimulatedModel(mdp), agent_num=sim_params['agents_to_run'], gamma=mdp.gamma, **sim_params), 'sweeping')
     sweeper.simulate(SimulationInput(**sim_params))
     sweeping_result = sweeper.critic.value_vec['offline']
 
@@ -55,7 +55,7 @@ def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
     for agent_ratio in agent_ratio_vec:
         sim_params['agent_ratio'] = agent_ratio
 
-        agent_simulator = SimulatorFactory(mdp, sim_params)
+        agent_simulator = SimulatorFactory(mdp, 'gittins' ,sim_params)
         agent_simulator.simulate(SimInputFactory('greedy', 'error', sim_params))
 
         agents_result.append(agent_simulator.critic.value_vec['offline'])
@@ -88,9 +88,10 @@ if __name__ == '__main__':
     #                                   })]
 
     # define general simulation params
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    # _method_dict = {'gittins': ['ground_truth', 'reward', 'error']}
+    _method_dict = {'gittins': ['reward', 'error', 'ground_truth'], 'greedy': ['reward', 'error'], 'random': [None]}
     general_sim_params = {'method_dict': _method_dict,
-                          'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+                          'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
                           'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 8000, 'grades_freq': 50,
                           'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
                           'runs_per_mdp': 3}
