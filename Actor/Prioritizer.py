@@ -13,7 +13,7 @@ class Prioritizer:
 
 class GreedyPrioritizer(Prioritizer):
     def GradeStates(self, **kwargs):
-        return {state.idx: -max(kwargs['r'][state.idx]) for state in kwargs['states']}
+        return {state.idx: -(kwargs['r'][state.idx][kwargs['policy'][state.idx]]) for state in kwargs['states']}
 
 
 class GittinsPrioritizer(Prioritizer):

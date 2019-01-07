@@ -77,7 +77,7 @@ if __name__ == '__main__':
     tunnel_length = 5
     _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
                                  tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 3)},
+                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 0)},
                                                'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
 
@@ -89,7 +89,8 @@ if __name__ == '__main__':
 
     # define general simulation params
     # _method_dict = {'gittins': ['ground_truth', 'reward', 'error']}
-    _method_dict = {'gittins': ['reward', 'error', 'ground_truth'], 'greedy': ['reward', 'error'], 'random': [None]}
+    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    # _method_dict = {'greedy': ['reward', 'error']}
     general_sim_params = {'method_dict': _method_dict,
                           'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
                           'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 8000, 'grades_freq': 50,
