@@ -47,7 +47,8 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
 def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
     general_sim_params['eval_type'] = ['offline']
     sweeper = PrioritizedSweeping(ProblemInput(
-        MDP_model=SimulatedModel(mdp), agent_num=sim_params['agents_to_run'], gamma=mdp.gamma, **sim_params), 'sweeping')
+        MDP_model=SimulatedModel(mdp), agent_num=sim_params['agents_to_run'], gamma=mdp.gamma, **sim_params),
+        'sweeping')
     sweeper.simulate(SimulationInput(**sim_params))
     sweeping_result = sweeper.critic.value_vec['offline']
 
@@ -55,7 +56,7 @@ def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
     for agent_ratio in agent_ratio_vec:
         sim_params['agent_ratio'] = agent_ratio
 
-        agent_simulator = SimulatorFactory(mdp, 'gittins' ,sim_params)
+        agent_simulator = SimulatorFactory(mdp, 'gittins', sim_params)
         agent_simulator.simulate(SimInputFactory('greedy', 'error', sim_params))
 
         agents_result.append(agent_simulator.critic.value_vec['offline'])
@@ -75,17 +76,17 @@ def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
-    _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
+    _mdp_list = [ChainsTunnelMDP(n=47, actions=4, succ_num=2, op_succ_num=4, chain_num=2, gamma=0.9, traps_num=0,
                                  tunnel_indexes=list(range(37, 37 + tunnel_length)),
                                  reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 0)},
                                                'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
 
-    # mdp_list = [StarMDP(n=31, actions=3, succ_num=5, op_succ_num=10, chain_num=3, gamma=0.9,
-    #                     reward_param={0: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
-    #                                   1: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
-    #                                   2: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)}
-    #                                   })]
+    # _mdp_list = [StarMDP(n=31, actions=3, succ_num=5, op_succ_num=10, chain_num=3, gamma=0.9,
+    #                      reward_param={0: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
+    #                                    1: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
+    #                                    2: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)}
+    #                                    })]
 
     # define general simulation params
     # _method_dict = {'gittins': ['ground_truth', 'reward', 'error']}
@@ -93,7 +94,8 @@ if __name__ == '__main__':
     # _method_dict = {'greedy': ['reward', 'error']}
     general_sim_params = {'method_dict': _method_dict,
                           'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
-                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 8000, 'grades_freq': 50,
+                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
+                          'grades_freq': 50,
                           'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
                           'runs_per_mdp': 3}
 
