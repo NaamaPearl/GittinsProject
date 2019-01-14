@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from Simulator.Simulator import *
-from Framework.Inputs import ChainSimulationOutput
+import pickle
 
 
 def CompareActivations(data_output, mdp_i):
@@ -26,7 +26,8 @@ def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
 
 def PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_sim_params):
     fig, ax = plt.subplots(nrows=1, ncols=len(general_sim_params['eval_type']))
-    eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
+    eval_count = int(general_sim_params['steps'] /
+                             (general_sim_params['eval_freq'] * general_sim_params['temporal_extension']))
     steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
     for _iter in range(len(data_output)):
         if data_output[_iter][2] == param or param == 'all':
@@ -122,5 +123,12 @@ def smooth(x, window_len=11, window='hanning'):
 
     y = np.convolve(w / w.sum(), s, mode='valid')
     return y
+
+
+if __name__ == '__main__':
+    res_tuple = pickle.load(open('run_res.pckl', 'rb'))
+
+    PlotResults(res_tuple[1], res_tuple[2], res_tuple[3])
+
 
 

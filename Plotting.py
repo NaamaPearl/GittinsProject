@@ -3,26 +3,27 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from Framework.Plotting import smooth
-import networkx as nx
+# import networkx as nx
 from MDPModel.MDPModel import ChainsTunnelMDP
-import pydot
+# import pydot
 
 
-def PlotLookAhead(result_list, param):
-    steps = 5000
-    eval_freq = 50
-    eval_count = int(np.ceil(steps / eval_freq))
-    steps = np.array(list(range(eval_count))) * eval_freq
+def PlotLookAhead(results_dict, param, optimal_reward, general_sim_params):
     fig, ax = plt.subplots(nrows=1, ncols=2)
     fig.suptitle(param + ' Based Gittins Prioritization \nlook ahead comparison')
 
+    eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
+    steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
+
     for i, eval_type in enumerate(['online', 'offline']):
-        for idx, result in enumerate(result_list):
+        for look_ahead in results_dict.keys():
+            result = results_dict[look_ahead]
             reward_eval = result.reward_eval.get(eval_type)
             smoothed_eval = np.array([smooth(reward_eval[i])[:-10] for i in range(reward_eval.shape[0])])
+
             y = np.mean(smoothed_eval, axis=0)
             std = np.std(smoothed_eval, axis=0)
-            ax[i].plot(steps, y, label=r'$\lambda$ = ' + str(idx))
+            ax[i].plot(steps, y, label=r'$\lambda$ = ' + str(look_ahead))
             ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
 
         ax[i].set_xlabel('simulation steps')
@@ -30,34 +31,33 @@ def PlotLookAhead(result_list, param):
         ax[i].set_title(eval_type)
         ax[i].legend()
 
-    ax[1].axhline(y=809, color='r', linestyle='-', label='optimal policy expected reward')
-    plt.show()
+    ax[1].axhline(y=optimal_reward, color='r', linestyle='-', label='optimal policy expected reward')
 
-def PlotPMatrix(mdp):
-    states = list(zip(range(mdp.n), mdp.opt_r))
-    P = list(mdp.opt_P)
-
-    G = nx.MultiDiGraph()
-    labels = {}
-    edge_labels = {}
-
-    for i, origin_state in enumerate(states):
-        for j, destination_state in enumerate(states):
-            rate = P[i][j]
-            if rate > 0:
-                G.add_edge(origin_state, destination_state, weight=rate, label="{:.02f}".format(rate))
-                edge_labels[(origin_state, destination_state)] = label = "{:.02f}".format(rate)
-
-    plt.figure(figsize=(10, 7))
-    node_size = 200
-    pos = {state: list(state) for state in states}
-    nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
-    nx.draw_networkx_labels(G, pos, font_weight=2)
-    nx.draw_networkx_edge_labels(G, pos, edge_labels)
-    plt.axis('off')
-    # plt.savefig("../images/mc-matplotlib.svg", bbox_inches='tight')
-
-    nx.drawing.nx_pydot.write_dot(G, 'mc.dot')
+# def PlotPMatrix(mdp):
+#     states = list(zip(range(mdp.n), mdp.opt_r))
+#     P = list(mdp.opt_P)
+#
+#     G = nx.MultiDiGraph()
+#     labels = {}
+#     edge_labels = {}
+#
+#     for i, origin_state in enumerate(states):
+#         for j, destination_state in enumerate(states):
+#             rate = P[i][j]
+#             if rate > 0:
+#                 G.add_edge(origin_state, destination_state, weight=rate, label="{:.02f}".format(rate))
+#                 edge_labels[(origin_state, destination_state)] = label = "{:.02f}".format(rate)
+#
+#     plt.figure(figsize=(10, 7))
+#     node_size = 200
+#     pos = {state: list(state) for state in states}
+#     nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
+#     nx.draw_networkx_labels(G, pos, font_weight=2)
+#     nx.draw_networkx_edge_labels(G, pos, edge_labels)
+#     plt.axis('off')
+#     # plt.savefig("../images/mc-matplotlib.svg", bbox_inches='tight')
+#
+#     nx.drawing.nx_pydot.write_dot(G, 'mc.dot')
 
 
 if __name__ == '__main__':

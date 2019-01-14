@@ -19,7 +19,7 @@ class SimulationInput:
         self.evaluate_freq = kwargs['eval_freq']
         self.agents_to_run = kwargs['agents_to_run']
         self.trajectory_len = kwargs['trajectory_len']
-        self.T_bored = kwargs['T_bored']
+        self.T_board = kwargs['T_board']
 
 
 class AgentSimulationInput(SimulationInput):
@@ -27,7 +27,7 @@ class AgentSimulationInput(SimulationInput):
         super().__init__(**kwargs)
         self.prioritizer = prioritizer
         self.parameter = parameter
-        self.gittins_look_ahead = kwargs['gittins_look_ahead']
+        self.temporal_extension = kwargs['temporal_extension']
         self.gittins_discount = kwargs['gittins_discount']
 
 

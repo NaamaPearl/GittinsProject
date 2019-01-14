@@ -87,8 +87,11 @@ class Simulator:
     def simulate(self, sim_input):
         self.InitParams(eval_type=self.evaluation_type)
 
-        for i in range(sim_input.steps):
-            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run, T_board=sim_input.T_bored, iteration_num=i)
+        for i in range(int(sim_input.steps / sim_input.temporal_extension)):
+            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
+                                 iteration_num=i,
+                                 temporal_extension=sim_input.temporal_extension,
+                                 T_board=sim_input.T_board)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
@@ -161,7 +164,7 @@ class AgentSimulator(Simulator):
                                                                policy=self.policy,
                                                                p=p,
                                                                r=r,
-                                                               look_ahead=sim_input.gittins_look_ahead,
+                                                               look_ahead=sim_input.temporal_extension,
                                                                discount=sim_input.gittins_discount)
         self.ReGradeAllAgents(iteration_num)
 
@@ -189,25 +192,25 @@ class AgentSimulator(Simulator):
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
+
         for agent in agents_list:
-            self.critic.Update(agent.chain)
-            self.SimulateAgent(agent, kwargs['T_board'], kwargs['iteration_num'])
-            self.agents.put(self.GradeAgent(agent))
+            for _ in range(kwargs['temporal_extension']):
+                self.critic.Update(agent.chain)
+                self.SimulateAgent(agent, **kwargs)
+                self.agents.put(self.GradeAgent(agent))
 
     def ChooseAction(self, state: SimulatedState, T_board):
         min_visits, min_action = state.min_visitations
         if min_visits < T_board:
             return state.actions[min_action]
-        if random.random() < self.epsilon:
-            return np.random.choice(state.actions)
 
-        return state.policy_action
+        return state.policy_action if random.random() > self.epsilon else np.random.choice(state.actions)
 
-    def SimulateAgent(self, agent: Agent, T_board, iteration_num):
+    def SimulateAgent(self, agent: Agent, iteration_num, **kwargs):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
         agent.last_activation = iteration_num
 
-        state_action = self.ChooseAction(agent.curr_state, T_board)
+        state_action = self.ChooseAction(agent.curr_state, kwargs['T_board'])
 
         reward, next_state = self.SampleStateAction(state_action)
         agent.accumulated_reward += reward

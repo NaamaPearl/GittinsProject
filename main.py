@@ -1,4 +1,6 @@
 from Framework.Plotting import *
+from Plotting import PlotLookAhead
+import pickle
 
 
 def RunSimulations(mdp_list, sim_params):
@@ -73,14 +75,40 @@ def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
     plt.show()
 
 
+def compareLookAhead(mdp, sim_params, look_ahead_vec, optimal_reward):
+    simulator = SimulatorFactory(mdp, sim_params)
+
+    # param_list = ['error', 'reward']
+    param_list = ['reward']
+    for param in param_list:
+        outputs = {look_ahead: ChainSimulationOutput(sim_params['eval_type']) for look_ahead in look_ahead_vec}
+        for look_ahead in look_ahead_vec:
+            for i in range(sim_params['runs_per_mdp']):
+                sim_params['look_ahead'] = look_ahead
+                simulator.simulate(SimInputFactory('gittins', param, sim_params))
+                outputs[look_ahead].reward_eval.add(simulator.critic.value_vec)
+
+        PlotLookAhead(outputs, param, optimal_reward, general_sim_params)
+
+    plt.show()
+
+
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
-    _mdp_list = [ChainsTunnelMDP(n=47, actions=4, succ_num=2, op_succ_num=4, chain_num=2, gamma=0.9, traps_num=0,
+    _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
                                  tunnel_indexes=list(range(37, 37 + tunnel_length)),
                                  reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 0)},
                                                'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
+
+    general_sim_params = {
+        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
+        'grades_freq': 50, 'gittins_discount': 1, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 3
+    }
+    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
+    # compareLookAhead(_mdp_list[0], general_sim_params, [1, 5, 10, 15], opt_policy_reward)
 
     # _mdp_list = [StarMDP(n=31, actions=3, succ_num=5, op_succ_num=10, chain_num=3, gamma=0.9,
     #                      reward_param={0: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
@@ -91,18 +119,19 @@ if __name__ == '__main__':
     # define general simulation params
     # _method_dict = {'gittins': ['ground_truth', 'reward', 'error']}
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'greedy': ['reward', 'error']}
-    general_sim_params = {'method_dict': _method_dict,
-                          'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
-                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-                          'grades_freq': 50,
-                          'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
-                          'runs_per_mdp': 3}
+    # _method_dict = {'gittins': ['error']}
+    general_sim_params['method_dict'] = _method_dict
+    #
+    # # compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
+    #
 
-    # compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
-
-    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
     _simulators, res = RunSimulations(_mdp_list, sim_params=general_sim_params)
+
+    printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
+
+    with open('run_res2.pckl', 'wb') as f:
+        pickle.dump(printalbe_res, f)
+
     PlotResults(res, opt_policy_reward, general_sim_params)
 
     print('all done')
