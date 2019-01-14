@@ -160,20 +160,19 @@ class AgentSimulator(Simulator):
         super().ImprovePolicy(sim_input, iteration_num)
 
         p, r = self.GetStatsForPrioritizer(sim_input.parameter)
-        self.graded_states = sim_input.prioritizer.GradeStates(states=self.MDP_model.states,
-                                                               policy=self.policy,
-                                                               p=p,
-                                                               r=r,
-                                                               look_ahead=sim_input.temporal_extension,
-                                                               discount=sim_input.gittins_discount)
+        prioritizer = sim_input.prioritizer(states=self.MDP_model.states,
+                                            policy=self.policy,
+                                            p=p,
+                                            r=r,
+                                            temporal_extension=sim_input.temporal_extension,
+                                            discount_factor=sim_input.gittins_discount)
+        self.graded_states = prioritizer.GradeStates()
         self.ReGradeAllAgents(iteration_num)
 
     def ReincarnateAgent(self, agent, iteration_num):
         if iteration_num - agent.last_activation > 30:
             agent.last_activation = iteration_num
             agent.curr_state = self.RaffleInitialState()
-
-        return agent
 
     def ReGradeAllAgents(self, iteration_num):
         """invoked after states re-prioritization. Replaces queue"""
@@ -296,4 +295,4 @@ def SimInputFactory(method_type, parameter, sim_params):
     else:
         raise IOError('unrecognized method type:' + method_type)
 
-    return simulation_input_type(prioritizer=prioritizer(), parameter=parameter, **sim_params)
+    return simulation_input_type(prioritizer=prioritizer, parameter=parameter, **sim_params)

@@ -2,38 +2,39 @@ import numpy as np
 from Framework.PrioritizedObject import PrioritizedObject
 from MDPModel.MDPBasics import StateScore
 import random
+from abc import abstractmethod
 
 epsilon = 10 ** -5
 
 
 class Prioritizer:
+    def __init__(self, states, **kwargs):
+        self.states = states
+
     def GradeStates(self, **kwargs):
-        return {state.idx: random.random() for state in kwargs['states']}
+        return {state.idx: random.random() for state in self.states}
 
 
-class GreedyPrioritizer(Prioritizer):
-    def GradeStates(self, **kwargs):
-        return {state.idx: -(kwargs['r'][state.idx][kwargs['policy'][state.idx]]) for state in kwargs['states']}
+class FunctionalPrioritizer(Prioritizer):
+    def __init__(self, states, policy, p, r, temporal_extension, discount_factor):
+        super().__init__(states)
+        self.n = len(states)
+        self.policy = policy
+        self.temporal_extension = temporal_extension
+        self.P = self.buildP(p, temporal_extension)
+        self.r = self.buildRewardVec(r, temporal_extension, discount_factor)
 
-
-class GittinsPrioritizer(Prioritizer):
-    def __init__(self):
-        self.n = None
-        self.policy = None
-        self.r = None
-        self.P = None
-
-    def InitProbMat(self, p, look_ahead):
-        prob_mat = [np.zeros((self.n, self.n)) for _ in range(look_ahead)]
+    def buildP(self, p, temporal_extension):
+        prob_mat = [np.zeros((self.n, self.n)) for _ in range(temporal_extension)]
         for state in range(self.n):
             prob_mat[0][state] = p[state][self.policy[state]]
 
-        for i in range(1, look_ahead):
+        for i in range(1, temporal_extension):
             prob_mat[i] = prob_mat[i - 1] @ prob_mat[0]
 
         return prob_mat
 
-    def InitRewardVec(self, reward_mat, look_ahead, gamma):
+    def buildRewardVec(self, reward_mat, temporal_extension, gamma):
         immediate_r = np.zeros(self.n)
         r = np.zeros(self.n)
         for idx in range(self.n):
@@ -41,24 +42,30 @@ class GittinsPrioritizer(Prioritizer):
 
         for state_idx in range(self.n):
             r[state_idx] = immediate_r[state_idx]
-            for i in range(1, look_ahead):
+            for i in range(1, temporal_extension):
                 p = self.P[i][state_idx]
                 r[state_idx] += (gamma * (p @ immediate_r))
 
         return r
 
+    @abstractmethod
+    def GradeStates(self, **kwargs):
+        pass
+
+
+class GreedyPrioritizer(FunctionalPrioritizer):
+    def GradeStates(self):
+        return {state.idx: -self.r[state.idx] for state in self.states}
+
+
+class GittinsPrioritizer(FunctionalPrioritizer):
     def GradeStates(self, **kwargs):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.
         """
 
-        self.n = len(kwargs['states'])
-        self.policy = kwargs['policy']
-        self.P = self.InitProbMat(kwargs['p'], kwargs['look_ahead'])
-        r = self.InitRewardVec(kwargs['r'], kwargs['look_ahead'], kwargs['discount'])
-
-        rs_list = [PrioritizedObject(s, StateScore(s, r)) for s, r in zip(kwargs['states'], r)]
+        rs_list = [PrioritizedObject(s, StateScore(s, r)) for s, r in zip(self.states, self.r)]
         result = {}
         score = 1  # score is order of extraction
 
