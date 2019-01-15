@@ -98,14 +98,14 @@ if __name__ == '__main__':
     tunnel_length = 5
     _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
                                  tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 0)},
+                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 2)},
                                                'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
 
     general_sim_params = {
-        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
         'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 1, 'temporal_extension': 3, 'T_board': 3, 'runs_per_mdp': 3
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 3, 'T_board': 3, 'runs_per_mdp': 3
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
     # compareLookAhead(_mdp_list[0], general_sim_params, [1, 5, 10, 15], opt_policy_reward)

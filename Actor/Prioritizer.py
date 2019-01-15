@@ -11,7 +11,7 @@ class Prioritizer:
     def __init__(self, states, **kwargs):
         self.states = states
 
-    def GradeStates(self, **kwargs):
+    def GradeStates(self):
         return {state.idx: random.random() for state in self.states}
 
 
@@ -49,7 +49,7 @@ class FunctionalPrioritizer(Prioritizer):
         return r
 
     @abstractmethod
-    def GradeStates(self, **kwargs):
+    def GradeStates(self):
         pass
 
 
@@ -59,7 +59,7 @@ class GreedyPrioritizer(FunctionalPrioritizer):
 
 
 class GittinsPrioritizer(FunctionalPrioritizer):
-    def GradeStates(self, **kwargs):
+    def GradeStates(self):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.

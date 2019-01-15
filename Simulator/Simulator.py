@@ -196,7 +196,8 @@ class AgentSimulator(Simulator):
             for _ in range(kwargs['temporal_extension']):
                 self.critic.Update(agent.chain)
                 self.SimulateAgent(agent, **kwargs)
-                self.agents.put(self.GradeAgent(agent))
+
+            self.agents.put(self.GradeAgent(agent))
 
     def ChooseAction(self, state: SimulatedState, T_board):
         min_visits, min_action = state.min_visitations
