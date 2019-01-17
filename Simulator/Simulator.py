@@ -30,8 +30,7 @@ class Simulator:
         StateActionPair.visitations_mat = self.evaluated_model.visitations
 
     def InitParams(self, **kwargs):
-        self.critic = CriticFactory.Generate(model=self.MDP_model,
-                                             evaluator_type=kwargs['eval_type'])
+        self.critic = CriticFactory.Generate(model=self.MDP_model, evaluator_type=kwargs['eval_type'])
         state_num = self.MDP_model.n
         SimulatedState.action_num = self.MDP_model.actions
         self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
@@ -40,7 +39,7 @@ class Simulator:
 
         self.InitStatics()
 
-    def ImprovePolicy(self, sim_input, step):
+    def ImprovePolicy(self, sim_input, **kwargs):
         for state in self.MDP_model.states:
             state.policy_action = state.best_action.action
 
@@ -56,18 +55,6 @@ class Simulator:
         state_action.TD_error = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
         state_action.Q_hat += (a_n * state_action.TD_error)
 
-    def SampleStateAction(self, state_action: StateActionPair):
-        next_state = self.MDP_model.states[self.MDP_model.GetNextState(state_action)]
-        reward = self.MDP_model.GetReward(state_action)
-        self.UpdateReward(state_action, reward)
-        self.UpdateP(state_action, next_state)
-
-        self.Update_V(state_action)
-        self.Update_Q(state_action, next_state, reward)
-        state_action.UpdateVisits()
-
-        return reward, next_state
-
     def UpdateP(self, state_action: StateActionPair, next_state: SimulatedState):
         curr_num_of_tran = state_action.P_hat * state_action.visitations
         curr_num_of_tran[next_state.idx] += 1
@@ -76,24 +63,41 @@ class Simulator:
         state_action.P_hat = new_est_p_row
         self.UpdatePredecessor(next_state, state_action)
 
-    def UpdatePredecessor(self, next_state, state_action):
-        pass
-
     @staticmethod
     def UpdateReward(state_action: StateActionPair, new_reward):
         state_action.r_hat = (state_action.r_hat * state_action.visitations + new_reward) / (
                 state_action.visitations + 1)
+
+    def getActionResults(self, state_action: StateActionPair):
+        next_state = self.MDP_model.states[self.MDP_model.GetNextState(state_action)]
+        reward = self.MDP_model.GetReward(state_action)
+        return next_state, reward
+
+    def updateModel(self, current_state_action, next_state, reward):
+        self.UpdateReward(current_state_action, reward)
+        self.UpdateP(current_state_action, next_state)
+        self.Update_V(current_state_action)
+        self.Update_Q(current_state_action, next_state, reward)
+        current_state_action.UpdateVisits()
+
+    def SampleStateAction(self, state_action: StateActionPair):
+        next_state, reward = self.getActionResults(state_action)
+        self.updateModel(state_action, next_state, reward)
+
+        return reward, next_state
+
+    def UpdatePredecessor(self, next_state, state_action):
+        pass
 
     def simulate(self, sim_input):
         self.InitParams(eval_type=self.evaluation_type)
 
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
-                                 iteration_num=i,
                                  temporal_extension=sim_input.temporal_extension,
                                  T_board=sim_input.T_board)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
-                self.ImprovePolicy(sim_input, i)
+                self.ImprovePolicy(sim_input, iteration_num=i)
             if i % sim_input.evaluate_freq == sim_input.evaluate_freq - 1:
                 self.SimEvaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run,
                                  gamma=self.gamma)
@@ -129,9 +133,6 @@ class AgentSimulator(Simulator):
 
     def SimEvaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
-        # kwargs['running_agents'] = min(
-        #     reduce((lambda x, y: x + y), (agent.object.chain for agent in self.agents.queue)),
-        #     kwargs['running_agents'])
         super().SimEvaluate(**kwargs)
 
     def InitParams(self, **kwargs):
@@ -156,8 +157,14 @@ class AgentSimulator(Simulator):
                            for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
             return self.MDP_model.MDP_model.P, reward_mat
 
-    def ImprovePolicy(self, sim_input, iteration_num):
-        super().ImprovePolicy(sim_input, iteration_num)
+    def ImprovePolicy(self, sim_input, **kwargs):
+        """
+
+        :param sim_input: simulation parameters
+        :param kwargs: must contain current iteration number, for reincarnation
+        :effect: calculate new indexes for all sates, and grade agents accordingly
+        """
+        super().ImprovePolicy(sim_input)
 
         p, r = self.GetStatsForPrioritizer(sim_input.parameter)
         prioritizer = sim_input.prioritizer(states=self.MDP_model.states,
@@ -167,7 +174,7 @@ class AgentSimulator(Simulator):
                                             temporal_extension=sim_input.temporal_extension,
                                             discount_factor=sim_input.gittins_discount)
         self.graded_states = prioritizer.GradeStates()
-        self.ReGradeAllAgents(iteration_num)
+        self.ReGradeAllAgents(kwargs['iteration_num'])
 
     def ReincarnateAgent(self, agent, iteration_num):
         if iteration_num - agent.last_activation > 30:
@@ -186,6 +193,8 @@ class AgentSimulator(Simulator):
 
     def GradeAgent(self, agent):
         """ Agents in non-visited states / initial states are prioritized"""
+        if agent.curr_state in self.MDP_model.init_states_idx:
+            return -np.inf
         return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
 
     def SimulateOneStep(self, agents_to_run, **kwargs):

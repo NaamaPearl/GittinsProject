@@ -1,4 +1,3 @@
-from abc import abstractmethod
 import numpy as np
 
 
@@ -6,7 +5,6 @@ class RewardGenerator:
     def __init__(self):
         self.expected_reward = 0
 
-    @abstractmethod
     def GiveReward(self):
         return 0
 

@@ -21,24 +21,24 @@ class FunctionalPrioritizer(Prioritizer):
         self.n = len(states)
         self.policy = policy
         self.temporal_extension = temporal_extension
-        self.P = self.buildP(p, temporal_extension)
-        self.r = self.buildRewardVec(r, temporal_extension, discount_factor)
+        self.P = self.buildP(p, policy, temporal_extension)
+        self.r = self.buildRewardVec(r, policy, temporal_extension, discount_factor)
 
-    def buildP(self, p, temporal_extension):
+    def buildP(self, p, policy, temporal_extension):
         prob_mat = [np.zeros((self.n, self.n)) for _ in range(temporal_extension)]
         for state in range(self.n):
-            prob_mat[0][state] = p[state][self.policy[state]]
+            prob_mat[0][state] = p[state][policy[state]]
 
         for i in range(1, temporal_extension):
             prob_mat[i] = prob_mat[i - 1] @ prob_mat[0]
 
         return prob_mat
 
-    def buildRewardVec(self, reward_mat, temporal_extension, gamma):
+    def buildRewardVec(self, reward_mat, policy, temporal_extension, gamma):
         immediate_r = np.zeros(self.n)
         r = np.zeros(self.n)
         for idx in range(self.n):
-            immediate_r[idx] = reward_mat[idx][self.policy[idx]]
+            immediate_r[idx] = reward_mat[idx][policy[idx]]
 
         for state_idx in range(self.n):
             r[state_idx] = immediate_r[state_idx]
@@ -77,8 +77,7 @@ class GittinsPrioritizer(FunctionalPrioritizer):
             score += 1
 
             for rewarded_state in rs_list:
-                self.CalcIndex(rewarded_state.reward,
-                               opt_state.reward)  # calc index after omission, for all remaining states
+                self.CalcIndex(rewarded_state.reward, opt_state.reward)  # calc indexes after omission
 
             self.CalcNewProb(rs_list, opt_state)  # calc new transition matrix
         last_state = rs_list.pop()
@@ -105,14 +104,9 @@ class GittinsPrioritizer(FunctionalPrioritizer):
         """
         calc state's index after omission
         """
-        action = self.policy[opt_s.idx]
         P = self.P[-1]
         state_idx = state.idx
         opt_state_idx = opt_s.idx
-
-        # in case we haven't visited this state yet
-        if np.sum(P[action]) == 0:  # TODO: T bored
-            return 100
 
         # calculate needed sizes for final calculations
         p_sub_optimal = 1 - P[state_idx, opt_state_idx]
