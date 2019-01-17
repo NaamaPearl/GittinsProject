@@ -95,6 +95,7 @@ class Simulator:
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
                                  temporal_extension=sim_input.temporal_extension,
+                                 iteration_num=i,
                                  T_board=sim_input.T_board)
             if i % sim_input.grades_freq == sim_input.grades_freq - 1:
                 self.ImprovePolicy(sim_input, iteration_num=i)
