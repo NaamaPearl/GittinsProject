@@ -11,9 +11,7 @@ class SimulatedModel:
         self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(mdp_model.n)]
 
     def CalcPolicyData(self, policy):
-        for i, a in enumerate(policy):
-            self.policy_dynamics[i] = self.MDP_model.P[i][a]
-            self.policy_expected_rewards[i] = self.MDP_model.r[i][a].expected_reward
+        self.policy_dynamics, self.policy_expected_rewards = self.MDP_model.CalcPolicyData(policy)
 
     def GetNextState(self, state_action):
         return np.random.choice(range(self.MDP_model.n), p=self.MDP_model.P[state_action.state.idx][state_action.action])
@@ -57,6 +55,7 @@ class Agent:
         self.idx = idx
         self.curr_state = init_state
         self.accumulated_reward = 0
+        self.last_activation = 0
 
     def __lt__(self, other):
         return random.choice([True, False])

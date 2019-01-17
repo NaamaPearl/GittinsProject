@@ -1,58 +1,23 @@
-import matplotlib.pyplot as plt
+from Framework.Plotting import *
+from Plotting import PlotLookAhead
 import pickle
-from Simulator.Simulator import *
-from Framework.Plotting import smooth
 
 
-def CompareActivations(data_output, mdp_i):
-    plt.figure()
-    tick_shift = np.linspace(-0.35, 0.35, len(data_output))
-    # tick_shift = [-0.25, -0.05, 0.15, 0.35]
-    chain_num = len(data_output[0][0].chain_activation)
-    [plt.bar([tick_shift[_iter] + s for s in range(chain_num)], data_output[_iter][0].chain_activation, width=0.1,
-             align='center')
-     for _iter in range(len(data_output))]
+def RunSimulations(mdp_list, sim_params):
+    simulators = [{
+        method: {parameter: SimulatorFactory(mdp, sim_params)
+                 for parameter in sim_params['method_dict'][method]} for method in sim_params['method_dict'].keys()}
+        for mdp in mdp_list]
 
-    plt.xticks(range(chain_num), ['chain ' + str(s) for s in range(chain_num)])
-    plt.legend([data_output[_iter][1] for _iter in range(len(data_output))])
-    plt.title('Agents Activation per Chains for mdp num ' + str(mdp_i))
+    simulation_inputs = {method: [
+        SimInputFactory(method, parameter, sim_params)
+        for parameter in sim_params['method_dict'][method]] for method in sim_params['method_dict'].keys()}
 
-
-def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
-    params = ['reward', 'error', 'all']
-    [PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_sim_params)
-     for param in params]
-
-
-def PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_sim_params):
-    fig, ax = plt.subplots(nrows=1, ncols=len(general_sim_params['eval_type']))
-    eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
-    steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
-    for _iter in range(len(data_output)):
-        if data_output[_iter][2] == param or param == 'all':
-            for i, eval_type in enumerate(general_sim_params['eval_type']):
-                reward_eval = data_output[_iter][0].reward_eval.get(eval_type)
-                smoothed_eval = np.array([smooth(reward_eval[i])[:-10] for i in range(reward_eval.shape[0])])
-
-                y = np.mean(smoothed_eval, axis=0)
-                std = np.std(smoothed_eval, axis=0)
-                ax[i].plot(steps, y, label=data_output[_iter][1])
-                ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
-
-    for i, eval_type in enumerate(general_sim_params['eval_type']):
-        ax[i].set_title(eval_type)
-        ax[i].legend()
-        ax[i].set_xlabel('simulation steps')
-        ax[i].set_ylabel('evaluated reward')
-        # if eval_type == 'offline':
-            # plt.axhline(y=optimal_policy_reward, color='r', linestyle='-', label='optimal policy expected reward')
-    # elif eval_type == 'online':
-    #     plt.plot(steps, optimal_policy_reward, 'optimal policy expected reward')
-    # method_type.insert(0, 'optimal policy expected reward')
-
-    title = 'Reward Evaluation'
-    title += (' - agents prioritized by ' + param) if param != 'all' else ''
-    fig.suptitle(title + '\naverage of ' + str(general_sim_params['runs_per_mdp']) + ' runs')
+    result = []
+    for i in range(len(mdp_list)):
+        print('run MDP num ' + str(i))
+        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, sim_params))
+    return simulators, result
 
 
 def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
@@ -81,74 +46,92 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
     return simulation_outputs
 
 
-def RunSimulations(_mdp_list, _sim_params):
-    simulators = [{
-        method: {parameter: SimulatorFactory(mdp, _sim_params)
-                 for parameter in _sim_params['method_dict'][method]} for method in _sim_params['method_dict'].keys()}
-        for mdp in _mdp_list]
+def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
+    general_sim_params['eval_type'] = ['offline']
+    sweeper = PrioritizedSweeping(ProblemInput(
+        MDP_model=SimulatedModel(mdp), agent_num=sim_params['agents_to_run'], gamma=mdp.gamma, **sim_params),
+        'sweeping')
+    sweeper.simulate(SimulationInput(**sim_params))
+    sweeping_result = sweeper.critic.value_vec['offline']
 
-    simulation_inputs = {method: [
-        SimInputFactory(method, parameter, _sim_params)
-        for parameter in _sim_params['method_dict'][method]] for method in _sim_params['method_dict'].keys()}
+    agents_result = []
+    for agent_ratio in agent_ratio_vec:
+        sim_params['agent_ratio'] = agent_ratio
 
-    result = []
-    for i in range(len(mdp_list)):
-        print('run MDP num ' + str(i))
-        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, _sim_params))
-    return simulators, result
+        agent_simulator = SimulatorFactory(mdp, 'gittins', sim_params)
+        agent_simulator.simulate(SimInputFactory('greedy', 'error', sim_params))
+
+        agents_result.append(agent_simulator.critic.value_vec['offline'])
+
+    plt.figure()
+    eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
+    steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
+
+    plt.plot(steps, sweeping_result, label='sweeping')
+    for i in range(len(agents_result)):
+        plt.plot(steps, agents_result[i]['offline'], label=r'$\rho$ = ' + str(agent_ratio_vec[i]))
+
+    plt.legend()
+    plt.show()
 
 
-def PlotResults(results, _opt_policy_reward, general_sim_params):
-    for mdp_i in range(len(results)):
-        res = results[mdp_i]
+def compareLookAhead(mdp, sim_params, look_ahead_vec, optimal_reward):
+    simulator = SimulatorFactory(mdp, sim_params)
 
-        data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param), param)
-                                            for param in res[method].keys()] for method in res.keys()])
-        PlotEvaluation(data, _opt_policy_reward[mdp_i], general_sim_params)
-        try:
-            CompareActivations(data, mdp_i)
-        except TypeError:
-            pass
+    # param_list = ['error', 'reward']
+    param_list = ['reward']
+    for param in param_list:
+        outputs = {look_ahead: ChainSimulationOutput(sim_params['eval_type']) for look_ahead in look_ahead_vec}
+        for look_ahead in look_ahead_vec:
+            for i in range(sim_params['runs_per_mdp']):
+                sim_params['look_ahead'] = look_ahead
+                simulator.simulate(SimInputFactory('gittins', param, sim_params))
+                outputs[look_ahead].reward_eval.add(simulator.critic.value_vec)
 
-        plt.show()
+        PlotLookAhead(outputs, param, optimal_reward, general_sim_params)
+
+    plt.show()
 
 
 if __name__ == '__main__':
     # building the MDPs
-    # mdp_num = 1
     tunnel_length = 5
-    load = False
-    if load:
-        mdp_list = []
-        with open('pnina', 'rb') as f:
-            mdp_list.append(pickle.load(f))
-    else:
-        mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
-                                      tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                      reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((100, 13),  1)},
-                                                    'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                    'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((10000, 0), 4)}})]
+    _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
+                                 tunnel_indexes=list(range(37, 37 + tunnel_length)),
+                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 2)},
+                                               'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                               'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
 
-        # mdp_list = [StarMDP(n=31, actions=3, succ_num=1, op_succ_num=1, chain_num=3, gamma=0.9,
-        #                     reward_param={0: {'final_state': {'gauss_params': ((100, 0), 0)},
-        #                                       'line_state': {'gauss_params': ((-1, 0), 0)}},
-        #                                   1: {'final_state': {'gauss_params': ((0, 0), 1)},
-        #                                       'line_state': {'gauss_params': ((0, 0), 0)}},
-        #                                   2: {'final_state': {'gauss_params': ((1, 0), 0)},
-        #                                       'line_state': {'gauss_params': ((0, 0), 0)}}
-        #                                   })]
+    general_sim_params = {
+        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 3, 'T_board': 3, 'runs_per_mdp': 3
+    }
+    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
+    # compareLookAhead(_mdp_list[0], general_sim_params, [1, 5, 10, 15], opt_policy_reward)
+
+    # _mdp_list = [StarMDP(n=31, actions=3, succ_num=5, op_succ_num=10, chain_num=3, gamma=0.9,
+    #                      reward_param={0: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
+    #                                    1: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
+    #                                    2: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)}
+    #                                    })]
 
     # define general simulation params
-    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    # _method_dict = {'gittins': ['ground_truth', 'reward', 'error']}
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    general_sim_params = {'method_dict': _method_dict,
-                          'steps': 1000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_ratio': 3,
-                          'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.1, 'reset_freq': 8000, 'grades_freq': 50,
-                          'gittins_discount': 1, 'gittins_look_ahead': 1, 'T_bored': 3,
-                          'runs_per_mdp': 3}
+    # _method_dict = {'gittins': ['error']}
+    general_sim_params['method_dict'] = _method_dict
+    #
+    # # compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
+    #
 
-    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
-    simulators, res = RunSimulations(mdp_list, _sim_params=general_sim_params)
+    _simulators, res = RunSimulations(_mdp_list, sim_params=general_sim_params)
+
+    printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
+
+    with open('run_res2.pckl', 'wb') as f:
+        pickle.dump(printalbe_res, f)
+
     PlotResults(res, opt_policy_reward, general_sim_params)
 
     print('all done')
