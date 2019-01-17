@@ -36,7 +36,7 @@ def PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_si
                 smoothed_eval = np.array([smooth(reward_eval[i])[:-10] for i in range(reward_eval.shape[0])])
 
                 y = np.mean(smoothed_eval, axis=0)
-                std = np.std(smoothed_eval, axis=0)
+                std = np.std(smoothed_eval, axis=0) / 3
                 ax[i].plot(steps, y, label=data_output[_iter][1])
                 ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
 

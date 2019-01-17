@@ -133,7 +133,7 @@ class AgentSimulator(Simulator):
         self.init_prob = None
 
     def SimEvaluate(self, **kwargs):
-        kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
+        kwargs['agents_reward'] = [agent.object.regret for agent in self.agents.queue]
         super().SimEvaluate(**kwargs)
 
     def InitParams(self, **kwargs):
@@ -223,7 +223,7 @@ class AgentSimulator(Simulator):
         state_action = self.ChooseAction(agent.curr_state, kwargs['T_board'])
 
         reward, next_state = self.SampleStateAction(state_action)
-        agent.accumulated_reward += reward
+        agent.regret += (self.MDP_model.MDP_model.opt_r[agent.curr_state.idx] - reward)
         agent.curr_state = next_state
 
     def Reset(self):

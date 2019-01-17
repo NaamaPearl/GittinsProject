@@ -105,7 +105,7 @@ if __name__ == '__main__':
     general_sim_params = {
         'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
         'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 3, 'T_board': 3, 'runs_per_mdp': 3
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 3
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
     # compareLookAhead(_mdp_list[0], general_sim_params, [1, 5, 10, 15], opt_policy_reward)
