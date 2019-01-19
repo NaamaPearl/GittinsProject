@@ -133,7 +133,7 @@ class AgentSimulator(Simulator):
         self.init_prob = None
 
     def SimEvaluate(self, **kwargs):
-        kwargs['agents_reward'] = [agent.object.accumulated_reward for agent in self.agents.queue]
+        kwargs['agents_reward'] = [agent.object.getOnlineAndZero() for agent in self.agents.queue]
         super().SimEvaluate(**kwargs)
 
     def InitParams(self, **kwargs):
@@ -195,8 +195,10 @@ class AgentSimulator(Simulator):
     def GradeAgent(self, agent):
         """ Agents in non-visited states / initial states are prioritized"""
         if agent.curr_state in self.MDP_model.init_states_idx:
-            return -np.inf
-        return PrioritizedObject(agent, self.graded_states[agent.curr_state.idx])
+            score = -np.inf
+        else:
+            score = self.graded_states[agent.curr_state.idx]
+        return PrioritizedObject(agent, score)
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
@@ -223,8 +225,14 @@ class AgentSimulator(Simulator):
         state_action = self.ChooseAction(agent.curr_state, kwargs['T_board'])
 
         reward, next_state = self.SampleStateAction(state_action)
-        agent.accumulated_reward += reward
+        agent.regret += self.calcRegret(state_action.state.idx, state_action.action)
         agent.curr_state = next_state
+
+    def calcRegret(self, state_idx, action):
+        if not self.MDP_model.MDP_model.IsStateActionRewarded(state_idx, action):
+            return self.MDP_model.MDP_model.avg_r
+
+        return self.MDP_model.MDP_model.opt_r[state_idx] - self.MDP_model.MDP_model.expected_r[action, state_idx]
 
     def Reset(self):
         self.ResetAgents(self.agents.qsize())

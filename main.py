@@ -96,16 +96,23 @@ def compareLookAhead(mdp, sim_params, look_ahead_vec, optimal_reward):
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
-    _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
-                                 tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                 reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 2)},
-                                               'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                               'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
+    load = False
+    if not load:
+        _mdp_list = [ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
+                                     tunnel_indexes=list(range(37, 37 + tunnel_length)),
+                                     reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 2)},
+                                                   'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                                   'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
+        with open('mdp.pckl', 'wb') as f:
+            pickle.dump(_mdp_list, f)
+
+    else:
+        _mdp_list = pickle.load(open("mdp.pckl", "wb"))
 
     general_sim_params = {
         'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
         'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 3, 'T_board': 3, 'runs_per_mdp': 3
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 20
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
     # compareLookAhead(_mdp_list[0], general_sim_params, [1, 5, 10, 15], opt_policy_reward)
@@ -122,7 +129,7 @@ if __name__ == '__main__':
     # _method_dict = {'gittins': ['error']}
     general_sim_params['method_dict'] = _method_dict
     #
-    # # compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
+    # compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
     #
 
     _simulators, res = RunSimulations(_mdp_list, sim_params=general_sim_params)
