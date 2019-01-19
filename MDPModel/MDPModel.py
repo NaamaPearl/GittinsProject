@@ -21,6 +21,10 @@ class MDPModel:
         self.expected_r = np.array([[self.r[s][a].expected_reward for s in range(self.n)] for a in range(self.actions)])
         self.gamma = gamma
         self.opt_policy, self.V = self.CalcOptPolicy()
+        self.avg_r = self.calcMeanReward()
+
+    def calcMeanReward(self):
+        return np.mean(self.expected_r)
 
     def BuildP(self, **kwargs):
         possible_suc = self.GenPossibleSuccessors()
@@ -172,6 +176,10 @@ class SeperateChainsMDP(TreeMDP):
         super().__init__(n, actions=actions, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num,
                          succ_num=succ_num)
         self.type = 'chains'
+
+    def calcMeanReward(self):
+        active_states = list(reduce(lambda a, b: a.union(b), [self.chains[chain] for chain in self.active_chains]))
+        return np.mean(self.expected_r[:, active_states])
 
     def GenPossibleSuccessors(self, **kwargs):
         forbidden_states = self.GenForbiddenStates()

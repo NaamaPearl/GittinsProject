@@ -60,6 +60,11 @@ class Agent:
     def __lt__(self, other):
         return random.choice([True, False])
 
+    def getOnlineAndZero(self):
+        res = self.regret
+        self.regret = 0
+        return res
+
     @property
     def chain(self):
         return self.curr_state.chain
