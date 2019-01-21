@@ -17,7 +17,14 @@ class Simulator:
         self.policy = None
         self.critic = None
 
-        self.InitParams(eval_type=self.evaluation_type)
+        self.critic = CriticFactory.Generate(model=self.MDP_model, evaluator_type=self.evaluation_type)
+        state_num = self.MDP_model.n
+        SimulatedState.action_num = self.MDP_model.actions
+        self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
+        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
+        self.MDP_model.CalcPolicyData(self.policy)
+
+        self.InitStatics()
 
     def InitStatics(self):
         SimulatedState.policy = self.policy
@@ -28,16 +35,6 @@ class Simulator:
         StateActionPair.TD_error_mat = self.evaluated_model.TD_error
         StateActionPair.r_hat_mat = self.evaluated_model.r_hat
         StateActionPair.visitations_mat = self.evaluated_model.visitations
-
-    def InitParams(self, **kwargs):
-        self.critic = CriticFactory.Generate(model=self.MDP_model, evaluator_type=kwargs['eval_type'])
-        state_num = self.MDP_model.n
-        SimulatedState.action_num = self.MDP_model.actions
-        self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
-        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
-        self.MDP_model.CalcPolicyData(self.policy)
-
-        self.InitStatics()
 
     def ImprovePolicy(self, sim_input, **kwargs):
         for state in self.MDP_model.states:
@@ -90,8 +87,6 @@ class Simulator:
         pass
 
     def simulate(self, sim_input):
-        self.InitParams(eval_type=self.evaluation_type)
-
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
                                  temporal_extension=sim_input.temporal_extension,
@@ -104,6 +99,8 @@ class Simulator:
                                  gamma=self.gamma)
             if i % sim_input.reset_freq == sim_input.reset_freq - 1:
                 self.Reset()
+
+        return self.critic
 
     def Reset(self):
         pass
@@ -126,22 +123,16 @@ class Simulator:
 
 class AgentSimulator(Simulator):
     def __init__(self, sim_input: ProblemInput):
-        self.agents_num = sim_input.agent_num
         super().__init__(sim_input)
+        self.agents_num = sim_input.agent_num
+        self.init_prob = self.MDP_model.init_prob
         self.agents = Q.PriorityQueue()
-        self.graded_states = None
-        self.init_prob = None
+        self.ResetAgents(self.agents_num)
+        self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
 
     def SimEvaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.getOnlineAndZero() for agent in self.agents.queue]
         super().SimEvaluate(**kwargs)
-
-    def InitParams(self, **kwargs):
-        super().InitParams(**kwargs)
-        self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
-        self.init_prob = self.MDP_model.init_prob
-        self.ResetAgents(self.agents_num)
-        self.init_prob = self.MDP_model.init_prob
 
     def ChooseInitState(self):
         return np.random.choice(self.MDP_model.states, p=self.init_prob)

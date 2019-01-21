@@ -7,15 +7,15 @@ import pickle
 def CompareActivations(data_output, mdp_i):
     plt.figure()
     tick_shift = np.linspace(-0.35, 0.35, len(data_output))
-    # tick_shift = [-0.25, -0.05, 0.15, 0.35]
-    chain_num = len(data_output[0][0].chain_activation)
-    [plt.bar([tick_shift[_iter] + s for s in range(chain_num)], data_output[_iter][0].chain_activation, width=0.1,
-             align='center')
-     for _iter in range(len(data_output))]
+    chain_num = len(next(iter(data_output.values()))['chain_activations'])
+    for _iter, key in enumerate(data_output):
+        ticks = [tick_shift[_iter] + s for s in range(chain_num)]
+        plt.bar(ticks, data_output[key]['chain_activations'], width=0.1, align='center',
+                label=str(key[0]) + ' ' + str(key[1]))
 
     plt.xticks(range(chain_num), ['chain ' + str(s) for s in range(chain_num)])
-    plt.legend([data_output[_iter][1] for _iter in range(len(data_output))])
     plt.title('Agents Activation per Chains for mdp num ' + str(mdp_i))
+    plt.legend()
 
 
 def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
@@ -24,20 +24,20 @@ def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
      for param in params]
 
 
-def PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_sim_params):
+def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_sim_params):
     fig, ax = plt.subplots(nrows=1, ncols=len(general_sim_params['eval_type']))
     eval_count = int(general_sim_params['steps'] /
                              (general_sim_params['eval_freq'] * general_sim_params['temporal_extension']))
     steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
-    for _iter in range(len(data_output)):
-        if data_output[_iter][2] == param or param == 'all':
-            for i, eval_type in enumerate(general_sim_params['eval_type']):
-                reward_eval = data_output[_iter][0].reward_eval.get(eval_type)
-                smoothed_eval = np.array([smooth(reward_eval[i])[:-10] for i in range(reward_eval.shape[0])])
 
-                y = np.mean(smoothed_eval, axis=0)
-                std = np.std(smoothed_eval, axis=0) / 3
-                ax[i].plot(steps, y, label=data_output[_iter][1])
+    for definitions in sim_outputs.keys():
+        if definitions[1] == param or param == 'all':
+            for i, eval_type in enumerate(general_sim_params['eval_type']):
+                mean_values, std = sim_outputs[definitions].get(eval_type)
+                y = np.array(smooth(mean_values)[:-10])
+                std /= 3
+
+                ax[i].plot(steps, y, label=definitions[0] + str(definitions[1]))
                 ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
 
     for i, eval_type in enumerate(general_sim_params['eval_type']):
@@ -62,9 +62,9 @@ def PlotResults(results, _opt_policy_reward, general_sim_params):
 
         data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param), param)
                                             for param in res[method].keys()] for method in res.keys()])
-        PlotEvaluation(data, _opt_policy_reward[mdp_i], general_sim_params)
+        PlotEvaluation(res, _opt_policy_reward[mdp_i], general_sim_params)
         try:
-            CompareActivations(data, mdp_i)
+            CompareActivations(res, mdp_i)
         except TypeError:
             pass
 
@@ -126,7 +126,7 @@ def smooth(x, window_len=11, window='hanning'):
 
 
 if __name__ == '__main__':
-    res_tuple = pickle.load(open('..\\run_res.pckl', 'rb'))
+    res_tuple = pickle.load(open('..\\run_res2.pckl', 'rb'))
 
     PlotResults(res_tuple['res'], res_tuple['opt_reward'], res_tuple['params'])
 
