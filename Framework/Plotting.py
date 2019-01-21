@@ -126,9 +126,9 @@ def smooth(x, window_len=11, window='hanning'):
 
 
 if __name__ == '__main__':
-    res_tuple = pickle.load(open('run_res.pckl', 'rb'))
+    res_tuple = pickle.load(open('..\\run_res.pckl', 'rb'))
 
-    PlotResults(res_tuple[1], res_tuple[2], res_tuple[3])
+    PlotResults(res_tuple['res'], res_tuple['opt_reward'], res_tuple['params'])
 
 
 
