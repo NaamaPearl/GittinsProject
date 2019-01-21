@@ -33,10 +33,10 @@ def PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_si
         if data_output[_iter][2] == param or param == 'all':
             for i, eval_type in enumerate(general_sim_params['eval_type']):
                 reward_eval = data_output[_iter][0].reward_eval.get(eval_type)
-                smoothed_eval = np.array([smooth(reward_eval[i])[:-10] for i in range(reward_eval.shape[0])])
+                y_mean = np.mean(reward_eval, axis=0)
+                std = np.std(reward_eval, axis=0)
 
-                y = np.mean(smoothed_eval, axis=0)
-                std = np.std(smoothed_eval, axis=0) / 3
+                y = np.array([smooth(y_mean)[:-10] for i in range(reward_eval.shape[0])])
                 ax[i].plot(steps, y, label=data_output[_iter][1])
                 ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
 
@@ -126,9 +126,9 @@ def smooth(x, window_len=11, window='hanning'):
 
 
 if __name__ == '__main__':
-    res_tuple = pickle.load(open('run_res.pckl', 'rb'))
+    res_tuple = pickle.load(open('..\\run_res.pckl', 'rb'))
 
-    PlotResults(res_tuple[1], res_tuple[2], res_tuple[3])
+    PlotResults(res_tuple[0], res_tuple[1], res_tuple[2])
 
 
 
