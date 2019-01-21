@@ -17,13 +17,8 @@ class RandomRewardGenerator(RewardGenerator):
         else:
             self.bernoulli_p = kwargs['bernoulli_p']
 
-        try:
-            self.gauss_mu = np.random.normal(kwargs['gauss_params'][0][0], kwargs['gauss_params'][0][1])
-            self.gauss_sigma = kwargs['gauss_params'][1]
-
-        except KeyError:
-            self.gauss_mu = np.random.normal(0, 50)
-            self.gauss_sigma = abs(np.random.normal(10, 4))
+        self.gauss_mu = np.random.normal(kwargs['gauss_params'][0][0], kwargs['gauss_params'][0][1])
+        self.gauss_sigma = kwargs['gauss_params'][1]
 
         self.expected_reward = self.gauss_mu * self.bernoulli_p
 
