@@ -16,11 +16,11 @@ def RunSimulations(mdp_list, sim_params):
     result = []
     for i in range(len(mdp_list)):
         print('run MDP num ' + str(i))
-        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, sim_params))
+        result.append(RunSimulationsOnMdp(simulators[i], simulation_inputs, sim_params, mdp_list[i]))
     return simulators, result
 
 
-def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
+def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params, mdp):
     simulation_outputs = {
         method: {parameter: ChainSimulationOutput(sim_params['eval_type'])
                  for parameter in sim_params['method_dict'][method]}
@@ -28,6 +28,10 @@ def RunSimulationsOnMdp(simulators, simulation_inputs, sim_params):
 
     runs_per_mdp = sim_params['runs_per_mdp']
     for i in range(runs_per_mdp):
+        simulators = {
+            method: {parameter: SimulatorFactory(mdp, sim_params)
+                     for parameter in sim_params['method_dict'][method]} for method in sim_params['method_dict'].keys()}
+
         print('     run number ' + str(i))
         for method in simulators.keys():
             print('method: ' + method)
@@ -112,8 +116,8 @@ if __name__ == '__main__':
 
     general_sim_params = {
         'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
-        'trajectory_len': 100, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
+        'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 3
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
     # compareLookAhead(_mdp_list[0], general_sim_params, [1, 5, 10, 15], opt_policy_reward)
@@ -125,6 +129,7 @@ if __name__ == '__main__':
     #                                    })]
     # define general simulation params
     # _method_dict = {'gittins': ['ground_truth', 'reward', 'error']}
+    # _method_dict = {'gittins': ['error'], 'greedy': ['error']} #, 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'gittins': ['error']}
     general_sim_params['method_dict'] = _method_dict
