@@ -31,12 +31,6 @@ class AgentSimulationInput(SimulationInput):
         self.gittins_discount = kwargs['gittins_discount']
 
 
-class ChainSimulationOutput:
-    def __init__(self, eval_type_list):
-        self.chain_activation = 0
-        self.reward_eval = RewardEvaluation(eval_type_list)
-
-
 class RewardEvaluation:
     def __init__(self, eval_type_list):
         self.reward_eval_list = {eval_type: [] for eval_type in eval_type_list}

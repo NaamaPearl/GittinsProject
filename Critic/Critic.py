@@ -30,7 +30,7 @@ class OfflinePolicyEvaluator(Evaluator):
                 reward += (new_reward * kwargs['gamma'] ** i)
                 # tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-        return reward / (kwargs['good_agents'] * kwargs['chain_num']), 0  # assume next states after initial are evenly
+        return reward * (len(kwargs['active_chains'])) / (kwargs['chain_num'] * kwargs['good_agents']), 0  # assume next states after initial are evenly
         # distributed between chains
 
 
