@@ -1,13 +1,12 @@
-import numpy as np
 import matplotlib.pyplot as plt
 from Simulator.Simulator import *
 import pickle
 
 
 def CompareActivations(data_output, mdp_i):
+    chain_num = len(next(iter(data_output.values())).get('chain_activations'))
     plt.figure()
     tick_shift = np.linspace(-0.35, 0.35, len(data_output))
-    chain_num = len(next(iter(data_output.values()))['chain_activations'])
     for _iter, key in enumerate(data_output):
         ticks = [tick_shift[_iter] + s for s in range(chain_num)]
         plt.bar(ticks, data_output[key]['chain_activations'], width=0.1, align='center',
@@ -41,32 +40,25 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_si
                 ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
 
     for i, eval_type in enumerate(general_sim_params['eval_type']):
-        ax[i].set_title(eval_type)
+        ax[i].set_title(eval_type if eval_type == 'offline' else 'Regret')
         ax[i].set_xlabel('simulation steps')
-        ax[i].set_ylabel('evaluated reward')
         if eval_type == 'offline':
+            ax[i].set_ylabel('evaluated reward')
             plt.axhline(y=optimal_policy_reward, color='r', linestyle='-', label='optimal policy expected reward')
+        else:
+            ax[i].set_ylabel('evaluated regret')
         ax[i].legend()
-    # elif eval_type == 'online':
-    #     plt.plot(steps, optimal_policy_reward, 'optimal policy expected reward')
-    # method_type.insert(0, 'optimal policy expected reward')
 
     title = 'Reward Evaluation'
     title += (' - agents prioritized by ' + param) if param != 'all' else ''
     fig.suptitle(title + '\naverage of ' + str(general_sim_params['runs_per_mdp']) + ' runs')
 
 
-def PlotResults(results, _opt_policy_reward, general_sim_params):
-    for mdp_i in range(len(results)):
-        res = results[mdp_i]
-
-        data = reduce(lambda a, b: a + b, [[(res[method][param], str(method) + ' ' + str(param), param)
-                                            for param in res[method].keys()] for method in res.keys()])
-        PlotEvaluation(res, _opt_policy_reward[mdp_i], general_sim_params)
-        try:
-            CompareActivations(res, mdp_i)
-        except TypeError:
-            pass
+def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
+    for i, ((mdp_type, res_data), opt_reward) in enumerate(zip(result_list, opt_policy_reward_list)):
+        PlotEvaluation(res_data, opt_reward, general_sim_params)
+        if mdp_type == 'chains':
+            CompareActivations(res_data, i)
 
         plt.show()
 

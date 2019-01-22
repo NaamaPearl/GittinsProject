@@ -1,29 +1,32 @@
 from Framework.Plotting import *
-from Plotting import PlotLookAhead
 import pickle
 from itertools import product
 from functools import reduce
 
 
-def summarizeCritics(critics):
-    return {'online': (np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0),
-                       np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
-            'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
-                        np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
-            'chain_activations': np.mean(np.asarray([critic.chain_activations for critic in critics]), axis=0)}
+def summarizeCritics(critics, critic_type):
+    result = {'online': (np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0),
+                         np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
+              'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
+                          np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0))}
+
+    if critic_type == 'chains':
+        result['chain_activations'] = np.mean(np.asarray([critic.chain_activations for critic in critics]), axis=0)
+
+    return result
 
 
-def RunSimulations(mdp_list, sim_params):
+def RunSimulations(_mdp_list, sim_params):
     sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method]))
                                                  for method in sim_params['method_dict'].keys()])
-    result = [{} for _ in range(len(mdp_list))]
-    for i, mdp in enumerate(mdp_list):
+    result = [(mdp.type, {}) for mdp in _mdp_list]
+    for i, mdp in enumerate(_mdp_list):
         print('run MDP num ' + str(i))
         for method, parameter in sim_definition:
             print('     running ' + method + ' prioritization, using ' + str(parameter))
             sim_input = SimInputFactory(method, parameter, sim_params)
-            result[i][(method, parameter)] = summarizeCritics([SimulatorFactory(mdp, sim_params).simulate(sim_input)
-                                                               for _ in range(sim_params['runs_per_mdp'])])
+            result[i][1][(method, parameter)] = summarizeCritics([SimulatorFactory(mdp, sim_params).simulate(sim_input)
+                                                                  for _ in range(sim_params['runs_per_mdp'])], mdp.type)
     return result
 
 
@@ -78,43 +81,33 @@ if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
     load = False
-    if not load:
-        _mdp_list = [StarMDP(n=46, actions=5, succ_num=3, op_succ_num=5, chain_num=5, gamma=0.9,
-                             reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 2)},
-                                           2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
-                                           3: {'bernoulli_p': 1, 'gauss_params': ((50, 2), 2)},
-                                           4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                           0: {'bernoulli_p': 1, 'gauss_params': ((87, 3), 2)}})]
-        with open('mdp.pckl', 'wb') as f:
-            pickle.dump(_mdp_list, f)
-
+    if load:
+        mdp_list = pickle.load(open("mdp.pckl", "wb"))
     else:
-        _mdp_list = pickle.load(open("mdp.pckl", "wb"))
+        star_mdp = StarMDP(n=46, actions=5, succ_num=3, op_succ_num=5, chain_num=5, gamma=0.9,
+                           reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 2)},
+                                         2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
+                                         3: {'bernoulli_p': 1, 'gauss_params': ((50, 2), 2)},
+                                         4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
+                                         0: {'bernoulli_p': 1, 'gauss_params': ((87, 3), 2)}})
 
+        mdp_list = [star_mdp]
+
+        with open('mdp.pckl', 'wb') as f:
+            pickle.dump(mdp_list, f)
+
+    # define general simulation params
     general_sim_params = {
-        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 3
     }
-    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in _mdp_list]
-    # compareLookAhead(_mdp_list[0], general_sim_params, [1, 5, 10, 15], opt_policy_reward)
+    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
 
-    # _mdp_list = [StarMDP(n=31, actions=3, succ_num=5, op_succ_num=10, chain_num=3, gamma=0.9,
-    #                      reward_param={0: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
-    #                                    1: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)},
-    #                                    2: {'bernoulli_p': 1, 'gauss_params': ((0, 1), 1)}
-    #                                    })]
-    # define general simulation params
-    # _method_dict = {'gittins': ['ground_truth', 'reward', 'error']}
-    # _method_dict = {'gittins': ['error'], 'greedy': ['error']} #, 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'gittins': ['error']}
     general_sim_params['method_dict'] = _method_dict
-    #
-    # compareSweepingWithAgents(_mdp_list[0], general_sim_params, [10, 20, 30])
-    #
 
-    res = RunSimulations(_mdp_list, sim_params=general_sim_params)
+    res = RunSimulations(mdp_list, sim_params=general_sim_params)
 
     printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
 
