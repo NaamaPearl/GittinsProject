@@ -36,7 +36,7 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_si
                 y = np.array(smooth(mean_values)[:-10])
                 std /= 3
 
-                ax[i].plot(steps, y, label=definitions[0] + str(definitions[1]))
+                ax[i].plot(steps, y, label=definitions[0] + ' ' + str(definitions[1]))
                 ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
 
     for i, eval_type in enumerate(general_sim_params['eval_type']):
