@@ -8,7 +8,8 @@ def summarizeCritics(critics, critic_type):
     result = {'online': (np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0),
                          np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
               'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
-                          np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0))}
+                          np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
+              'critics': critics}
 
     if critic_type == 'chains':
         result['chain_activations'] = np.mean(np.asarray([critic.chain_activations for critic in critics]), axis=0)
@@ -80,31 +81,37 @@ def RunSimulations(_mdp_list, sim_params):
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
-    load = False
+    load = True
     if load:
-        mdp_list = pickle.load(open("mdp.pckl", "wb"))
+        mdp_list = pickle.load(open("best_mdp_tunnel.pckl", "rb"))
     else:
-        star_mdp = StarMDP(n=46, actions=5, succ_num=3, op_succ_num=5, chain_num=5, gamma=0.9,
+        star_mdp = StarMDP(n=46, actions=5, succ_num=3, op_succ_num=7, chain_num=5, gamma=0.9,
                            reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 2)},
                                          2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
                                          3: {'bernoulli_p': 1, 'gauss_params': ((50, 2), 2)},
                                          4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                         0: {'bernoulli_p': 1, 'gauss_params': ((87, 3), 2)}})
+                                         0: {'bernoulli_p': 1, 'gauss_params': ((87, 3), 0)}})
 
-        mdp_list = [star_mdp]
+        tunnel_mdp = ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
+                                     tunnel_indexes=list(range(37, 37 + tunnel_length)),
+                                     reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 0), 0)},
+                                                   'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                                   'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
+        mdp_list = [tunnel_mdp]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params
     general_sim_params = {
-        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'steps': 3000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 3
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
 
     _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    # _method_dict = {'random': [None]}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)

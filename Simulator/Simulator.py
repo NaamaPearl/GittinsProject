@@ -14,8 +14,6 @@ class Simulator:
         self.gamma = sim_input.gamma
         self.epsilon = sim_input.epsilon
         self.evaluated_model = EvaluatedModel()
-        self.policy = None
-        self.critic = None
 
         self.critic = CriticFactory.Generate(model=self.MDP_model, evaluator_type=self.evaluation_type)
         state_num = self.MDP_model.n
@@ -87,6 +85,7 @@ class Simulator:
         pass
 
     def simulate(self, sim_input):
+        print('         start new run')
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
                                  temporal_extension=sim_input.temporal_extension,
@@ -185,10 +184,10 @@ class AgentSimulator(Simulator):
 
     def GradeAgent(self, agent):
         """ Agents in non-visited states / initial states are prioritized"""
-        if agent.curr_state in self.MDP_model.init_states_idx:
-            score = -np.inf
-        else:
-            score = self.graded_states[agent.curr_state.idx]
+    # if agent.curr_state in self.MDP_model.init_states_idx:
+    #     score = -np.inf
+    # else:
+        score = self.graded_states[agent.curr_state.idx]
         return PrioritizedObject(agent, score)
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
