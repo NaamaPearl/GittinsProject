@@ -219,10 +219,10 @@ class AgentSimulator(Simulator):
         agent.curr_state = next_state
 
     def calcRegret(self, state_idx, action):
-        if not self.MDP_model.MDP_model.IsStateActionRewarded(state_idx, action):
+        if self.MDP_model.MDP_model.IsStateActionRewarded(state_idx, action):
+            return self.MDP_model.MDP_model.opt_r[state_idx] - self.MDP_model.MDP_model.expected_r[action, state_idx]
+        else:
             return self.MDP_model.MDP_model.avg_r
-
-        return self.MDP_model.MDP_model.opt_r[state_idx] - self.MDP_model.MDP_model.expected_r[action, state_idx]
 
     def Reset(self):
         self.ResetAgents(self.agents.qsize())
