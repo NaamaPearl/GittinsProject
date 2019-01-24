@@ -5,7 +5,7 @@ from functools import reduce
 
 
 def summarizeCritics(critics, critic_type):
-    result = {'online': (np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0),
+    result = {'online': (np.cumsum(np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
                          np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
               'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
                           np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
@@ -81,7 +81,7 @@ def RunSimulations(_mdp_list, sim_params):
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
-    load = True
+    load = False
     if load:
         mdp_list = pickle.load(open("best_mdp_tunnel.pckl", "rb"))
     else:
@@ -94,17 +94,17 @@ if __name__ == '__main__':
 
         tunnel_mdp = ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
                                      tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                     reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 0), 0)},
+                                     reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 0)},
                                                    'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                    'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-        mdp_list = [tunnel_mdp]
+        mdp_list = [star_mdp]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params
     general_sim_params = {
-        'steps': 3000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
     }
