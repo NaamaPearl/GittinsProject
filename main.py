@@ -11,7 +11,7 @@ def summarizeCritics(critics, critic_type):
                           np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
               'critics': critics}
 
-    if critic_type == 'chains':
+    if critic_type in ['chains', 'bridge']:
         result['chain_activations'] = np.mean(np.asarray([critic.chain_activations for critic in critics]), axis=0)
 
     return result
@@ -77,14 +77,19 @@ def RunSimulations(_mdp_list, sim_params):
 #
 #     plt.show()
 
-
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 5
     load = False
     if load:
-        mdp_list = pickle.load(open("best_mdp_tunnel.pckl", "rb"))
+        mdp_list = pickle.load(open("best_final_mdp.pckl", "rb"))
     else:
+        bridge_mdp = BridgedMDP(n=40, actions=4, bridges_num=5, gamma=0.9, succ_num=4, op_succ_num=10,
+                                reward_param={
+                                    'high':   {'gauss_params': ((100, 3), 0)},
+                                    'medium': {'gauss_params': ((10, 3), 0)},
+                                    'low':    {'gauss_params': ((1, 0), 0)},
+                                })
         star_mdp = StarMDP(n=46, actions=5, succ_num=3, op_succ_num=7, chain_num=5, gamma=0.9,
                            reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 2)},
                                          2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
@@ -97,27 +102,27 @@ if __name__ == '__main__':
                                      reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 0)},
                                                    'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                    'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-        mdp_list = [star_mdp]
+        mdp_list = [bridge_mdp]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
-
-    # define general simulation params
+#
+#     # define general simulation params
     general_sim_params = {
-        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'steps': 2000, 'eval_type': ['online', 'offline'], 'agents_to_run': 20, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
-
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'random': [None]}
+#
+    # _method_dict = {'gittins': ['reward'], 'greedy': ['reward'], 'random': [None]}
+    _method_dict = {'random': [None]}
     general_sim_params['method_dict'] = _method_dict
-
+#
     res = RunSimulations(mdp_list, sim_params=general_sim_params)
-
+#
     printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
-
+#
     with open('run_res2.pckl', 'wb') as f:
         pickle.dump(printalbe_res, f)
 

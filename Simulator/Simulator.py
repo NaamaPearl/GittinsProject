@@ -19,7 +19,7 @@ class Simulator:
         state_num = self.MDP_model.n
         SimulatedState.action_num = self.MDP_model.actions
         self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
-        self.policy = [random.randint(0, self.MDP_model.actions - 1) for _ in range(state_num)]
+        self.policy = [0] * state_num
         self.MDP_model.CalcPolicyData(self.policy)
 
         self.InitStatics()
@@ -165,19 +165,19 @@ class AgentSimulator(Simulator):
                                             temporal_extension=sim_input.temporal_extension,
                                             discount_factor=sim_input.gittins_discount)
         self.graded_states = prioritizer.GradeStates()
-        self.ReGradeAllAgents(kwargs['iteration_num'])
+        self.ReGradeAllAgents(kwargs['iteration_num'], sim_input.grades_freq)
 
-    def ReincarnateAgent(self, agent, iteration_num):
-        if iteration_num - agent.last_activation > 30:
+    def ReincarnateAgent(self, agent, iteration_num, grades_freq):
+        if iteration_num - agent.last_activation > 3 * grades_freq:
             agent.last_activation = iteration_num
             agent.curr_state = self.RaffleInitialState()
 
-    def ReGradeAllAgents(self, iteration_num):
+    def ReGradeAllAgents(self, iteration_num, grades_freq):
         """invoked after states re-prioritization. Replaces queue"""
         new_queue = Q.PriorityQueue()
         while self.agents.qsize() > 0:
             agent = self.agents.get().object
-            self.ReincarnateAgent(agent, iteration_num)
+            self.ReincarnateAgent(agent, iteration_num, grades_freq)
             new_queue.put(self.GradeAgent(agent))
 
         self.agents = new_queue
@@ -196,7 +196,7 @@ class AgentSimulator(Simulator):
 
         for agent in agents_list:
             for _ in range(kwargs['temporal_extension']):
-                self.critic.Update(agent.chain)
+                self.critic.Update(agent.chain, agent.curr_state.idx)
                 self.SimulateAgent(agent, **kwargs)
 
             self.agents.put(self.GradeAgent(agent))
@@ -285,10 +285,9 @@ class PrioritizedSweeping(Simulator):
 
 def SimulatorFactory(mdp: MDPModel, sim_params):
     simulated_mdp = SimulatedModel(mdp)
-    agent_num = sim_params['agents_to_run'] * sim_params['agents_ratio']
 
     return AgentSimulator(
-        ProblemInput(MDP_model=simulated_mdp, agent_num=agent_num, gamma=mdp.gamma, **sim_params))
+        ProblemInput(MDP_model=simulated_mdp, gamma=mdp.gamma, **sim_params))
 
 
 def SimInputFactory(method_type, parameter, sim_params):

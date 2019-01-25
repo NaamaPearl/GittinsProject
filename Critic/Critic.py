@@ -58,6 +58,8 @@ class CriticFactory:
         model = kwargs['model']
         if model.type == 'chains':
             return ChainMDPCritic(model.chain_num, **kwargs)
+        if model.type == 'bridge':
+            return BridgedMDPCritic(model.MDP_model.bridge_states, chain_num=model.chain_num, **kwargs)
 
         return Critic(**kwargs)  # default
 
@@ -68,37 +70,39 @@ class Critic:
         self.evaluator_dict = EvaluatorFactory().GenEvaluatorDict(kwargs['evaluator_type'], **kwargs)
         self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
         self.reward_tunnel = {eval_type: [] for eval_type in self.eval_type_list}
-        self.Reset()
 
-    def Update(self, chain):
+    def Update(self, chain, state_idx):
         pass
 
     def CriticEvaluate(self, **kwargs):
         for eval_type in self.eval_type_list:
             evaluated_reward, reward_tunnel = self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs)
             self.value_vec[eval_type].append(evaluated_reward)
-            # self.reward_tunnel[eval_type].append(reward_tunnel)
-
-    def Reset(self):
-        self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
 
 
 class ChainMDPCritic(Critic):
     def __init__(self, chain_num, **kwargs):
         self.chain_num = chain_num
-        self.chain_activations = None
-        self.time_chain_activation = None
+        self.chain_activations = self.buildChainVec()
         super().__init__(**kwargs)
 
-    def Update(self, chain):
+    def buildChainVec(self):
+        return [0 for _ in range(self.chain_num)]
+
+    def Update(self, chain, state_idx):
         if chain is not None:
             self.chain_activations[chain] += 1
 
-    def Reset(self):
-        super().Reset()
-        self.chain_activations = [0 for _ in range(self.chain_num)]
-        self.time_chain_activation = [[] for _ in range(self.chain_num)]
 
-    def CriticEvalbuate(self, **kwargs):
-        super().CriticEvaluate(**kwargs)
-        [self.time_chain_activation[chain].append(self.chain_activations[chain]) for chain in range(self.chain_num)]
+class BridgedMDPCritic(ChainMDPCritic):
+    def __init__(self, bridge_states, **kwargs):
+        super().__init__(**kwargs)
+        self.bridge_states = bridge_states
+        self.bridge_chains = [2, 3]
+
+    def buildChainVec(self):
+        return [0 for _ in range(self.chain_num + 2)]
+
+    def Update(self, chain, state_idx):
+        new_chain = self.bridge_chains[chain] if state_idx in self.bridge_states else chain
+        super().Update(new_chain, state_idx)
