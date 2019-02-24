@@ -33,10 +33,11 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_si
         if definitions[1] == param or param == 'all':
             for i, eval_type in enumerate(general_sim_params['eval_type']):
                 mean_values, std = sim_outputs[definitions].get(eval_type)
-                y = np.array(smooth(mean_values)[:-10])
+                # y = np.array(smooth(mean_values)[:-10])
+                y = mean_values
 
                 ax[i].plot(steps, y, label=definitions[0] + ' ' + str(definitions[1]))
-                ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
+                ax[i].fill_between(steps, y + std / 4, y - std / 4, alpha=0.5)
 
     for i, eval_type in enumerate(general_sim_params['eval_type']):
         ax[i].set_title(eval_type if eval_type == 'offline' else 'Regret')
@@ -56,7 +57,7 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_si
 def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
     for i, ((mdp_type, res_data), opt_reward) in enumerate(zip(result_list, opt_policy_reward_list)):
         PlotEvaluation(res_data, opt_reward, general_sim_params)
-        if mdp_type == 'chains':
+        if mdp_type in ['chains', 'bridge']:
             CompareActivations(res_data, i)
 
         plt.show()
@@ -117,7 +118,7 @@ def smooth(x, window_len=11, window='hanning'):
 
 
 if __name__ == '__main__':
-    res_tuple = pickle.load(open('..\\best_final_res.pckl', 'rb'))
+    res_tuple = pickle.load(open('..\\run_res2.pckl', 'rb'))
 
     PlotResults(res_tuple['res'], res_tuple['opt_reward'], res_tuple['params'])
 

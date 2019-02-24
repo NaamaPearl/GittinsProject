@@ -67,7 +67,7 @@ if __name__ == '__main__':
                                  reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 1), 0)},
                                                'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})]
-    PlotPMatrix(_mdp_list[0])
+    # PlotPMatrix(_mdp_list[0])
 
     # with open('temporal_results1.pickle', 'rb') as handle:
     #     temporal_results_list = pickle.load(handle)
