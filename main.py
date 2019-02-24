@@ -67,7 +67,7 @@ def RunSimulations(_mdp_list, sim_params):
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 3
-    load = True
+    load = False
     if load:
         mdp_list = pickle.load(open("mdp.pckl", "rb"))
     else:
@@ -92,16 +92,16 @@ if __name__ == '__main__':
                                      reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
                                                    'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
                                                    'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-        mdp_list = [star_mdp]
+        mdp_list = [tunnel_mdp]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params
     general_sim_params = {
-        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
+        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1, 5], 'T_board': 3, 'runs_per_mdp': 1
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1, 5], 'T_board': 3, 'runs_per_mdp': 3
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
