@@ -23,20 +23,25 @@ def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
      for param in params]
 
 
-def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_sim_params):
+def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, general_sim_params):
     fig, ax = plt.subplots(nrows=1, ncols=len(general_sim_params['eval_type']))
-    eval_count = int(general_sim_params['steps'] /
-                             (general_sim_params['eval_freq'] * general_sim_params['temporal_extension']))
-    steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
+    temporal_extension_run = len(general_sim_params) > 1
 
-    for definitions in sim_outputs.keys():
-        if definitions[1] == param or param == 'all':
+    for method, parameter, temp_ext in sim_outputs.keys():
+        if parameter == req_param or req_param == 'all':
+            eval_count = int(general_sim_params['steps'] /
+                             (general_sim_params['eval_freq'] * temp_ext))
+            steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
+
             for i, eval_type in enumerate(general_sim_params['eval_type']):
-                mean_values, std = sim_outputs[definitions].get(eval_type)
+                mean_values, std = sim_outputs[(method, parameter, temp_ext)].get(eval_type)
                 # y = np.array(smooth(mean_values)[:-10])
                 y = mean_values
 
-                ax[i].plot(steps, y, label=definitions[0] + ' ' + str(definitions[1]))
+                if not temporal_extension_run:
+                    ax[i].plot(steps, y, label=method + ' ' + str(parameter))
+                else:
+                    ax[i].plot(steps, y, label=r'$\lambda$ = ' + str(temp_ext))
                 ax[i].fill_between(steps, y + std / 4, y - std / 4, alpha=0.5)
 
     for i, eval_type in enumerate(general_sim_params['eval_type']):
@@ -49,8 +54,8 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_si
             ax[i].set_ylabel('evaluated regret')
         ax[i].legend()
 
-    title = 'Reward Evaluation'
-    title += (' - agents prioritized by ' + param) if param != 'all' else ''
+    title = 'Reward Evaluation' if not temporal_extension_run else 'Temporal Extension Comparision'
+    title += (' - agents prioritized by ' + req_param) if req_param != 'all' else ''
     fig.suptitle(title + '\naverage of ' + str(general_sim_params['runs_per_mdp']) + ' runs')
 
 
@@ -121,6 +126,3 @@ if __name__ == '__main__':
     res_tuple = pickle.load(open('..\\run_res2.pckl', 'rb'))
 
     PlotResults(res_tuple['res'], res_tuple['opt_reward'], res_tuple['params'])
-
-
-
