@@ -33,10 +33,11 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, param, general_si
         if definitions[1] == param or param == 'all':
             for i, eval_type in enumerate(general_sim_params['eval_type']):
                 mean_values, std = sim_outputs[definitions].get(eval_type)
-                y = np.array(smooth(mean_values)[:-10])
+                # y = np.array(smooth(mean_values)[:-10])
+                y = mean_values
 
                 ax[i].plot(steps, y, label=definitions[0] + ' ' + str(definitions[1]))
-                ax[i].fill_between(steps, y + std / 2, y - std / 2, alpha=0.5)
+                ax[i].fill_between(steps, y + std / 4, y - std / 4, alpha=0.5)
 
     for i, eval_type in enumerate(general_sim_params['eval_type']):
         ax[i].set_title(eval_type if eval_type == 'offline' else 'Regret')

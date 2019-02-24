@@ -24,6 +24,10 @@ class MDPModel:
         self.opt_policy, self.V = self.CalcOptPolicy()
         self.avg_r = self.calcMeanReward()
 
+    @property
+    def active_chains_ratio(self):
+        return 1
+
     def calcMeanReward(self):
         return np.mean(self.expected_r)
 
@@ -37,7 +41,7 @@ class MDPModel:
         return [list(range(self.n)) for _ in range(self.n)]
 
     def GetActiveChains(self):
-        return list(range(self.n))
+        return {0}
 
     def IsStateActionRewarded(self, state, action):
         return True
@@ -117,17 +121,18 @@ class MDPModel:
             prob_mat[state] = self.P[state][action]
         return prob_mat
 
-    def CalcOptExpectedReward(self, params):
-        if 'offline' in params['eval_type']:
-            return self.init_prob @ self.V
-        if 'online' in params['eval_type']:
-            expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
-                                   for i in range(params['steps'])]
-            batch_reward = [sum(group)
-                            for group in np.array_split(expected_reward_vec, params['steps'] / params['eval_freq'])]
-            return np.cumsum(batch_reward)
+    def CalcOptExpectedReward(self):
+        return self.init_prob @ self.V
+        # if 'offline' in params['eval_type']:
+        #     return self.init_prob @ self.V
+        # if 'online' in params['eval_type']:
+        # expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
+        #                        for i in range(params['steps'])]
+        # batch_reward = [sum(group)
+        #                 for group in np.array_split(expected_reward_vec, params['steps'] / params['eval_freq'])]
+        # return np.cumsum(self.init_prob @ self.V)
 
-        raise ValueError('unexpected evaluation type')
+        # raise ValueError('unexpected evaluation type')
 
 
 class TreeMDP(MDPModel):
@@ -176,6 +181,10 @@ class SeperateChainsMDP(TreeMDP):
         super().__init__(n, actions=actions, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num,
                          succ_num=succ_num)
         self.type = 'chains'
+
+    @property
+    def active_chains_ratio(self):
+        return len(self.active_chains) / self.chain_num
 
     def buildChains(self):
         self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1))
@@ -283,6 +292,10 @@ class StarMDP(SeperateChainsMDP):
         super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs)
         self.chain_num += 1
 
+    @property
+    def active_chains_ratio(self):
+        return len(self.active_chains) / (self.chain_num - 1)
+
     def FindChain(self, state_idx):
         if state_idx in self.init_states_idx:
             return self.chain_num - 1
@@ -333,10 +346,10 @@ class SingleLineMDP(MDPModel):
 
 
 class BridgedMDP(SeperateChainsMDP):
-    def __init__(self, bridges_num, **kwargs):
+    def __init__(self, bridges_num, chain_num=2, **kwargs):
         self.bridges_num = bridges_num
         self.bridge_states = None
-        super().__init__(chain_num=2, **kwargs)
+        super().__init__(chain_num=chain_num, **kwargs)
         self.type = 'bridge'
 
     def GenPossibleSuccessorsPerState(self, chain_num, possible_per_chain, **kwargs):
@@ -352,13 +365,32 @@ class BridgedMDP(SeperateChainsMDP):
 
         return self.reward_params['high'] if np.random.random() < 0.5 else self.reward_params['low']
 
-    def buildChains(self):
+    def buildChains(self, **kwargs):
         super().buildChains()
         self.bridge_states = reduce(lambda a, b: a + b, [random.sample(chain, self.bridges_num)
-                                                         for chain in self.chains])
+                                                         for chain_num, chain in enumerate(self.chains)
+                                                         if chain_num != kwargs.get('no_bridges_tunnels')])
 
     def GetActiveChains(self):
         return {0, 1}
+
+
+class LevelsMDP(BridgedMDP):
+    def __init__(self, bridges_num, chain_num, **kwargs):
+        super().__init__(bridges_num, chain_num=chain_num, **kwargs)
+
+    def GenPossibleSuccessorsPerState(self, chain_num, possible_per_chain, **kwargs):
+        new_chain = 1 + chain_num if kwargs['state_idx'] in self.bridge_states else chain_num
+        return SeperateChainsMDP.GenPossibleSuccessorsPerState(self, new_chain, possible_per_chain)
+
+    def buildChains(self):
+        super().buildChains(no_bridges_tunnels=self.chain_num - 1)
+
+    def GetActiveChains(self):
+        return MDPModel.GetActiveChains(self)
+
+    def GetRewardParams(self, state_idx):
+        return SeperateChainsMDP.GetRewardParams(self, state_idx)
 
 
 if __name__ == "__main__":

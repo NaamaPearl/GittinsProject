@@ -4,6 +4,10 @@ from abc import abstractmethod
 from Simulator.SimulatorBasics import Agent
 
 
+def sum_reward_vec(reward_vec):
+    return reduce(lambda a, b: a + b, reward_vec)
+
+
 class Evaluator:
     @abstractmethod
     def EvaluatePolicy(self, **kwargs):
@@ -17,7 +21,6 @@ class OfflinePolicyEvaluator(Evaluator):
     def EvaluatePolicy(self, **kwargs):
         reward = 0
         good_agents = 0
-        # tunnel_reward = {True: 0, False: 0}
         while good_agents < kwargs['good_agents']:
             agent = Agent(0, kwargs['initial_state'])
             agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
@@ -28,16 +31,15 @@ class OfflinePolicyEvaluator(Evaluator):
             for i in range(1, kwargs['trajectory_len']+1):
                 new_reward = self.model.GetReward(agent.curr_state.policy_action)
                 reward += (new_reward * kwargs['gamma'] ** i)
-                # tunnel_reward[agent.curr_state.idx in [42, 43, 44, 45, 46]] += new_reward
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-        return reward * (len(kwargs['active_chains'])) / (kwargs['chain_num'] * kwargs['good_agents']), 0  # assume next states after initial are evenly
+        return reward * (kwargs['active_chains_ratio'] / kwargs['good_agents'])  # assume next states after initial are evenly
         # distributed between chains
 
 
 class OnlinePolicyEvaluator(Evaluator):
-    @staticmethod
-    def EvaluatePolicy(**kwargs):
-        return reduce(lambda a, b: a + b, kwargs['agents_reward']) / kwargs['running_agents'], 0
+    def EvaluatePolicy(self, **kwargs):
+        accumulated_diff = sum_reward_vec(kwargs['optimal_agents_reward']) - sum_reward_vec(kwargs['agents_reward'])
+        return accumulated_diff / kwargs['running_agents']
 
 
 class EvaluatorFactory:
@@ -76,7 +78,7 @@ class Critic:
 
     def CriticEvaluate(self, **kwargs):
         for eval_type in self.eval_type_list:
-            evaluated_reward, reward_tunnel = self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs)
+            evaluated_reward = self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs)
             self.value_vec[eval_type].append(evaluated_reward)
 
 
