@@ -90,18 +90,18 @@ def generateMDP(mdp_type):
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 3
-    load = True
+    load = False
     if load:
         mdp_list = pickle.load(open("mdp.pckl", "rb"))
     else:
         n = 46
         chain_num = 3
-        actions = 5
+        actions = 3
         succ_num = 3
-        op_succ_num = 7
+        op_succ_num = 5
         gamma = 0.9
 
-        mdp_list = [generateMDP('cliques')]
+        mdp_list = [generateMDP('tunnel')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
-    _method_dict = {'gittins': ['reward'], 'greedy': ['reward'], 'random': [None]}
+    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'gittins': ['reward']}
     general_sim_params['method_dict'] = _method_dict
 
