@@ -7,7 +7,7 @@ threshold = 10 ** -10
 
 
 class MDPModel:
-    def __init__(self, n, actions, chain_num, gamma, succ_num, traps_num=0, resets_num=0, **kwargs):
+    def __init__(self, n, actions, chain_num, gamma, succ_num, **kwargs):
         self.n: int = n
         self.type = 'regular'
         self.chain_num = chain_num
@@ -145,7 +145,7 @@ class TreeMDP(MDPModel):
         self.init_states_idx = init_states_idx
         self.reset_states_idx = self.GenResetStates(resets_num=resets_num)
 
-        super().__init__(n, actions, chain_num, gamma, succ_num, traps_num, resets_num, **kwargs)
+        super().__init__(n, actions, chain_num, gamma, succ_num, **kwargs)
 
     def get_successors(self, state_idx, **kwargs):
         if state_idx in self.reset_states_idx:
@@ -166,7 +166,7 @@ class TreeMDP(MDPModel):
 
 class SeperateChainsMDP(TreeMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num,
-                 traps_num=0, **kwargs):
+                 resets_num=0, traps_num=0, **kwargs):
         self.chain_num = chain_num
 
         n += (1 - n % self.chain_num)  # make sure sub_chains are even sized
@@ -179,7 +179,7 @@ class SeperateChainsMDP(TreeMDP):
         self.op_succ_num = op_succ_num
 
         super().__init__(n, actions=actions, chain_num=self.chain_num, gamma=gamma, traps_num=traps_num,
-                         succ_num=succ_num)
+                         succ_num=succ_num, resets_num=resets_num)
         self.type = 'chains'
 
     @property
@@ -313,7 +313,36 @@ class StarMDP(SeperateChainsMDP):
         return super().get_successors(state_idx)
 
     def GetActiveChains(self):
-        return set(range(self.chain_num))
+        return MDPModel.GetActiveChains(self)
+
+
+class GittinsMDP(StarMDP):
+    def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, terminal_probability,
+                 **kwargs):
+        self.terminal_probability = terminal_probability
+        super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, resets_num=chain_num,
+                         **kwargs)
+
+    def gen_row_of_P(self, succesors, state_idx):
+        if state_idx in self.init_states_idx.union(self.reset_states_idx):
+            return super().gen_row_of_P(succesors, state_idx)
+
+        reset_state = self.reset_states_idx[self.FindChain(state_idx)]
+        row = np.array([random.random() if idx in succesors.difference({reset_state}) else 0 for idx in range(self.n)])
+        row *= ((1 - self.terminal_probability) / sum(row))
+
+        row[reset_state] = self.terminal_probability
+        return row
+
+    def GetRewardParams(self, state_idx):
+        chain = self.FindChain(state_idx)
+        if chain is None:
+            return None
+        if state_idx in self.traps_idx:
+            return self.reward_params['trap']
+
+        reward_params = self.reward_params.get(chain)
+        return reward_params['first'] if state_idx == min(self.chains[chain]) else reward_params['others']
 
 
 # class StarMDP(SeperateChainsMDP):

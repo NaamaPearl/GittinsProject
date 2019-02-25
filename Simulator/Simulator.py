@@ -90,7 +90,6 @@ class Simulator:
         pass
 
     def simulate(self, sim_input):
-        print('         start new run')
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
                                  temporal_extension=sim_input.temporal_extension,
