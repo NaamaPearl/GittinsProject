@@ -26,12 +26,15 @@ def RunSimulations(_mdp_list, sim_params):
     for i, mdp in enumerate(_mdp_list):
         print('run MDP num ' + str(i))
         for method, parameter, temp_extension in sim_definition:
-            print('     running ' + method + ' prioritization, using ' + str(parameter))
+            print('     running ' + method + ' prioritization, using ' + str(parameter) + ':')
             sim_input = SimInputFactory(method, parameter, sim_params)
             sim_input.temporal_extension = temp_extension
-            sum_res = summarizeCritics([SimulatorFactory(mdp, sim_params).simulate(sim_input)
-                                        for _ in range(sim_params['runs_per_mdp'])], mdp.type)
-            result[i][1][(method, parameter, temp_extension)] = sum_res
+
+            critics =[]
+            for run_num in range(1, sim_params['runs_per_mdp'] + 1):
+                print('         start run # ' + str(run_num))
+                critics.append(SimulatorFactory(mdp, sim_params).simulate(sim_input))
+            result[i][1][(method, parameter, temp_extension)] = summarizeCritics(critics, mdp.type)
     return result
 
 
@@ -82,15 +85,22 @@ def generateMDP(mdp_type):
     if mdp_type == 'cliques':
         return SeperateChainsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
                                  chain_num=chain_num, gamma=gamma,
-                                 reward_param={chain_num-1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+                                 reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+    if mdp_type == 'gittins':
+        return GittinsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                          gamma=gamma, terminal_probability=0.05,
+                          reward_param={1: {'first': {'gauss_params': ((100, 3), 0)}},
+                                        2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
+                                        3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
+                                        4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
+                                        0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
 
     raise NotImplementedError()
 
 
 if __name__ == '__main__':
     # building the MDPs
-    tunnel_length = 3
-    load = False
+    load = True
     if load:
         mdp_list = pickle.load(open("mdp.pckl", "rb"))
     else:
@@ -100,6 +110,7 @@ if __name__ == '__main__':
         succ_num = 3
         op_succ_num = 5
         gamma = 0.9
+        tunnel_length = 5
 
         mdp_list = [generateMDP('tunnel')]
 
