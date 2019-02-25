@@ -3,6 +3,7 @@ import random
 from functools import reduce
 from MDPModel.RewardGenerator import RewardGeneratorFactory
 
+
 threshold = 10 ** -10
 
 
@@ -22,14 +23,10 @@ class MDPModel:
         self.expected_r = np.array([[self.r[s][a].expected_reward for s in range(self.n)] for a in range(self.actions)])
         self.gamma = gamma
         self.opt_policy, self.V = self.CalcOptPolicy()
-        self.avg_r = self.calcMeanReward()
 
     @property
     def active_chains_ratio(self):
         return 1
-
-    def calcMeanReward(self):
-        return np.mean(self.expected_r)
 
     def BuildP(self):
         self.possible_suc = self.GenPossibleSuccessors()
@@ -164,6 +161,75 @@ class TreeMDP(MDPModel):
         return init_prob / sum(init_prob)
 
 
+class CliffWalker(TreeMDP):
+    def __init__(self, size, gamma, random_prob, **kwargs):
+        self.random_prob = random_prob
+        self.size = size
+        self.n = size ** 2
+        self.actions: int = 4
+        self.illegal_moves = {'row': [(0, 2), (self.size - 1, 0)],
+                              'col': [(0, 3), (self.size - 1, 1)]}
+        super().__init__(self.n, self.actions, 1, gamma, 4, **kwargs)
+
+    def FindChain(self, state_idx):
+        return 0
+
+    def GetRewardParams(self, state_idx):
+        return {'gauss_params': ((1, 0), 0)}
+
+    def IsStateActionRewarded(self, state, action):
+        return state == self.n - self.size
+
+    def GenResetStates(self, **kwargs):
+        return set(filter(lambda x: x % self.size == 0, list(range(self.n)))).difference({0, self.size ** 2})
+
+    def convert_action_to_diff(self, action):
+        if action == 0:
+            return 1
+        if action == 1:
+            return self.size
+        if action == 2:
+            return -1
+        if action == 3:
+            return -self.size
+
+    def calc_next_state(self, state, action):
+        row = int(state % self.size)
+        col = int(state / self.size)
+
+        if (row, action) in self.illegal_moves['row'] or (col, action) in self.illegal_moves['col']:
+            return None
+
+        return state + self.convert_action_to_diff(action)
+
+    def get_successors(self, state_idx, **kwargs):
+        if state_idx in self.reset_states_idx:
+            return self.init_states_idx
+
+        desired_action = kwargs['action']
+        desired_state = self.calc_next_state(state_idx, desired_action)
+        undesired_actions = list(set(range(self.actions)).difference({desired_action}))
+        undesired_states = [self.calc_next_state(state_idx, action) for action in undesired_actions]
+
+        return desired_state, set(filter(lambda state: state is not None, undesired_states))
+
+    def gen_row_of_P(self, succesors, state_idx):
+        if state_idx in self.reset_states_idx:
+            row = np.array([random.random() if idx in succesors else 0 for idx in range(self.n)])
+            return row / sum(row)
+        p_vec = np.zeros(self.n)
+        desired_state = succesors[0]
+        undesired_states = succesors[1]
+
+        if desired_state is not None:
+            p_vec[desired_state] = 1 - self.random_prob
+            p_vec[list(undesired_states)] = self.random_prob / len(undesired_states)
+        else:
+            p_vec[state_idx] = 1
+
+        return p_vec
+
+
 class SeperateChainsMDP(TreeMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num,
                  resets_num=0, traps_num=0, **kwargs):
@@ -189,10 +255,6 @@ class SeperateChainsMDP(TreeMDP):
     def buildChains(self):
         self.chains = [set(range(1 + i * self.chain_size, (i + 1) * self.chain_size + 1))
                        for i in range(self.chain_num)]
-
-    def calcMeanReward(self):
-        active_states = list(reduce(lambda a, b: a.union(b), [self.chains[chain] for chain in self.active_chains]))
-        return np.mean(self.expected_r[:, active_states])
 
     def GenPossibleSuccessors(self, **kwargs):
         forbidden_states = self.GenForbiddenStates()
@@ -423,5 +485,5 @@ class LevelsMDP(BridgedMDP):
 
 
 if __name__ == "__main__":
-    bridge_mdp = BridgedMDP(n=10, actions=4, bridges_num=2, gamma=0.9, succ_num=4)
+    cliff = CliffWalker(5, 0.2, 0.9)
     print('doen')
