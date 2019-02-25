@@ -25,18 +25,21 @@ def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
 
 def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, general_sim_params):
     fig, ax = plt.subplots(nrows=1, ncols=len(general_sim_params['eval_type']))
-    temporal_extension_run = len(general_sim_params) > 1
+    temporal_extension_run = len(general_sim_params['temporal_extension']) > 1
 
     for method, parameter, temp_ext in sim_outputs.keys():
         if parameter == req_param or req_param == 'all':
             eval_count = int(general_sim_params['steps'] /
                              (general_sim_params['eval_freq'] * temp_ext))
-            steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
+            max_step = eval_count * general_sim_params['eval_freq'] * temp_ext
+            samples = np.linspace(0, max_step, num=eval_count)
+            steps = np.linspace(0, max_step, num=eval_count * temp_ext)
 
             for i, eval_type in enumerate(general_sim_params['eval_type']):
-                mean_values, std = sim_outputs[(method, parameter, temp_ext)].get(eval_type)
+                mean_values, std_tmp = sim_outputs[(method, parameter, temp_ext)].get(eval_type)
                 # y = np.array(smooth(mean_values)[:-10])
-                y = mean_values
+                y = np.interp(steps, samples, mean_values)
+                std = np.interp(steps, samples, std_tmp)
 
                 if not temporal_extension_run:
                     ax[i].plot(steps, y, label=method + ' ' + str(parameter))

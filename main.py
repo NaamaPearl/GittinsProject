@@ -63,36 +63,45 @@ def RunSimulations(_mdp_list, sim_params):
 #     plt.legend()
 #     plt.show()
 
+def generateMDP(mdp_type):
+    if mdp_type == 'tunnel':
+        tunnel_indexes = list(range(n - tunnel_length, n))
+        return ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                               gamma=gamma, traps_num=0, tunnel_indexes=tunnel_indexes,
+                               reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
+                                             'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                             'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
+    if mdp_type == 'star':
+        return StarMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                       gamma=gamma,
+                       reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
+                                     2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
+                                     3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
+                                     4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
+                                     0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
+    if mdp_type == 'cliques':
+        return SeperateChainsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
+                                 chain_num=chain_num, gamma=gamma,
+                                 reward_param={chain_num-1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+
+    raise NotImplementedError()
+
 
 if __name__ == '__main__':
     # building the MDPs
     tunnel_length = 3
-    load = False
+    load = True
     if load:
         mdp_list = pickle.load(open("mdp.pckl", "rb"))
     else:
-        # bridge_mdp = LevelsMDP(n=30, actions=4, bridges_num=1, gamma=0.9, succ_num=4, op_succ_num=5, chain_num=3,
-        #                        reward_param={
-        #                            'high': {'gauss_params': ((100, 3), 0)},
-        #                            'medium': {'gauss_params': ((10, 3), 0)},
-        #                            'low': {'gauss_params': ((1, 0), 0)},
-        #                        })
-        star_mdp = StarMDP(n=46, actions=5, succ_num=3, op_succ_num=7, chain_num=5, gamma=0.9,
-                           reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
-                                         2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
-                                         3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
-                                         4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                         0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
-
         n = 46
         chain_num = 3
-        tunnel_indexes = list(range(n - tunnel_length, n))
-        tunnel_mdp = ChainsTunnelMDP(n=n, actions=4, succ_num=2, op_succ_num=4, chain_num=chain_num, gamma=0.9,
-                                     traps_num=0, tunnel_indexes=tunnel_indexes,
-                                     reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
-                                                   'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                   'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-        mdp_list = [tunnel_mdp]
+        actions = 5
+        succ_num = 3
+        op_succ_num = 7
+        gamma = 0.9
+
+        mdp_list = [generateMDP('cliques')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
@@ -101,12 +110,12 @@ if __name__ == '__main__':
     general_sim_params = {
         'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1, 5], 'T_board': 3, 'runs_per_mdp': 3
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
-    # _method_dict = {'gittins': ['reward'], 'greedy': ['reward'], 'random': [None]}
-    _method_dict = {'gittins': ['reward']}
+    _method_dict = {'gittins': ['reward'], 'greedy': ['reward'], 'random': [None]}
+    # _method_dict = {'gittins': ['reward']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)
