@@ -9,6 +9,8 @@ from Framework.plotUtils import *
 from matplotlib import scale as mscale
 import matplotlib.gridspec as gridspec
 from collections import OrderedDict
+from matplotlib.ticker import FormatStrFormatter
+
 
 
 
@@ -126,8 +128,9 @@ def CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, eval_
 
 
 def PlotRegret(sim_outputs, req_param, general_sim_params, temporal_extension_run):
-    ax = global_fig.add_subplot(inner[0])
-    # Subplot(global_fig, inner[0])
+    ax = plt.Subplot(global_fig, inner[inner_j])
+    global_fig.add_subplot(ax)
+    axes[outer_i, inner_j] = ax
     axins = CreateZoomFig(ax)
 
     for method, parameter, temp_ext in sim_outputs.keys():
@@ -150,13 +153,11 @@ def PlotRegret(sim_outputs, req_param, general_sim_params, temporal_extension_ru
     # connecting lines between the bbox and the inset axes area
     mark_inset(ax, axins, loc1=3, loc2=4, fc="none", ec="0.5")
 
-    ax.set_title('Regret')
-    ax.set_xlabel('simulation steps')
-    ax.set_ylabel('evaluated regret')
-
 
 def PlotOffline(sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward):
-    ax = global_fig.add_subplot(inner[1])
+    ax = plt.Subplot(global_fig, inner[inner_j])
+    global_fig.add_subplot(ax)
+    axes[outer_i, inner_j] = ax
 
     for method, parameter, temp_ext in sim_outputs.keys():
         if parameter == req_param or req_param == 'all':
@@ -173,9 +174,6 @@ def PlotOffline(sim_outputs, req_param, general_sim_params, temporal_extension_r
 
     ax.axhline(y=optimal_policy_reward, color=PlotColor('optimal'), linestyle='-',
                   label='optimal policy expected reward')
-    ax.set_title('Evaluation')
-    ax.set_xlabel('simulation steps')
-    ax.set_ylabel('average reward')
 
 
 def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, general_sim_params):
@@ -185,74 +183,10 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, genera
     except:
         temporal_extension_run = False
 
-    PlotRegret(sim_outputs, req_param, general_sim_params, temporal_extension_run)
-    PlotOffline(sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward)
-
-
-
-
-# def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, general_sim_params):
-#     SetDefaults()
-#
-#     fig, ax = plt.subplots(global_fig, inner[j], nrows=1, ncols=len(general_sim_params['eval_type']))
-#     plt.subplots_adjust(hspace=0, wspace=0.2, bottom=-10)
-#     fig.autofmt_xdate()
-#     figlegend = CreateLegendFig()
-#     axins = CreateZoomFig(ax[0])
-#
-#     try:
-#         temporal_extension_run = len(general_sim_params['temporal_extension']) > 1
-#     except:
-#         temporal_extension_run = False
-#
-#     for method, parameter, temp_ext in sim_outputs.keys():
-#         if parameter == req_param or req_param == 'all':
-#             eval_count = int(general_sim_params['steps'] /
-#                              (general_sim_params['eval_freq'] * temp_ext))
-#             max_step = eval_count * general_sim_params['eval_freq'] * temp_ext
-#             samples = np.linspace(0, max_step, num=eval_count)
-#             steps = np.linspace(0, max_step, num=eval_count * temp_ext)
-#
-#             for i, eval_type in enumerate(general_sim_params['eval_type']):
-#                 mean_values, std_tmp = sim_outputs[(method, parameter, temp_ext)].get(eval_type)
-#                 mean_values_smooth = np.array(smooth(mean_values))
-#
-#                 y = np.interp(steps, samples, mean_values_smooth)
-#                 std = np.interp(steps, samples, std_tmp)
-#
-#                 if not temporal_extension_run:
-#                     ax[i].plot(steps, y, color=PlotColor(method, parameter), label=method + ' ' + str(parameter))
-#                     if i == 0: axins.plot(steps, y, color=PlotColor(method, parameter), label=method + ' ' + str(parameter))
-#                 else:
-#                     ax[i].plot(steps, y, color=PlotColor(method, parameter), label=r'$\lambda$ = ' + str(temp_ext))
-#                     if i == 0: axins.plot(steps, y, color=PlotColor(method, parameter), label=r'$\lambda$ = ' + str(temp_ext))
-#                 ax[i].fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=PlotColor(method, parameter))
-#                 if i == 0: axins.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=PlotColor(method, parameter))
-#
-#     ## set just evaluation with log y scale
-#     ax[1].set_yscale('custom')
-#
-#
-#
-#     # draw a bbox of the region of the inset axes in the parent axes and
-#     # connecting lines between the bbox and the inset axes area
-#     mark_inset(ax[0], axins, loc1=3, loc2=4, fc="none", ec="0.5")
-#
-#     for i, eval_type in enumerate(general_sim_params['eval_type']):
-#         ax[i].set_title('Evaluation' if eval_type == 'offline' else 'Regret')
-#         ax[i].set_xlabel('simulation steps')
-#         if eval_type == 'offline':
-#             ax[i].set_ylabel('average reward')
-#             ax[1].axhline(y=optimal_policy_reward, color=PlotColor('optimal'), linestyle='-', label='optimal policy expected reward')
-#         else:
-#             ax[i].set_ylabel('evaluated regret')
-#
-#     BuildLegend(figlegend, ax)
-#
-#
-#     title = 'Reward Evaluation' if not temporal_extension_run else 'Temporal Extension Comparision'
-#     title += (' - agents prioritized by ' + req_param) if req_param != 'all' else ''
-#     fig.suptitle(title + '\naverage of ' + str(general_sim_params['runs_per_mdp']) + ' runs')
+    if outer_i == 0:
+        PlotRegret(sim_outputs, req_param, general_sim_params, temporal_extension_run)
+    if outer_i == 1:
+        PlotOffline(sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward)
 
 
 def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
@@ -266,26 +200,37 @@ def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
 
 
 global_fig = None
-
+MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
+def DATA_PATH(path):
+    return MAIN_FOLDER + path
 if __name__ == '__main__':
-    data_path = [r'C:\Users\Naama\Dropbox\project\report graphs\tunnel\run_res2_withTD.pckl',
-                 r'C:\Users\Naama\Dropbox\project\report graphs\cliques\TD and Reward\5 actions\run_res2.pckl',
-                 r'C:\Users\Naama\Dropbox\project\report graphs\star\3 actions\run_res2.pckl',
-                 r'C:\Users\Naama\Dropbox\project\report graphs\cliques\TD and Reward\3 actions\run_res2.pckl']
-    folder = r'C:\Users\Naama\Dropbox\project\report graphs\tunnel'
-    res_tuple = pickle.load(open(folder + r'\run_res2_withTD.pckl', 'rb'))
+    graph_name = [r'cliques\TD and Reward\5 actions\run_res2.pckl',
+                  r'star\3 actions\run_res2.pckl',
+                  r'star\3 actions\run_res2.pckl',
+                  r'cliques\TD and Reward\3 actions\run_res2.pckl',
+                  r'grid\run_res2.pckl']
+    data_path = [DATA_PATH(name) for name in graph_name]
 
-    global_fig = plt.figure(figsize=(10, 8))
-    outer = gridspec.GridSpec(1, 4, wspace=0.2, hspace=0.2)
+    global_fig = plt.figure(figsize=(20, 16))
+    outer = gridspec.GridSpec(2, 1, wspace=0.3, hspace=0.3)
 
-    for i, path in enumerate(data_path):
-        inner = gridspec.GridSpecFromSubplotSpec(2, 1,
-                                                 subplot_spec=outer[i], wspace=0.1, hspace=0.3)
-        res_tuple = pickle.load(open(path, 'rb'))
-        PlotResults(res_tuple['res'], res_tuple['opt_reward'], res_tuple['params'])
+    axes = np.empty(shape=(2, 5), dtype=object)
+    for outer_i in [0,1]:
+        inner = gridspec.GridSpecFromSubplotSpec(1, 5,
+                                                 subplot_spec=outer[outer_i], wspace=0.2, hspace=0.3)
+        for inner_j, path in enumerate(data_path):
+            res_tuple = pickle.load(open(path, 'rb'))
+            PlotResults(res_tuple['res'], res_tuple['opt_reward'], res_tuple['params'])
 
-    plt.suptitle('Reward Evaluatio \naverage of ' + str(3) + ' runs') ## TODO
+    axes[0,0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axes[1,2].set_xlabel('simulation_steps')
 
+    axes[0,0].set_ylabel('evaluated reward')
+    axes[1,0].set_ylabel('average reward')
+
+    axes[0,2].set_title('Regret')
+    axes[1,2].set_title('Evaluation')
+    plt.suptitle('Reward Evaluation \naverage of ' + str(3) + ' runs') ## TODO
     BuildLegend()
     global_fig.show()
 

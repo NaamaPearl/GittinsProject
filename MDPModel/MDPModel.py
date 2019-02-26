@@ -161,7 +161,7 @@ class TreeMDP(MDPModel):
         return init_prob / sum(init_prob)
 
 
-class CliffWalker(TreeMDP):
+class GridMDP(TreeMDP):
     def __init__(self, size, gamma, random_prob, **kwargs):
         self.random_prob = random_prob
         self.size = size
@@ -181,7 +181,7 @@ class CliffWalker(TreeMDP):
         return state == self.n - self.size
 
     def GenResetStates(self, **kwargs):
-        return set(filter(lambda x: x % self.size == 0, list(range(self.n)))).difference({0, self.size ** 2})
+        return set()
 
     def convert_action_to_diff(self, action):
         if action == 0:
@@ -228,6 +228,11 @@ class CliffWalker(TreeMDP):
             p_vec[state_idx] = 1
 
         return p_vec
+
+
+class CliffWalker(GridMDP):
+    def GenResetStates(self, **kwargs):
+        return set(filter(lambda x: x % self.size == 0, list(range(self.n)))).difference({0, self.size ** 2})
 
 
 class SeperateChainsMDP(TreeMDP):
