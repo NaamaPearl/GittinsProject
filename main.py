@@ -30,7 +30,7 @@ def RunSimulations(_mdp_list, sim_params):
             sim_input = SimInputFactory(method, parameter, sim_params)
             sim_input.temporal_extension = temp_extension
 
-            critics =[]
+            critics = []
             for run_num in range(1, sim_params['runs_per_mdp'] + 1):
                 print('         start run # ' + str(run_num))
                 critics.append(SimulatorFactory(mdp, sim_params).simulate(sim_input))
@@ -95,12 +95,16 @@ def generateMDP(mdp_type):
                                         4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
                                         0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
 
+    if mdp_type == 'cliff':
+        return CliffWalker(5, 0.9, 0.2)
+
     raise NotImplementedError()
 
 
 if __name__ == '__main__':
+
     # building the MDPs
-    load = True
+    load = False
     if load:
         mdp_list = pickle.load(open("mdp.pckl", "rb"))
     else:
@@ -112,7 +116,7 @@ if __name__ == '__main__':
         gamma = 0.9
         tunnel_length = 5
 
-        mdp_list = [generateMDP('tunnel')]
+        mdp_list = [generateMDP('cliff')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
@@ -125,8 +129,8 @@ if __name__ == '__main__':
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'gittins': ['reward']}
+    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    _method_dict = {'gittins': ['reward', 'ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)

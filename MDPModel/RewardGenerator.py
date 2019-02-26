@@ -2,11 +2,11 @@ import numpy as np
 
 
 class RewardGenerator:
-    def __init__(self):
-        self.expected_reward = 0
+    def __init__(self, reward=0):
+        self.expected_reward = reward
 
     def GiveReward(self):
-        return 0
+        return self.expected_reward
 
 
 class RandomRewardGenerator(RewardGenerator):
