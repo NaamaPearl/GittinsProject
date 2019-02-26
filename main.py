@@ -97,12 +97,13 @@ def generateMDP(mdp_type):
 
     if mdp_type == 'cliff':
         return CliffWalker(size=size,  random_prob=random_prob, gamma=gamma)
+    if mdp_type == 'directed':
+        return DirectedTreeMDP(depth, actions, gamma, resets_num)
 
     raise NotImplementedError()
 
 
 if __name__ == '__main__':
-
     # building the MDPs
     load = False
     if load:
@@ -117,17 +118,19 @@ if __name__ == '__main__':
         tunnel_length = 5
         size = 5
         random_prob = 0.2
+        depth = 6
+        resets_num = 7
 
-        mdp_list = [generateMDP('cliff')]
+        mdp_list = [generateMDP('directed')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params
     general_sim_params = {
-        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
+        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 

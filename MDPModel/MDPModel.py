@@ -165,28 +165,40 @@ class DirectedTreeMDP(TreeMDP):
     def __init__(self, depth, actions, gamma, resets_num, **kwargs):
         self.tree_depth = depth
         self.levels = [self.get_level_states(level_depth) for level_depth in range(self.tree_depth)]
-        n = 2 ** depth
-        succ_num = 2
-        super().__init__(n, actions, chain_num, gamma, succ_num, resets_num, **kwargs)
+        self.reward_param = {'basic': {'gauss_params':((0, 1), 0)},
+                             17: {'gauss_params':((50, 0), 0)}, 25: {'gauss_params':((-50, 0), 0)}}
+        super().__init__(n=2 ** depth - 1, actions=actions, chain_num=1, gamma=gamma, succ_num=2, resets_num=resets_num,
+                         **kwargs)
+
+    def FindChain(self, state_idx):
+        return 0
+
+    def GetRewardParams(self, state_idx):
+        reward = self.reward_param.get(state_idx)
+        return reward if reward is not None else self.reward_param['basic']
+
 
     @property
     def leafs(self):
         return self.levels[-1]
 
     def GenPossibleSuccessors(self, **kwargs):
-        return [self.levels[self.calc_depth(state_idx + 1)] for state_idx in range(self.n)]
+        res = [self.levels[self.calc_depth(state_idx) + 1]
+                for state_idx in list(reduce(lambda a, b: a.union(b), self.levels[:-1]))]
+        res += [self.init_states_idx for _ in self.leafs]
+        return res
 
     def GenResetStates(self, **kwargs):
-        possible_resets = set(self.levels[1:-1])
+        possible_resets = set(reduce(lambda a, b: a.union(b), self.levels[1:-1]))
         return random.sample(possible_resets, kwargs['resets_num']) + list(self.leafs)
 
     @staticmethod
     def get_level_states(depth):
-        return list(range(2 ** depth - 1, 2 ** (depth + 1) - 1))
+        return set(range(2 ** depth - 1, 2 ** (depth + 1) - 1))
 
     @staticmethod
     def calc_depth(state_idx):
-        return int(np.log2(state_idx))
+        return int(np.log2(state_idx + 1))
 
 
 class CliffWalker(TreeMDP):
