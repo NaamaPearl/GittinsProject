@@ -96,7 +96,7 @@ def generateMDP(mdp_type):
                                         0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
 
     if mdp_type == 'cliff':
-        return CliffWalker(5, 0.9, 0.2)
+        return CliffWalker(size=size,  random_prob=random_prob, gamma=gamma)
 
     raise NotImplementedError()
 
@@ -115,6 +115,8 @@ if __name__ == '__main__':
         op_succ_num = 5
         gamma = 0.9
         tunnel_length = 5
+        size = 5
+        random_prob = 0.2
 
         mdp_list = [generateMDP('cliff')]
 
@@ -129,8 +131,8 @@ if __name__ == '__main__':
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
-    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['reward', 'ground_truth']}
+    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    # _method_dict = {'gittins': ['reward', 'ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)

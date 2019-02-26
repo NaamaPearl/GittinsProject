@@ -161,6 +161,34 @@ class TreeMDP(MDPModel):
         return init_prob / sum(init_prob)
 
 
+class DirectedTreeMDP(TreeMDP):
+    def __init__(self, depth, actions, gamma, resets_num, **kwargs):
+        self.tree_depth = depth
+        self.levels = [self.get_level_states(level_depth) for level_depth in range(self.tree_depth)]
+        n = 2 ** depth
+        succ_num = 2
+        super().__init__(n, actions, chain_num, gamma, succ_num, resets_num, **kwargs)
+
+    @property
+    def leafs(self):
+        return self.levels[-1]
+
+    def GenPossibleSuccessors(self, **kwargs):
+        return [self.levels[self.calc_depth(state_idx + 1)] for state_idx in range(self.n)]
+
+    def GenResetStates(self, **kwargs):
+        possible_resets = set(self.levels[1:-1])
+        return random.sample(possible_resets, kwargs['resets_num']) + list(self.leafs)
+
+    @staticmethod
+    def get_level_states(depth):
+        return list(range(2 ** depth - 1, 2 ** (depth + 1) - 1))
+
+    @staticmethod
+    def calc_depth(state_idx):
+        return int(np.log2(state_idx))
+
+
 class CliffWalker(TreeMDP):
     def __init__(self, size, gamma, random_prob, **kwargs):
         self.random_prob = random_prob
@@ -181,7 +209,7 @@ class CliffWalker(TreeMDP):
         return state == self.n - self.size
 
     def GenResetStates(self, **kwargs):
-        return set(filter(lambda x: x % self.size == 0, list(range(self.n)))).difference({0, self.size ** 2})
+        return set(filter(lambda x: x % self.size == 0, list(range(self.n)))).difference(self.init_states_idx)
 
     def convert_action_to_diff(self, action):
         if action == 0:

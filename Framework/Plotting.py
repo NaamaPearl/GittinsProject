@@ -84,7 +84,7 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, genera
                 if i == 0: axins.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=PlotColor(method, parameter))
 
     ## set just evaluation with log y scale
-    ax[1].set_yscale("log", nonposy='clip')
+    # ax[1].set_yscale("log", nonposy='clip')
 
 
 
