@@ -21,6 +21,7 @@ class Simulator:
         self.evaluated_model.ResetData(self.MDP_model.n, self.MDP_model.actions)
         self.policy = [0] * state_num
         self.MDP_model.CalcPolicyData(self.policy)
+        self.indexes_vec = []
 
         self.InitStatics()
 
@@ -103,7 +104,7 @@ class Simulator:
             if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
                 self.Reset()
 
-        return self.critic
+        return self.critic, self.indexes_vec, self.graded_states
 
     def Reset(self):
         pass
@@ -129,7 +130,6 @@ class AgentSimulator(Simulator):
         self.agents = Q.PriorityQueue()
         self.optimal_agents = self.generateOptimalAgents(sim_input.agent_num)
         self.ResetAgents(self.agents_num)
-
         self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
 
     def generateOptimalAgents(self, agents_num):
@@ -163,6 +163,8 @@ class AgentSimulator(Simulator):
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
         if parameter == 'ground_truth':
             return self.MDP_model.MDP_model.P, np.transpose(self.MDP_model.MDP_model.expected_r)
+        if parameter == 'experiment':
+            return self.MDP_model.MDP_model.opt_P, np.transpose(self.MDP_model.MDP_model.opt_r)
 
 
     def ImprovePolicy(self, sim_input, **kwargs):
@@ -181,7 +183,8 @@ class AgentSimulator(Simulator):
                                             r=r,
                                             temporal_extension=sim_input.temporal_extension,
                                             discount_factor=sim_input.gittins_discount)
-        self.graded_states = prioritizer.GradeStates()
+        self.graded_states, indexes = prioritizer.GradeStates()
+        self.indexes_vec.append(indexes)
         self.ReGradeAllAgents(kwargs['iteration_num'], sim_input.grades_freq)
 
     def ReincarnateAgent(self, agent, iteration_num, grades_freq):
@@ -297,7 +300,6 @@ class PrioritizedSweeping(Simulator):
 
 def SimulatorFactory(mdp: MDPModel, sim_params):
     simulated_mdp = SimulatedModel(mdp)
-
     return AgentSimulator(
         ProblemInput(MDP_model=simulated_mdp, gamma=mdp.gamma, **sim_params))
 

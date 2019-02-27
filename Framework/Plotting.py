@@ -94,7 +94,7 @@ def CreateLegendFig():
     return fig
 
 
-def BuildLegend(TE=False):
+def BuildLegend(mdp_num, TE=False):
     handles, labels = plt.gca().get_legend_handles_labels()
     if not TE:
         labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0][::-1]))
@@ -106,7 +106,13 @@ def BuildLegend(TE=False):
             labels.append('random')
             handles.append(handles.pop(rand_idx))
     by_label = OrderedDict(zip(labels, handles))
-    leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=len(labels), loc=8)
+
+    if mdp_num > 1:
+        leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=len(labels), loc=8)
+    else:
+        by_label['optimal'] = by_label['optimal policy expected reward']
+        del by_label['optimal policy expected reward']
+        leg = plt.legend(by_label.values(), by_label.keys())
 
     for line in leg.get_lines():
         line.set_linewidth(4.0)
@@ -299,7 +305,7 @@ def DATA_PATH(path):
     return MAIN_FOLDER + path
 
 
-def FormatPlot(mdp_num):
+def FormatPlot(mdp_num, TE):
     if mdp_num > 1:
         axes[1, 2].set_xlabel('simulation_steps')
 
@@ -319,7 +325,7 @@ def FormatPlot(mdp_num):
 
     plt.suptitle('Reward Evaluation')
 
-    BuildLegend(mdp_num)
+    BuildLegend(mdp_num, TE)
     global_fig.show()
 
 def GTRes():
@@ -338,23 +344,23 @@ def GTRes():
 
 
 def TERes():
-    res_tuple_add = [pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_8.pckl'), 'rb')),
-                     pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_16.pckl'), 'rb'))]
-    res_tuple_list = pickle.load(open(DATA_PATH(r'temporal_extension\run_res2.pckl'), 'rb'))
+    # res_tuple_add = [pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_8.pckl'), 'rb')),
+    #                  pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_16.pckl'), 'rb'))]
+    res_tuple_list = pickle.load(open(DATA_PATH(r'temporal_extension\TE_new.pckl'), 'rb'))
 
-    keys = []
-    values = []
-    for res_tuple in res_tuple_add:
-            [keys.append(key) for key in res_tuple['res'][0][1].keys()]
-            [values.append(value) for value in res_tuple['res'][0][1].values()]
-
-    for key, value in zip(keys, values):
-        res_tuple_list['res'][0][1][key] = value
-
-    del res_tuple_list['res'][0][1][('gittins', 'reward', 2)]
+    # keys = []
+    # values = []
+    # for res_tuple in res_tuple_add:
+    #         [keys.append(key) for key in res_tuple['res'][0][1].keys()]
+    #         [values.append(value) for value in res_tuple['res'][0][1].values()]
+    #
+    # for key, value in zip(keys, values):
+    #     res_tuple_list['res'][0][1][key] = value
+    #
+    # del res_tuple_list['res'][0][1][('gittins', 'reward', 2)]
 
     ylim1 = [0.5]
-    ylim2 = [1.001]
+    ylim2 = [1.05]
     titles = ['']
     # x1, x2, y1, y2
     offset_list = [[None],[None]]
@@ -380,7 +386,7 @@ if __name__ == '__main__':
             PlotEvaluation(res_tuple_list['res'][inner_j][1], res_tuple_list['opt_reward'][inner_j],
                            res_tuple_list['params'])
 
-    FormatPlot(True)
+    FormatPlot(mdp_num, True)
 
 
 
