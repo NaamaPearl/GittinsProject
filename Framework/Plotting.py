@@ -35,7 +35,13 @@ def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
      for param in params]
 
 
-def PlotColor(method, param=None):
+def PlotColor(method, param=None, l=None):
+    if l is not None:
+        # c = {1: 'green', 2: 'blue', 3: 'purple', 4: 'pink', 8: 'light blue', 15:'aqua'}
+        c = {1: 'pale blue', 2: 'baby blue', 3: 'baby blue', 4: 'cerulean', 8: 'blue', 15:'indigo'}
+        return 'xkcd:' + c[l]
+        # return (0,0,c[l])
+
     if method == 'optimal':
         return '0' # black
 
@@ -56,6 +62,11 @@ def PlotColor(method, param=None):
         if method == 'greedy':
             return 'xkcd:sky blue'
 
+    if param == 'ground_truth':
+        if method == 'gittins':
+            return 'xkcd:ochre'
+        if method == 'greedy':
+            return 'xkcd:pale yellow'
 
 def CreateZoomFig(ax):
     # sub region of the original image
@@ -83,17 +94,17 @@ def CreateLegendFig():
     return fig
 
 
-def BuildLegend():
+def BuildLegend(TE=False):
     handles, labels = plt.gca().get_legend_handles_labels()
-    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0][::-1]))
-    labels = list(labels)
-    handles = list(handles)
-    rand_idx = labels.index('random None') if 'random None' in labels else None
-    if rand_idx is not None:
-        labels.remove('random None')
-        labels.append('random')
-        handles.append(handles.pop(rand_idx))
-
+    if not TE:
+        labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0][::-1]))
+        labels = list(labels)
+        handles = list(handles)
+        rand_idx = labels.index('random None') if 'random None' in labels else None
+        if rand_idx is not None:
+            labels.remove('random None')
+            labels.append('random')
+            handles.append(handles.pop(rand_idx))
     by_label = OrderedDict(zip(labels, handles))
     leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=len(labels), loc=8)
 
@@ -102,7 +113,7 @@ def BuildLegend():
 
 
 def SetDefaults():
-    SMALL_SIZE = 12
+    SMALL_SIZE = 13
     MEDIUM_SIZE = 14
     BIGGER_SIZE = 16
 
@@ -110,9 +121,9 @@ def SetDefaults():
     plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
     plt.rc('axes', titlesize=MEDIUM_SIZE, titleweight="bold")  # fontsize of the axes title
     plt.rc('axes', labelsize=SMALL_SIZE, labelweight="bold")  # fontsize of the x and y labels
-    plt.rc('xtick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
-    plt.rc('ytick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
-    plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
+    plt.rc('xtick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=MEDIUM_SIZE)  # legend fontsize
     plt.rc('figure', titlesize=BIGGER_SIZE, titleweight="bold")  # fontsize of the figure title
 
 
@@ -125,32 +136,47 @@ def CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, eval_
 
     mean_values, std_tmp = sim_outputs[(method, parameter, temp_ext)].get(eval_type)
     mean_values_smooth = np.array(smooth(mean_values))
-
+    if samples.shape < mean_values_smooth.shape:
+        pad_len = mean_values_smooth.shape[0]-samples.shape[0]
+        samples = np.pad(samples, (0,pad_len),'edge')
     y = np.interp(steps, samples, mean_values_smooth)
     std = np.interp(steps, samples, std_tmp)
 
-    return y, std, steps
+    return y[:100], std[:100], steps[:100]
 
+def NeedToPlot(req_param, param, method):
+    if req_param == 'GT':
+        if method not in ['greedy']:
+            return True
+
+    if req_param == 'all':
+        return True
+
+    if param in req_param:
+        return True
+    return False
 
 def PlotRegret(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run):
 
     axins = CreateZoomFig(ax)
 
     for method, parameter, temp_ext in sim_outputs.keys():
-        if parameter == req_param or req_param == 'all':
+        if NeedToPlot(req_param, parameter, method):
 
             y, std, steps = CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, 'online')
 
             if not temporal_extension_run:
-                ax.plot(steps, y, color=PlotColor(method, parameter), label=method + ' ' + str(parameter))
-                axins.plot(steps, y, color=PlotColor(method, parameter), label=method + ' ' + str(parameter))
+                c = PlotColor(method, parameter)
+                ax.plot(steps, y, color=c, label=method + ' ' + str(parameter))
+                axins.plot(steps, y, color=c, label=method + ' ' + str(parameter))
             else:
-                ax.plot(steps, y, color=PlotColor(method, parameter), label=r'$\lambda$ = ' + str(temp_ext))
-                axins.plot(steps, y, color=PlotColor(method, parameter),
+                c = PlotColor(method, parameter, temp_ext)
+                ax.plot(steps, y, color=c, label=r'$\lambda$ = ' + str(temp_ext))
+                axins.plot(steps, y, color=c,
                                       label=r'$\lambda$ = ' + str(temp_ext))
-            ax.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=PlotColor(method, parameter))
+            ax.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=c)
             axins.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5,
-                                          color=PlotColor(method, parameter))
+                                          color=c)
 
     # draw a bbox of the region of the inset axes in the parent axes and
     # connecting lines between the bbox and the inset axes area
@@ -162,16 +188,19 @@ def PlotRegret(ax, sim_outputs, req_param, general_sim_params, temporal_extensio
 
 def PlotOffline(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward):
     for method, parameter, temp_ext in sim_outputs.keys():
-        if parameter == req_param or req_param == 'all':
+
+        if NeedToPlot(req_param, parameter, method):
 
             y, std, steps = CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, 'offline')
 
             if not temporal_extension_run:
-                ax.plot(steps, y, color=PlotColor(method, parameter), label=method + ' ' + str(parameter))
+                c = PlotColor(method, parameter)
+                ax.plot(steps, y, color=c, label=method + ' ' + str(parameter))
             else:
-                ax.plot(steps, y, color=PlotColor(method, parameter), label=r'$\lambda$ = ' + str(temp_ext))
+                c = PlotColor(method, parameter, temp_ext)
+                ax.plot(steps, y, color=c, label=r'$\lambda$ = ' + str(temp_ext))
 
-            ax.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=PlotColor(method, parameter))
+            ax.fill_between(steps, y + std / 4, y - std / 4, alpha=0.1, color=c)
 
     # ax.set_yscale('custom')
 
@@ -213,36 +242,39 @@ MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
 
 def ListOfMDPFromPckl():
     # part
-    ylim1 = [0.9, 0.2, 0.95, 0.7, 0.7, 0.7]
-    ylim2 = [1.01, 1.08, 1.005, 1.03, 1.03, 1.03]
+    ylim1 = [0.9, 0.95, 0.7, 0.7,   0.2, 0.7]
+    ylim2 = [1.01, 1.005, 1.03,  1.03, 1.08, 1.03]
     # x1, x2, y1, y2
     offset_list = [[(8300, 8500, 8500, 10000),
-                    (8000, 9000, 300, 320),
                     (8000, 9000, 15000, 17500),
                     (7200, 7500, 28000, 32000),
                     (8000, 9000, 20000, 30000),
+                    (8000, 9000, 300, 320),
                     (8000, 9000, 20000, 30000)],
                    [None, None, None, None, None, None]]
-    zoom_list = [10, 3, 3, 7, 2, 3]
+    zoom_list = [10, 3, 7, 2, 3, 3]
     loc_list = [8, 4, 4, 4, 4, 4]
-    line_loc = [(4, 1), (1, 2), (1, 2), (1, 3), (2, 1), (3, 1)]
-    titles = ['Tree', 'Grid', 'Cliques', 'Cliff', 'Star', 'Tunnel']
+    line_loc = [(4, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
+    titles = ['Cliques', 'Star', 'Tunnel', 'Tree', 'Cliff']
     graph_name = [r'cliques\TD and Reward\5 actions\run_res2.pckl',
-                  r'clif\run_res2.pckl',
                   r'star\3 actions\run_res2.pckl',
                   r'tunnel\run_res2_withTD.pckl',
-                  r'run_res2.pckl']
+                  r'run_res2.pckl',
+                  r'clif\run_res2.pckl'
+
+                  ]
     data_path = [DATA_PATH(name) for name in graph_name]
     mdp_num = len(graph_name)
 
-    res_tuple_list = {'res': [], 'opt_reward': [], 'params': []}
+    res_tuple_list = {'res': [], 'opt_reward': []}
     for i, path in enumerate(data_path):
         res_tuple = pickle.load(open(path, 'rb'))
         res_tuple_list['res'].append(res_tuple['res'][0])
-        res_tuple_list['opt_reward'].append(res_tuple['opt_reward'])
-        res_tuple_list['params'].append(res_tuple['params'])
+        res_tuple_list['opt_reward'].append(res_tuple['opt_reward'][0])
+    res_tuple_list['params'] = res_tuple['params']
 
-    return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2
+    return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
+
 
 def ListOfMDPFromPath():
     ylim1 = [0.95, 0.87, 0.5, 0.95, 0.7]
@@ -267,7 +299,7 @@ def DATA_PATH(path):
     return MAIN_FOLDER + path
 
 
-def FormatPlot(mdp_num, gr):
+def FormatPlot(mdp_num):
     if mdp_num > 1:
         axes[1, 2].set_xlabel('simulation_steps')
 
@@ -287,14 +319,41 @@ def FormatPlot(mdp_num, gr):
 
     plt.suptitle('Reward Evaluation')
 
-    BuildLegend()
+    BuildLegend(mdp_num)
     global_fig.show()
 
 def GTRes():
-    mdp_num = 1
-    res_tuple_list = pickle.load(open(DATA_PATH(r'GT\rldm_GT.pckl'), 'rb'))
+    res_tuple_list = pickle.load(open(DATA_PATH(r'GT\GT_clique.pckl'), 'rb'))
 
-    ylim1 = [0.95]
+    ylim1 = [0.7]
+    ylim2 = [1.001]
+    titles = ['']
+    # x1, x2, y1, y2
+    offset_list = [[None],[None]]
+    zoom_list = [10]
+    loc_list = [8]
+    line_loc = [(4, 1)]
+    mdp_num = len(res_tuple_list['res'])
+    return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
+
+
+def TERes():
+    res_tuple_add = [pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_8.pckl'), 'rb')),
+                     pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_16.pckl'), 'rb'))]
+    res_tuple_list = pickle.load(open(DATA_PATH(r'temporal_extension\run_res2.pckl'), 'rb'))
+
+    keys = []
+    values = []
+    for res_tuple in res_tuple_add:
+            [keys.append(key) for key in res_tuple['res'][0][1].keys()]
+            [values.append(value) for value in res_tuple['res'][0][1].values()]
+
+    for key, value in zip(keys, values):
+        res_tuple_list['res'][0][1][key] = value
+
+    del res_tuple_list['res'][0][1][('gittins', 'reward', 2)]
+
+    ylim1 = [0.5]
     ylim2 = [1.001]
     titles = ['']
     # x1, x2, y1, y2
@@ -308,7 +367,7 @@ def GTRes():
 
 if __name__ == '__main__':
 
-    res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num = GTRes()
+    res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num = TERes()
 
     global_fig = plt.figure(figsize=(10, 8))
     outer = gridspec.GridSpec(2, 1, wspace=0.3, hspace=0.3)
@@ -316,12 +375,12 @@ if __name__ == '__main__':
     axes = np.empty(shape=(2, mdp_num), dtype=object)
     for outer_i in [0, 1]:
         inner = gridspec.GridSpecFromSubplotSpec(1, mdp_num,
-                                                 subplot_spec=outer[outer_i], wspace=0.2, hspace=0.3)
+                                                 subplot_spec=outer[outer_i], wspace=0.3, hspace=0.3)
         for inner_j in range(mdp_num):
             PlotEvaluation(res_tuple_list['res'][inner_j][1], res_tuple_list['opt_reward'][inner_j],
                            res_tuple_list['params'])
 
-    FormatPlot(mdp_num, 'GT')
+    FormatPlot(True)
 
 
 
