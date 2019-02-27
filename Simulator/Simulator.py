@@ -5,6 +5,7 @@ from Critic.Critic import *
 from Simulator.SimulatorBasics import *
 from Framework.Inputs import *
 from collections import Counter
+import heapq
 
 
 class Simulator:
@@ -100,8 +101,8 @@ class Simulator:
             if i % sim_input.evaluate_freq == 0:  # sim_input.evaluate_freq - 1:
                 self.SimEvaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run,
                                  gamma=self.gamma)
-            if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
-                self.Reset()
+            # if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
+            #     self.Reset()
 
         return self.critic
 
@@ -115,7 +116,8 @@ class Simulator:
         self.critic.CriticEvaluate(initial_state=self.RaffleInitialState(), good_agents=50,
                                    chain_num=self.MDP_model.MDP_model.chain_num,
                                    active_chains_ratio=self.MDP_model.MDP_model.active_chains_ratio,
-                                   active_chains=self.MDP_model.MDP_model.GetActiveChains(), **kwargs)
+                                   active_chains=self.MDP_model.MDP_model.GetActiveChains(),
+                                   **kwargs)
 
     def RaffleInitialState(self):
         return np.random.choice(self.MDP_model.states, p=self.MDP_model.MDP_model.init_prob)
@@ -129,6 +131,7 @@ class AgentSimulator(Simulator):
         self.agents = Q.PriorityQueue()
         self.optimal_agents = self.generateOptimalAgents(sim_input.agent_num)
         self.ResetAgents(self.agents_num)
+        self.bad_activated_states = 0
 
         self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
 
@@ -149,6 +152,7 @@ class AgentSimulator(Simulator):
     def SimEvaluate(self, **kwargs):
         kwargs['agents_reward'] = [agent.object.getOnlineAndZero() for agent in self.agents.queue]
         kwargs['optimal_agents_reward'] = [agent.getOnlineAndZero() for agent in self.optimal_agents]
+        kwargs['bad_activated_states'] = self.bad_activated_states
         super().SimEvaluate(**kwargs)
 
     def ChooseInitState(self):
@@ -164,10 +168,8 @@ class AgentSimulator(Simulator):
         if parameter == 'ground_truth':
             return self.MDP_model.MDP_model.P, np.transpose(self.MDP_model.MDP_model.expected_r)
 
-
     def ImprovePolicy(self, sim_input, **kwargs):
         """
-
         :param sim_input: simulation parameters
         :param kwargs: must contain current iteration number, for reincarnation
         :effect: calculate new indexes for all sates, and grade agents accordingly
@@ -209,7 +211,13 @@ class AgentSimulator(Simulator):
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
+        real_grades = [(self.gittins[agent.curr_state.idx], agent.curr_state.idx) for agent in self.agents.queue]
+        heapq.heapify(real_grades)
+        optimal_states = {heapq.heappop(real_grades)[1] for _ in range(agents_to_run)}
+
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
+        self.bad_activated_states += len({agent.curr_state.idx for agent in agents_list}.difference(optimal_states))
+
         self.optimal_agents = self.optimal_agents[:agents_to_run]
 
         for agent in agents_list + self.optimal_agents:

@@ -10,6 +10,7 @@ def summarizeCritics(critics, critic_type):
                    np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
         'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
                     np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
+        'bad_states': [np.diff(critic.bad_activated_states) for critic in critics],
         'critics': critics}
 
     if critic_type in ['chains', 'bridge']:
@@ -113,7 +114,7 @@ if __name__ == '__main__':
         star = pickle.load(open("star_mdp.pckl", "rb"))
         tunnel = pickle.load(open("tunnel_mdp.pckl", "rb"))
 
-        mdp_list = [directed[0]]
+        mdp_list = [tunnel[0]]
         # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
 
     else:
@@ -136,14 +137,15 @@ if __name__ == '__main__':
 
     # define general simulation params
     general_sim_params = {
-        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
+        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 5
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1, 2, 4, 15], 'T_board': 3, 'runs_per_mdp': 5
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['reward', 'error','ground_truth'], 'greedy': ['reward', 'error','ground_truth']}
+    # _method_dict = {'gittins': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['error']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)
