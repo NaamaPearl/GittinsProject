@@ -59,15 +59,20 @@ def PlotColor(method, param=None):
 
 def CreateZoomFig(ax):
     # sub region of the original image
-    axins = zoomed_inset_axes(ax, 5, loc=7)
-    offsetx = 1000
-    offsety = 17000
-    x1, x2, y1, y2 = 7800 + offsetx, 8200 + offsetx, 12000 + offsety, 19000 + offsety
-    axins.set_xlim(x1, x2)
-    axins.set_ylim(y1, y2)
-    # plt.axis('off')
-    # axins.Axes.xtick(visible=False)
-    # plt.yticks(visible=False)
+    zoom = zoom_list[inner_j]
+    loc = loc_list[inner_j]
+    axins = zoomed_inset_axes(ax, zoom, loc=loc)
+    # offsetx = 1000
+    # offsety = 17000
+    # x1, x2, y1, y2 = 7800 + offsetx, 8200 + offsetx, 12000 + offsety, 19000 + offsety
+    offset = offset_list[outer_i][inner_j]
+    if offset is not None:
+        axins.set_xlim(offset[0], offset[1])
+        axins.set_ylim(offset[2], offset[3])
+    else:
+        axins.set_visible(False)
+    plt.yticks([], visible=False)
+    plt.xticks([], visible=False)
 
     return axins
 
@@ -127,10 +132,8 @@ def CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, eval_
     return y, std, steps
 
 
-def PlotRegret(sim_outputs, req_param, general_sim_params, temporal_extension_run):
-    ax = plt.Subplot(global_fig, inner[inner_j])
-    global_fig.add_subplot(ax)
-    axes[outer_i, inner_j] = ax
+def PlotRegret(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run):
+
     axins = CreateZoomFig(ax)
 
     for method, parameter, temp_ext in sim_outputs.keys():
@@ -151,14 +154,13 @@ def PlotRegret(sim_outputs, req_param, general_sim_params, temporal_extension_ru
 
     # draw a bbox of the region of the inset axes in the parent axes and
     # connecting lines between the bbox and the inset axes area
-    mark_inset(ax, axins, loc1=3, loc2=4, fc="none", ec="0.5")
+    offset = offset_list[outer_i][inner_j]
+    line = line_loc[inner_j]
+    if offset is not None:
+        mark_inset(ax, axins, loc1=line[0], loc2=line[1], fc=(1,1,1), ec="0.5")
 
 
-def PlotOffline(sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward):
-    ax = plt.Subplot(global_fig, inner[inner_j])
-    global_fig.add_subplot(ax)
-    axes[outer_i, inner_j] = ax
-
+def PlotOffline(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward):
     for method, parameter, temp_ext in sim_outputs.keys():
         if parameter == req_param or req_param == 'all':
 
@@ -168,12 +170,15 @@ def PlotOffline(sim_outputs, req_param, general_sim_params, temporal_extension_r
                 ax.plot(steps, y, color=PlotColor(method, parameter), label=method + ' ' + str(parameter))
             else:
                 ax.plot(steps, y, color=PlotColor(method, parameter), label=r'$\lambda$ = ' + str(temp_ext))
+
             ax.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=PlotColor(method, parameter))
 
     # ax.set_yscale('custom')
 
     ax.axhline(y=optimal_policy_reward, color=PlotColor('optimal'), linestyle='-',
                   label='optimal policy expected reward')
+
+    ax.set_ylim([ylim1[inner_j] * optimal_policy_reward, ylim2[inner_j] * optimal_policy_reward])
 
 
 def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, general_sim_params):
@@ -183,10 +188,16 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, genera
     except:
         temporal_extension_run = False
 
+
+    ax = plt.Subplot(global_fig, inner[inner_j])
+    global_fig.add_subplot(ax)
+    axes[outer_i, inner_j] = ax
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 3))
+
     if outer_i == 0:
-        PlotRegret(sim_outputs, req_param, general_sim_params, temporal_extension_run)
+        PlotRegret(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run)
     if outer_i == 1:
-        PlotOffline(sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward)
+        PlotOffline(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward)
 
 
 def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
@@ -197,41 +208,120 @@ def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
 
         # plt.show()
 
-
-
 global_fig = None
 MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
+
+def ListOfMDPFromPckl():
+    # part
+    ylim1 = [0.9, 0.2, 0.95, 0.7, 0.7, 0.7]
+    ylim2 = [1.01, 1.08, 1.005, 1.03, 1.03, 1.03]
+    # x1, x2, y1, y2
+    offset_list = [[(8300, 8500, 8500, 10000),
+                    (8000, 9000, 300, 320),
+                    (8000, 9000, 15000, 17500),
+                    (7200, 7500, 28000, 32000),
+                    (8000, 9000, 20000, 30000),
+                    (8000, 9000, 20000, 30000)],
+                   [None, None, None, None, None, None]]
+    zoom_list = [10, 3, 3, 7, 2, 3]
+    loc_list = [8, 4, 4, 4, 4, 4]
+    line_loc = [(4, 1), (1, 2), (1, 2), (1, 3), (2, 1), (3, 1)]
+    titles = ['Tree', 'Grid', 'Cliques', 'Cliff', 'Star', 'Tunnel']
+    graph_name = [r'cliques\TD and Reward\5 actions\run_res2.pckl',
+                  r'clif\run_res2.pckl',
+                  r'star\3 actions\run_res2.pckl',
+                  r'tunnel\run_res2_withTD.pckl',
+                  r'run_res2.pckl']
+    data_path = [DATA_PATH(name) for name in graph_name]
+    mdp_num = len(graph_name)
+
+    res_tuple_list = {'res': [], 'opt_reward': [], 'params': []}
+    for i, path in enumerate(data_path):
+        res_tuple = pickle.load(open(path, 'rb'))
+        res_tuple_list['res'].append(res_tuple['res'][0])
+        res_tuple_list['opt_reward'].append(res_tuple['opt_reward'])
+        res_tuple_list['params'].append(res_tuple['params'])
+
+    return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2
+
+def ListOfMDPFromPath():
+    ylim1 = [0.95, 0.87, 0.5, 0.95, 0.7]
+    ylim2 = [1.001, 1.03, 1.005, 1.03, 1.03]
+    titles = ['Tree', 'Cliques', 'Cliff', 'Star', 'Tunnel']
+    res_tuple_list = pickle.load(open(r'C:\Users\Naama\Dropbox\project\report graphs\6_mdps_res_1.pckl', 'rb'))
+    # x1, x2, y1, y2
+    offset_list = [[(8300, 8500, 8500, 10000),
+                    (8000, 9000, 300, 320),
+                    (8000, 9000, 15000, 17500),
+                    (7200, 7500, 28000, 32000),
+                    (8000, 9000, 20000, 30000),
+                    (8000, 9000, 20000, 30000)],
+                   [None, None, None, None, None, None]]
+    zoom_list = [10, 3, 3, 7, 2, 3]
+    loc_list = [8, 4, 4, 4, 4, 4]
+    line_loc = [(4, 1), (1, 2), (1, 2), (1, 3), (2, 1), (3, 1)]
+    mdp_num = len(res_tuple_list['res'])
+    return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
+
 def DATA_PATH(path):
     return MAIN_FOLDER + path
-if __name__ == '__main__':
-    graph_name = [r'cliques\TD and Reward\5 actions\run_res2.pckl',
-                  r'star\3 actions\run_res2.pckl',
-                  r'star\3 actions\run_res2.pckl',
-                  r'cliques\TD and Reward\3 actions\run_res2.pckl',
-                  r'grid\run_res2.pckl']
-    data_path = [DATA_PATH(name) for name in graph_name]
 
-    global_fig = plt.figure(figsize=(20, 16))
-    outer = gridspec.GridSpec(2, 1, wspace=0.3, hspace=0.3)
 
-    axes = np.empty(shape=(2, 5), dtype=object)
-    for outer_i in [0,1]:
-        inner = gridspec.GridSpecFromSubplotSpec(1, 5,
-                                                 subplot_spec=outer[outer_i], wspace=0.2, hspace=0.3)
-        for inner_j, path in enumerate(data_path):
-            res_tuple = pickle.load(open(path, 'rb'))
-            PlotResults(res_tuple['res'], res_tuple['opt_reward'], res_tuple['params'])
+def FormatPlot(mdp_num, gr):
+    if mdp_num > 1:
+        axes[1, 2].set_xlabel('simulation_steps')
 
-    axes[0,0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    axes[1,2].set_xlabel('simulation_steps')
+        axes[0, 0].set_ylabel('evaluated regret')
+        axes[1, 0].set_ylabel('average reward')
 
-    axes[0,0].set_ylabel('evaluated reward')
-    axes[1,0].set_ylabel('average reward')
+        for i, ax in enumerate(axes[0]):
+            ax.set_title(titles[i])
+        axes[0, 2].set_title('Regret' + '\n\n' + titles[2])
+        axes[1, 2].set_title('Evaluation')
+    else:
+        axes[1,0].set_xlabel('simulation_steps')
+        axes[0, 0].set_ylabel('evaluated regret')
+        axes[1, 0].set_ylabel('average reward')
+        axes[0, 0].set_title('Regret')
+        axes[1, 0].set_title('Evaluation')
 
-    axes[0,2].set_title('Regret')
-    axes[1,2].set_title('Evaluation')
-    plt.suptitle('Reward Evaluation \naverage of ' + str(3) + ' runs') ## TODO
+    plt.suptitle('Reward Evaluation')
+
     BuildLegend()
     global_fig.show()
+
+def GTRes():
+    mdp_num = 1
+    res_tuple_list = pickle.load(open(DATA_PATH(r'GT\rldm_GT.pckl'), 'rb'))
+
+    ylim1 = [0.95]
+    ylim2 = [1.001]
+    titles = ['']
+    # x1, x2, y1, y2
+    offset_list = [[None],[None]]
+    zoom_list = [10]
+    loc_list = [8]
+    line_loc = [(4, 1)]
+    mdp_num = len(res_tuple_list['res'])
+    return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
+
+
+if __name__ == '__main__':
+
+    res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num = GTRes()
+
+    global_fig = plt.figure(figsize=(10, 8))
+    outer = gridspec.GridSpec(2, 1, wspace=0.3, hspace=0.3)
+
+    axes = np.empty(shape=(2, mdp_num), dtype=object)
+    for outer_i in [0, 1]:
+        inner = gridspec.GridSpecFromSubplotSpec(1, mdp_num,
+                                                 subplot_spec=outer[outer_i], wspace=0.2, hspace=0.3)
+        for inner_j in range(mdp_num):
+            PlotEvaluation(res_tuple_list['res'][inner_j][1], res_tuple_list['opt_reward'][inner_j],
+                           res_tuple_list['params'])
+
+    FormatPlot(mdp_num, 'GT')
+
 
 
