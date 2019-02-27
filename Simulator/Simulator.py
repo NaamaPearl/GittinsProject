@@ -162,9 +162,8 @@ class AgentSimulator(Simulator):
         if parameter == 'error':
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
         if parameter == 'ground_truth':
-            reward_mat = [[self.MDP_model.MDP_model.r[state][action].expected_reward
-                           for action in range(self.MDP_model.actions)] for state in range(self.MDP_model.n)]
-            return self.MDP_model.MDP_model.P, reward_mat
+            return self.MDP_model.MDP_model.P, np.transpose(self.MDP_model.MDP_model.expected_r)
+
 
     def ImprovePolicy(self, sim_input, **kwargs):
         """

@@ -105,9 +105,17 @@ def generateMDP(mdp_type):
 
 if __name__ == '__main__':
     # building the MDPs
-    load = False
+    load = True
     if load:
-        mdp_list = pickle.load(open("mdp.pckl", "rb"))
+        directed = pickle.load(open("directed_mdp.pckl", "rb"))
+        clique = pickle.load(open("clique_mdp.pckl", "rb"))
+        cliff = pickle.load(open("cliff_mdp.pckl", "rb"))
+        star = pickle.load(open("star_mdp.pckl", "rb"))
+        tunnel = pickle.load(open("tunnel_mdp.pckl", "rb"))
+
+        mdp_list = [directed[0]]
+        # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
+
     else:
         n = 46
         chain_num = 3
@@ -130,12 +138,12 @@ if __name__ == '__main__':
     general_sim_params = {
         'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 5
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'gittins': ['reward', 'ground_truth']}
+    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    _method_dict = {'gittins': ['reward', 'error','ground_truth'], 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)
