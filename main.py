@@ -5,29 +5,44 @@ from functools import reduce
 
 
 def summarizeCritics(critics, critic_type):
-    result = {'online': (np.cumsum(np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
-                         np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
-              'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
-                          np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
-              'critics': critics}
+    result = {
+        'online': (np.cumsum(np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
+                   np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
+        'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
+                    np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
+        'bad_states': [np.diff(critic.bad_activated_states) for critic in critics],
+        'critics': critics}
 
-    if critic_type == 'chains':
+    if critic_type in ['chains', 'bridge']:
         result['chain_activations'] = np.mean(np.asarray([critic.chain_activations for critic in critics]), axis=0)
 
     return result
 
 
 def RunSimulations(_mdp_list, sim_params):
-    sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method]))
+    sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method],
+                                                              sim_params['temporal_extension']))
                                                  for method in sim_params['method_dict'].keys()])
-    result = [(mdp.type, {}) for mdp in _mdp_list]
+    result = [(mdp.type, {}, {}, {}) for mdp in _mdp_list]
     for i, mdp in enumerate(_mdp_list):
         print('run MDP num ' + str(i))
-        for method, parameter in sim_definition:
-            print('     running ' + method + ' prioritization, using ' + str(parameter))
+        for method, parameter, temp_extension in sim_definition:
+            print('     running ' + method + ' prioritization, using ' + str(parameter) + ':')
             sim_input = SimInputFactory(method, parameter, sim_params)
-            result[i][1][(method, parameter)] = summarizeCritics([SimulatorFactory(mdp, sim_params).simulate(sim_input)
-                                                                  for _ in range(sim_params['runs_per_mdp'])], mdp.type)
+            sim_input.temporal_extension = temp_extension
+
+            critics = []
+            indexes = []
+            grades = []
+            for run_num in range(1, sim_params['runs_per_mdp'] + 1):
+                print('         start run # ' + str(run_num))
+                critic, index, graded_state = SimulatorFactory(mdp, sim_params).simulate(sim_input)
+                critics.append(critic)
+                indexes.append(index)
+                grades.append(graded_state)
+            result[i][1][(method, parameter, temp_extension)] = summarizeCritics(critics, mdp.type)
+            result[i][2][(method, parameter, temp_extension)] = indexes
+            result[i][3][(method, parameter, temp_extension)] = grades
     return result
 
 
@@ -59,59 +74,111 @@ def RunSimulations(_mdp_list, sim_params):
 #     plt.legend()
 #     plt.show()
 
+def generateMDP(mdp_type):
+    if mdp_type == 'tunnel':
+        tunnel_indexes = list(range(n - tunnel_length, n))
+        return ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                               gamma=gamma, traps_num=0, tunnel_indexes=tunnel_indexes,
+                               reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
+                                             'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                             'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
+    if mdp_type == 'star':
+        return StarMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                       gamma=gamma,
+                       reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
+                                     2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
+                                     3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
+                                     4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
+                                     0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
+    if mdp_type == 'cliques':
+        return SeperateChainsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
+                                 chain_num=chain_num, gamma=gamma,
+                                 reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+    if mdp_type == 'gittins':
+        return GittinsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                          gamma=gamma, terminal_probability=0.05,
+                          reward_param={1: {'first': {'gauss_params': ((100, 3), 0)}},
+                                        2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
+                                        3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
+                                        4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
+                                        0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
 
-# def compareLookAhead(mdp, sim_params, look_ahead_vec, optimal_reward):
-#     simulator = SimulatorFactory(mdp, sim_params)
-#
-#     # param_list = ['error', 'reward']
-#     param_list = ['reward']
-#     for param in param_list:
-#         outputs = {look_ahead: ChainSimulationOutput(sim_params['eval_type']) for look_ahead in look_ahead_vec}
-#         for look_ahead in look_ahead_vec:
-#             for i in range(sim_params['runs_per_mdp']):
-#                 sim_params['look_ahead'] = look_ahead
-#                 simulator.simulate(SimInputFactory('gittins', param, sim_params))
-#                 outputs[look_ahead].reward_eval.add(simulator.critic.value_vec)
-#
-#         PlotLookAhead(outputs, param, optimal_reward, general_sim_params)
-#
-#     plt.show()
+    if mdp_type == 'cliff':
+        return CliffWalker(size=size,  random_prob=random_prob, gamma=gamma)
+    if mdp_type == 'directed':
+        return DirectedTreeMDP(depth, actions, gamma, resets_num)
 
+    raise NotImplementedError()
+
+
+def EvaluateGittins(res_list, general_sim_params):
+    pickle.load(open("run_res2.pckl", "rb"))
+    mdp_num = len(res_list)
+    subs = []
+    for i, mdp_res in enumerate(res_list):
+        evaluated_indexes = np.asarray(res[i][2][('gittins', 'reward', 1)][0])
+        gt_indexes = np.asarray(res[i][2][('gittins', 'ground_truth', 1)][0])
+        eval_count = int(general_sim_params['steps'] /
+                         (general_sim_params['eval_freq']))
+        max_step = eval_count * general_sim_params['eval_freq']
+        steps = np.linspace(0, max_step, num=eval_count)
+        sub = np.abs(evaluated_indexes - gt_indexes)
+        for j in range(sub.shape[1]):
+            if gt_indexes[0][j] > (10 ** (-1)):
+                sub[j] /= np.abs(gt_indexes[0][j])
+        sub = sub.sum(1)
+        state_num = evaluated_indexes[0].shape[0]
+        subs.append(sub / state_num)
+    subs = np.asarray(subs).T
+    plt.figure()
+    plt.plot(steps, subs)
+    plt.xlabel('simulation steps')
+    plt.ylabel(r'$\frac{1}{N}\sum|I_{(s)}-\tilde{I}_{(s)}|$')
+    plt.title('Gittins Calculation in Evaluated Model')
+    plt.legend(['Tree', 'Clique', 'Cliff', 'Star', 'Tunnel'])
+    plt.show()
 
 if __name__ == '__main__':
     # building the MDPs
-    tunnel_length = 5
-    load = False
+    load = True
     if load:
-        mdp_list = pickle.load(open("best_mdp_tunnel.pckl", "rb"))
-    else:
-        star_mdp = StarMDP(n=46, actions=5, succ_num=3, op_succ_num=7, chain_num=5, gamma=0.9,
-                           reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 2)},
-                                         2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
-                                         3: {'bernoulli_p': 1, 'gauss_params': ((50, 2), 2)},
-                                         4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                         0: {'bernoulli_p': 1, 'gauss_params': ((87, 3), 0)}})
+        directed = pickle.load(open("directed_mdp.pckl", "rb"))
+        clique = pickle.load(open("clique_mdp.pckl", "rb"))
+        cliff = pickle.load(open("cliff_mdp.pckl", "rb"))
+        star = pickle.load(open("star_mdp.pckl", "rb"))
+        tunnel = pickle.load(open("tunnel_mdp.pckl", "rb"))
 
-        tunnel_mdp = ChainsTunnelMDP(n=46, actions=4, succ_num=2, op_succ_num=4, chain_num=3, gamma=0.9, traps_num=0,
-                                     tunnel_indexes=list(range(37, 37 + tunnel_length)),
-                                     reward_param={2: {'bernoulli_p': 1, 'gauss_params': ((10, 3), 0)},
-                                                   'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                   'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-        mdp_list = [star_mdp]
+        mdp_list = [directed[0]]
+        # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
+
+    else:
+        n = 46
+        chain_num = 3
+        actions = 3
+        succ_num = 3
+        op_succ_num = 5
+        gamma = 0.9
+        tunnel_length = 5
+        size = 5
+        random_prob = 0.2
+        depth = 6
+        resets_num = 7
+
+        mdp_list = [generateMDP('directed')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params
     general_sim_params = {
-        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 15, 'agents_ratio': 3,
+        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 5
     }
-    opt_policy_reward = [mdp.CalcOptExpectedReward(general_sim_params) for mdp in mdp_list]
+    opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'random': [None]}
+    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
+    _method_dict = {'gittins': ['reward', 'error','ground_truth'], 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)
@@ -121,6 +188,7 @@ if __name__ == '__main__':
     with open('run_res2.pckl', 'wb') as f:
         pickle.dump(printalbe_res, f)
 
+    # EvaluateGittins(res, general_sim_params)
     PlotResults(res, opt_policy_reward, general_sim_params)
 
     print('all done')

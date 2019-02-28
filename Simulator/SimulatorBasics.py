@@ -51,18 +51,23 @@ class SimulatedModel:
 
 
 class Agent:
-    def __init__(self, idx, init_state):
+    def __init__(self, idx, init_state, agent_type='regular'):
+        self.type = agent_type
         self.idx = idx
         self.curr_state = init_state
-        self.regret = 0
+        self.accumulated_reward = 0
         self.last_activation = 0
+
+    def update(self, new_reward, next_state: SimulatedState):
+        self.accumulated_reward += new_reward
+        self.curr_state = next_state
 
     def __lt__(self, other):
         return random.choice([True, False])
 
     def getOnlineAndZero(self):
-        res = self.regret
-        self.regret = 0
+        res = self.accumulated_reward
+        self.accumulated_reward = 0
         return res
 
     @property

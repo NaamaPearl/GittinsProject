@@ -69,9 +69,11 @@ class GittinsPrioritizer(FunctionalPrioritizer):
         result = {}
         score = 1  # score is order of extraction
 
+        index_vec = np.empty(self.n)
         while len(rs_list) > 1:
             # identify optimal state, omit it from model and add it to result
             opt_state = max(rs_list)
+            index_vec[opt_state.idx] = opt_state.reward.score
             rs_list.remove(opt_state)
             result[opt_state.idx] = score
             score += 1
@@ -81,8 +83,9 @@ class GittinsPrioritizer(FunctionalPrioritizer):
 
             self.CalcNewProb(rs_list, opt_state)  # calc new transition matrix
         last_state = rs_list.pop()
+        index_vec[last_state.idx] = last_state.reward.score
         result[last_state.object.idx] = score  # when only one state remains, simply add it to the result list
-        return result
+        return result, index_vec
 
     def CalcNewProb(self, rs_list, opt_s: PrioritizedObject):
         """

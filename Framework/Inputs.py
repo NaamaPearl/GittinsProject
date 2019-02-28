@@ -5,7 +5,7 @@ import numpy as np
 class ProblemInput:
     def __init__(self, **kwargs):
         self.MDP_model = kwargs['MDP_model']
-        self.agent_num = kwargs['agent_num']
+        self.agent_num = kwargs['agents_to_generate']
         self.gamma = kwargs['gamma']
         self.epsilon = kwargs['epsilon']
         self.eval_type = kwargs['eval_type']
