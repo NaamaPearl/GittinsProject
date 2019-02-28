@@ -230,10 +230,11 @@ class AgentSimulator(Simulator):
 
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
         chosen_states = [agent.curr_state.idx for agent in agents_list]
-        c = Counter(optimal_states)
-        c.subtract(Counter(chosen_states))
-        self.bad_activated_states += sum(abs(np.asarray(list(c.values()))))
-
+        real_counter = Counter(optimal_states)
+        chosen_counter = Counter(chosen_states)
+        chosen_counter.subtract(real_counter)
+        list(chosen_counter.elements())
+        self.bad_activated_states += len(list(chosen_counter.elements()))
         self.optimal_agents = self.optimal_agents[:agents_to_run]
 
         for agent in agents_list + self.optimal_agents:
