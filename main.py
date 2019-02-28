@@ -19,7 +19,7 @@ def summarizeCritics(critics, critic_type):
     return result
 
 
-def RunSimulations(_mdp_list, sim_params):
+def RunSimulations(_mdp_list, gittins, sim_params):
     sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method],
                                                               sim_params['temporal_extension']))
                                                  for method in sim_params['method_dict'].keys()])
@@ -36,7 +36,9 @@ def RunSimulations(_mdp_list, sim_params):
             grades = []
             for run_num in range(1, sim_params['runs_per_mdp'] + 1):
                 print('         start run # ' + str(run_num))
-                critic, index, graded_state = SimulatorFactory(mdp, sim_params).simulate(sim_input)
+                sim = SimulatorFactory(mdp, sim_params)
+                sim.SetGittins(gittins[i])
+                critic, index, graded_state = sim.simulate(sim_input)
                 critics.append(critic)
                 indexes.append(index)
                 grades.append(graded_state)
@@ -111,11 +113,10 @@ def generateMDP(mdp_type):
     raise NotImplementedError()
 
 
-def EvaluateGittins(res_list, general_sim_params):
-    pickle.load(open("run_res2.pckl", "rb"))
-    mdp_num = len(res_list)
+def EvaluateGittinsByValue(res_list, general_sim_params):
     subs = []
     for i, mdp_res in enumerate(res_list):
+
         evaluated_indexes = np.asarray(res[i][2][('gittins', 'reward', 1)][0])
         gt_indexes = np.asarray(res[i][2][('gittins', 'ground_truth', 1)][0])
         eval_count = int(general_sim_params['steps'] /
@@ -138,18 +139,47 @@ def EvaluateGittins(res_list, general_sim_params):
     plt.legend(['Tree', 'Clique', 'Cliff', 'Star', 'Tunnel'])
     plt.show()
 
+
+def EvaluateGittinsByStates(res_list, general_sim_params):
+    bad_states = []
+    for i, mdp_res in enumerate(res_list):
+
+        bad_states.append(np.asarray(res[i][1][('gittins', 'reward', 1)]['bad_states'][0]) / general_sim_params['eval_freq'])
+        eval_count = int(general_sim_params['steps'] /
+                         (general_sim_params['eval_freq']))
+        max_step = eval_count * general_sim_params['eval_freq']
+        steps = np.linspace(0, max_step, num=eval_count)[:-1]
+    bad_states = np.asarray(bad_states).T
+    plt.figure()
+    plt.plot(steps, bad_states)
+    plt.xlabel('simulation steps')
+    plt.ylabel('number of wrong decisions per step')
+    plt.title('Gittins Calculation in Evaluated Model')
+    plt.legend(['Tree', 'Clique', 'Cliff', 'Star', 'Tunnel'])
+    plt.show()
+
+
+def EvaluateGittins(res_list, general_sim_params):
+    # pickle.load(open("run_res2.pckl", "rb"))
+    # mdp_num = len(res_list)
+    # EvaluateGittinsByValue(res_list, general_sim_params)
+    EvaluateGittinsByStates(res_list, general_sim_params)
+
+
 if __name__ == '__main__':
     # building the MDPs
     load = True
     if load:
-        directed = pickle.load(open("directed_mdp.pckl", "rb"))
-        clique = pickle.load(open("clique_mdp.pckl", "rb"))
-        cliff = pickle.load(open("cliff_mdp.pckl", "rb"))
-        star = pickle.load(open("star_mdp.pckl", "rb"))
-        tunnel = pickle.load(open("tunnel_mdp.pckl", "rb"))
+        directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
+        clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
+        cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
+        star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
+        tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
 
-        mdp_list = [directed[0]]
-        # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
+        # mdp_list = [clique[0]]
+        # gittins = [clique[1]]
+        gittins = [directed[1], clique[1], cliff[1], star[1], tunnel[1]]
+        mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
 
     else:
         n = 46
@@ -171,24 +201,24 @@ if __name__ == '__main__':
 
     # define general simulation params
     general_sim_params = {
-        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
+        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 5
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['reward', 'error','ground_truth'], 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['reward']}#, 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
-    res = RunSimulations(mdp_list, sim_params=general_sim_params)
+    res = RunSimulations(mdp_list, gittins, sim_params=general_sim_params)
 
     printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
 
     with open('run_res2.pckl', 'wb') as f:
         pickle.dump(printalbe_res, f)
 
-    # EvaluateGittins(res, general_sim_params)
+    EvaluateGittins(res, general_sim_params)
     PlotResults(res, opt_policy_reward, general_sim_params)
 
     print('all done')

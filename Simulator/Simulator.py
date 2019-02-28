@@ -133,6 +133,7 @@ class AgentSimulator(Simulator):
         self.optimal_agents = self.generateOptimalAgents(sim_input.agent_num)
         self.ResetAgents(self.agents_num)
         self.bad_activated_states = 0
+        self.gittins = {}
 
         self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
 
@@ -211,14 +212,27 @@ class AgentSimulator(Simulator):
         score = self.graded_states[agent.curr_state.idx]
         return PrioritizedObject(agent, score)
 
+    def SetGittins(self, gittins):
+        self.gittins = gittins[0]
+        # score = 1
+        # gittins = np.asarray(gittins)
+        # for i in range(self.MDP_model.n):
+        #     argmax = np.argmax(gittins)
+        #     self.gittins[argmax] = score
+        #     score += 1
+        #     gittins[argmax] = -np.inf
+
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
-        real_grades = [(self.gittins[agent.curr_state.idx], agent.curr_state.idx) for agent in self.agents.queue]
+        real_grades = [(self.gittins[agent.object.curr_state.idx], agent.object.curr_state.idx) for agent in self.agents.queue]
         heapq.heapify(real_grades)
-        optimal_states = {heapq.heappop(real_grades)[1] for _ in range(agents_to_run)}
+        optimal_states = [heapq.heappop(real_grades)[1] for _ in range(agents_to_run)]
 
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
-        self.bad_activated_states += len({agent.curr_state.idx for agent in agents_list}.difference(optimal_states))
+        chosen_states = [agent.curr_state.idx for agent in agents_list]
+        c = Counter(optimal_states)
+        c.subtract(Counter(chosen_states))
+        self.bad_activated_states += sum(abs(np.asarray(list(c.values()))))
 
         self.optimal_agents = self.optimal_agents[:agents_to_run]
 
