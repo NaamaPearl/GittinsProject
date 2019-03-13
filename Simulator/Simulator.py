@@ -1,6 +1,5 @@
 import queue as Q
 from Actor.Prioritizer import Prioritizer, GittinsPrioritizer, GreedyPrioritizer
-from Framework.PrioritizedObject import *
 from Critic.Critic import *
 from Simulator.SimulatorBasics import *
 from Framework.Inputs import *
@@ -10,6 +9,7 @@ import heapq
 
 class Simulator:
     """ Abstract class which tries to learn optimal policy via Q-Learning, based on observations """
+
     def __init__(self, sim_input: ProblemInput):
         self.MDP_model: SimulatedModel = sim_input.MDP_model
         self.evaluation_type = sim_input.eval_type
@@ -56,7 +56,8 @@ class Simulator:
 
         def Update_Q():
             a_n = (current_state_action.visitations + 1) ** -0.7
-            current_state_action.TD_error = reward + self.gamma * max(next_state.actions).Q_hat - current_state_action.Q_hat
+            current_state_action.TD_error = reward + self.gamma * max(
+                next_state.actions).Q_hat - current_state_action.Q_hat
             current_state_action.Q_hat += (a_n * current_state_action.TD_error)
 
         def UpdateP():
@@ -187,11 +188,11 @@ class AgentSimulator(Simulator):
                                             temporal_extension=sim_input.temporal_extension,
                                             discount_factor=sim_input.gittins_discount)
         gt_prioritizer = sim_input.prioritizer(states=self.MDP_model.states,
-                                            policy=self.policy,
-                                            p=p_gt,
-                                            r=r_gt,
-                                            temporal_extension=sim_input.temporal_extension,
-                                            discount_factor=sim_input.gittins_discount)
+                                               policy=self.policy,
+                                               p=p_gt,
+                                               r=r_gt,
+                                               temporal_extension=sim_input.temporal_extension,
+                                               discount_factor=sim_input.gittins_discount)
         self.graded_states, indexes = prioritizer.GradeStates()
         self.indexes_vec.append(indexes)
         self.gittins, gt_indexes = gt_prioritizer.GradeStates()
@@ -215,15 +216,16 @@ class AgentSimulator(Simulator):
 
     def GradeAgent(self, agent):
         """ Agents in non-visited states / initial states are prioritized"""
-    # if agent.curr_state in self.MDP_model.init_states_idx:
-    #     score = -np.inf
-    # else:
+        # if agent.curr_state in self.MDP_model.init_states_idx:
+        #     score = -np.inf
+        # else:
         score = self.graded_states[agent.curr_state.idx]
         return PrioritizedObject(agent, score)
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
-        real_grades = [(self.gittins[agent.object.curr_state.idx], agent.object.curr_state.idx) for agent in self.agents.queue]
+        real_grades = [(self.gittins[agent.object.curr_state.idx], agent.object.curr_state.idx) for agent in
+                       self.agents.queue]
         heapq.heapify(real_grades)
         optimal_states = [heapq.heappop(real_grades)[1] for _ in range(agents_to_run)]
 
