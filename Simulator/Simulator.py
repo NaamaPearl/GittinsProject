@@ -9,6 +9,7 @@ import heapq
 
 
 class Simulator:
+    """ Abstract class which tries to learn optimal policy via Q-Learning, based on observations """
     def __init__(self, sim_input: ProblemInput):
         self.MDP_model: SimulatedModel = sim_input.MDP_model
         self.evaluation_type = sim_input.eval_type
@@ -25,13 +26,7 @@ class Simulator:
         self.indexes_vec = []
         self.gt_indexes_vec = []
 
-        self.InitStatics()
-
-    @property
-    def opt_policy(self):
-        return self.MDP_model.MDP_model.opt_policy
-
-    def InitStatics(self):
+        # Initiate static variables
         SimulatedState.policy = self.policy
         SimulatedState.V_hat_vec = self.evaluated_model.V_hat
 
@@ -42,44 +37,43 @@ class Simulator:
         StateActionPair.visitations_mat = self.evaluated_model.visitations
 
     def ImprovePolicy(self, sim_input, **kwargs):
+        """ Choose best action per state, based on Q value"""
         for state in self.MDP_model.states:
             state.policy_action = state.best_action.action
 
         self.MDP_model.CalcPolicyData(self.policy)
 
-    def Update_V(self, state_action: StateActionPair):
-        #  self.V_hat[idx] = self.r_hat[idx] + self.gamma * np.dot(self.P_hat[action][idx, :], self.V_hat)
-        state = state_action.state
-        state.V_hat = state_action.r_hat + self.gamma * state_action.P_hat @ self.evaluated_model.V_hat
-
-    def Update_Q(self, state_action: StateActionPair, next_state: SimulatedState, reward):
-        a_n = (state_action.visitations + 1) ** -0.7
-        state_action.TD_error = reward + self.gamma * max(next_state.actions).Q_hat - state_action.Q_hat
-        state_action.Q_hat += (a_n * state_action.TD_error)
-
-    def UpdateP(self, state_action: StateActionPair, next_state: SimulatedState):
-        curr_num_of_tran = state_action.P_hat * state_action.visitations
-        curr_num_of_tran[next_state.idx] += 1
-
-        new_est_p_row = curr_num_of_tran / (state_action.visitations + 1)
-        state_action.P_hat = new_est_p_row
-        self.UpdatePredecessor(next_state, state_action)
-
-    @staticmethod
-    def UpdateReward(state_action: StateActionPair, new_reward):
-        state_action.r_hat = (state_action.r_hat * state_action.visitations + new_reward) / (
-                state_action.visitations + 1)
-
     def getActionResults(self, state_action: StateActionPair):
+        """ simulates desired action, and returns next_state, reward """
         next_state = self.MDP_model.states[self.MDP_model.GetNextState(state_action)]
         reward = self.MDP_model.GetReward(state_action)
         return next_state, reward
 
     def updateModel(self, current_state_action, next_state, reward):
-        self.UpdateReward(current_state_action, reward)
-        self.UpdateP(current_state_action, next_state)
-        self.Update_V(current_state_action)
-        self.Update_Q(current_state_action, next_state, reward)
+        def Update_V():
+            state = current_state_action.state
+            state.V_hat = current_state_action.r_hat + self.gamma * current_state_action.P_hat @ self.evaluated_model.V_hat
+
+        def Update_Q():
+            a_n = (current_state_action.visitations + 1) ** -0.7
+            current_state_action.TD_error = reward + self.gamma * max(next_state.actions).Q_hat - current_state_action.Q_hat
+            current_state_action.Q_hat += (a_n * current_state_action.TD_error)
+
+        def UpdateP():
+            curr_num_of_tran = current_state_action.P_hat * current_state_action.visitations
+            curr_num_of_tran[next_state.idx] += 1
+
+            new_est_p_row = curr_num_of_tran / (current_state_action.visitations + 1)
+            current_state_action.P_hat = new_est_p_row
+
+        def UpdateReward():
+            current_state_action.r_hat = (current_state_action.r_hat * current_state_action.visitations + reward) / (
+                    current_state_action.visitations + 1)
+
+        UpdateReward()
+        UpdateP()
+        Update_V()
+        Update_Q()
         current_state_action.UpdateVisits()
 
     def SampleStateAction(self, agent_type, state_action: StateActionPair):
@@ -88,9 +82,6 @@ class Simulator:
             self.updateModel(state_action, next_state, reward)
 
         return reward, next_state
-
-    def UpdatePredecessor(self, next_state, state_action):
-        pass
 
     def simulate(self, sim_input):
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
@@ -106,11 +97,12 @@ class Simulator:
             # if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
             #     self.Reset()
 
-        return self.critic, self.graded_states, self.indexes_vec, self.gt_indexes_vec
+        return self.critic, self.indexes_vec
 
     def Reset(self):
         pass
 
+    @abstractmethod
     def SimulateOneStep(self, agents_to_run, **kwargs):
         pass
 
@@ -123,6 +115,10 @@ class Simulator:
 
     def RaffleInitialState(self):
         return np.random.choice(self.MDP_model.states, p=self.MDP_model.MDP_model.init_prob)
+
+    @property
+    def opt_policy(self):
+        return self.MDP_model.MDP_model.opt_policy
 
 
 class AgentSimulator(Simulator):
@@ -137,6 +133,9 @@ class AgentSimulator(Simulator):
         self.gittins = {}
 
         self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
+
+    def simulate(self, sim_input):
+        return (*super().simulate(sim_input)), self.graded_states, self.indexes_vec, self.gt_indexes_vec
 
     def generateOptimalAgents(self, agents_num):
         agents_list = []
@@ -200,7 +199,7 @@ class AgentSimulator(Simulator):
         self.ReGradeAllAgents(kwargs['iteration_num'], sim_input.grades_freq)
 
     def ReincarnateAgent(self, agent, iteration_num, grades_freq):
-        if iteration_num - agent.last_activation > 3 * grades_freq:
+        if iteration_num - agent.last_activation > 10000 * grades_freq:
             agent.last_activation = iteration_num
             agent.curr_state = self.RaffleInitialState()
 
@@ -221,16 +220,6 @@ class AgentSimulator(Simulator):
     # else:
         score = self.graded_states[agent.curr_state.idx]
         return PrioritizedObject(agent, score)
-
-    def SetGittins(self, gittins):
-        self.gittins = gittins[0]
-        # score = 1
-        # gittins = np.asarray(gittins)
-        # for i in range(self.MDP_model.n):
-        #     argmax = np.argmax(gittins)
-        #     self.gittins[argmax] = score
-        #     score += 1
-        #     gittins[argmax] = -np.inf
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """find top-priority agents, and activate them for a single step"""
@@ -289,45 +278,6 @@ class AgentSimulator(Simulator):
     def agents_location(self):
         chains_count = Counter([agent.object.chain for agent in self.agents.queue])
         return chains_count
-
-
-class PrioritizedSweeping(Simulator):
-    def __init__(self, sim_input: ProblemInput):
-        self.state_actions_score = np.inf * np.ones((self.MDP_model.n, self.MDP_model.actions))
-        self.state_actions = [[PrioritizedObject(state_action, StateActionScore(state_action))
-                               for state_action in state.actions] for state in self.MDP_model.states[1:]]
-        super().__init__(sim_input)
-
-    def InitStatics(self):
-        StateActionScore.score_mat = self.state_actions_score
-        super().InitStatics()
-
-    def SimulateOneStep(self, agents_to_run, **kwargs):
-        for _ in range(agents_to_run):
-            best: PrioritizedObject = max([max(state) for state in self.state_actions])
-            best_state_action: StateActionPair = best.object
-            self.critic.Update(best_state_action.chain)
-
-            self.SampleStateAction(best_state_action)
-
-            if best_state_action.visitations > kwargs['T_board']:
-                best.reward.score = abs(best_state_action.TD_error)
-
-    def UpdateScore(self, state_action_pr: PrioritizedObject):
-        state_action = state_action_pr.object
-
-        for predecessor in state_action.state.predecessor.difference(
-                {state_action}):  # TODO what if state has probability to stay in the same state
-            p = self.evaluated_model.P_hat[predecessor.state.idx][predecessor.action][state_action.state.idx]
-            if p == 0:
-                raise ValueError('transmission probability should not be 0')
-            prioritized_object = self.state_actions[predecessor.state.idx][predecessor.action]
-            prioritized_object.reward.score = max(p * abs(state_action.TD_error), prioritized_object.reward.score)
-            prioritized_object.active = True
-
-    def UpdatePredecessor(self, next_state, state_action):
-        if not (self.MDP_model.MDP_model.type == 'chains' and state_action.state in self.MDP_model.init_states_idx):
-            next_state.predecessor.add(state_action)
 
 
 def SimulatorFactory(mdp: MDPModel, sim_params):

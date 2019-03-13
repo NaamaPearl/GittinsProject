@@ -4,10 +4,6 @@ from abc import abstractmethod
 from Simulator.SimulatorBasics import Agent
 
 
-def sum_reward_vec(reward_vec):
-    return reduce(lambda a, b: a + b, reward_vec)
-
-
 class Evaluator:
     @abstractmethod
     def EvaluatePolicy(self, **kwargs):
@@ -38,6 +34,9 @@ class OfflinePolicyEvaluator(Evaluator):
 
 class OnlinePolicyEvaluator(Evaluator):
     def EvaluatePolicy(self, **kwargs):
+        def sum_reward_vec(reward_vec):
+            return reduce(lambda a, b: a + b, reward_vec)
+
         accumulated_diff = sum_reward_vec(kwargs['optimal_agents_reward']) - sum_reward_vec(kwargs['agents_reward'])
         return accumulated_diff / kwargs['running_agents']
 
@@ -60,8 +59,6 @@ class CriticFactory:
         model = kwargs['model']
         if model.type == 'chains':
             return ChainMDPCritic(model.chain_num, **kwargs)
-        if model.type == 'bridge':
-            return BridgedMDPCritic(model.MDP_model.bridge_states, chain_num=model.chain_num, **kwargs)
 
         return Critic(**kwargs)  # default
 
@@ -95,17 +92,3 @@ class ChainMDPCritic(Critic):
     def Update(self, chain, state_idx):
         if chain is not None:
             self.chain_activations[chain] += 1
-
-
-class BridgedMDPCritic(ChainMDPCritic):
-    def __init__(self, bridge_states, **kwargs):
-        super().__init__(**kwargs)
-        self.bridge_states = bridge_states
-        self.bridge_chains = [2, 3]
-
-    def buildChainVec(self):
-        return [0 for _ in range(self.chain_num + 2)]
-
-    def Update(self, chain, state_idx):
-        new_chain = self.bridge_chains[chain] if state_idx in self.bridge_states else chain
-        super().Update(new_chain, state_idx)

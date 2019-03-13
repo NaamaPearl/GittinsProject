@@ -1,5 +1,4 @@
 from Framework.Plotting import *
-import Framework.Plotting
 import pickle
 from itertools import product
 from functools import reduce
@@ -20,7 +19,7 @@ def summarizeCritics(critics, critic_type):
     return result
 
 
-def RunSimulations(_mdp_list, gittins, sim_params):
+def RunSimulations(_mdp_list, sim_params):
     sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method],
                                                               sim_params['temporal_extension']))
                                                  for method in sim_params['method_dict'].keys()])
@@ -38,7 +37,6 @@ def RunSimulations(_mdp_list, gittins, sim_params):
             for run_num in range(1, sim_params['runs_per_mdp'] + 1):
                 print('         start run # ' + str(run_num))
                 sim = SimulatorFactory(mdp, sim_params)
-                sim.SetGittins(gittins[i])
                 critic, graded_state, index, gt_index = sim.simulate(sim_input)
                 critics.append(critic)
                 indexes.append(index)
@@ -99,14 +97,6 @@ def generateMDP(mdp_type):
         return SeperateChainsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
                                  chain_num=chain_num, gamma=gamma,
                                  reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
-    if mdp_type == 'gittins':
-        return GittinsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
-                          gamma=gamma, terminal_probability=0.05,
-                          reward_param={1: {'first': {'gauss_params': ((100, 3), 0)}},
-                                        2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
-                                        3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
-                                        4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                        0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
 
     if mdp_type == 'cliff':
         return CliffWalker(size=size,  random_prob=random_prob, gamma=gamma)
@@ -126,10 +116,8 @@ if __name__ == '__main__':
         star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
         tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
 
-        mdp_list = [clique[0]]
-        gittins = [clique[1]]
-        # gittins = [directed[1], clique[1], cliff[1], star[1], tunnel[1]]
-        # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
+        # mdp_list = [clique[0]]
+        mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
 
     else:
         n = 46
@@ -161,7 +149,7 @@ if __name__ == '__main__':
     _method_dict = {'gittins': ['reward']}#, 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
-    res = RunSimulations(mdp_list, gittins, sim_params=general_sim_params)
+    res = RunSimulations(mdp_list, sim_params=general_sim_params)
 
     printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
 
