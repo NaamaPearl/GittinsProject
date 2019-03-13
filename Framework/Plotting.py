@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from Simulator.Simulator import *
 import pickle
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
@@ -9,12 +8,10 @@ from Framework.plotUtils import *
 from matplotlib import scale as mscale
 import matplotlib.gridspec as gridspec
 from collections import OrderedDict
-from matplotlib.ticker import FormatStrFormatter
 
-
-
-## Global
+# Global
 global_dict = {}
+
 
 def CompareActivations(data_output, mdp_i):
     chain_num = len(next(iter(data_output.values())).get('chain_activations'))
@@ -40,15 +37,15 @@ def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
 def PlotColor(method, param=None, l=None):
     if l is not None:
         if method in 'random':
-        #     c = {1: 'yellow green', 2: 'baby blue', 3: 'toxic green', 4: 'dark pastel green', 8: 'dark grass green', 15: 'spruce'}
+            #     c = {1: 'yellow green', 2: 'baby blue', 3: 'toxic green', 4: 'dark pastel green', 8: 'dark grass green', 15: 'spruce'}
             return 'xkcd:yellow green'
         # c = {1: 'green', 2: 'blue', 3: 'purple', 4: 'pink', 8: 'light blue', 15:'aqua'}
-        c = {1: 'robin\'s egg blue', 2: 'baby blue', 3: 'baby blue', 4: 'cerulean', 8: 'blue', 15:'indigo'}
+        c = {1: 'robin\'s egg blue', 2: 'baby blue', 3: 'baby blue', 4: 'cerulean', 8: 'blue', 15: 'indigo'}
         return 'xkcd:' + c[l]
         # return (0,0,c[l])
 
     if method == 'optimal':
-        return '0' # black
+        return '0'  # black
 
     if method == 'random':
         return 'xkcd:lime green'
@@ -72,6 +69,7 @@ def PlotColor(method, param=None, l=None):
             return 'xkcd:ochre'
         if method == 'greedy':
             return 'xkcd:pale yellow'
+
 
 def CreateZoomFig(ax, optimal_policy_reward):
     # sub region of the original image
@@ -145,12 +143,13 @@ def CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, eval_
     mean_values, std_tmp = sim_outputs[(method, parameter, temp_ext)].get(eval_type)
     mean_values_smooth = np.array(smooth(mean_values))
     if samples.shape < mean_values_smooth.shape:
-        pad_len = mean_values_smooth.shape[0]-samples.shape[0]
-        samples = np.pad(samples, (0,pad_len),'edge')
+        pad_len = mean_values_smooth.shape[0] - samples.shape[0]
+        samples = np.pad(samples, (0, pad_len), 'edge')
     y = np.interp(steps, samples, mean_values_smooth)
     std = np.interp(steps, samples, std_tmp)
 
     return y / optimal_policy_reward, std / optimal_policy_reward, steps
+
 
 def NeedToPlot(req_param, param, method, TE=False, l=0):
     if TE and l != 1 and method == 'random':
@@ -166,14 +165,15 @@ def NeedToPlot(req_param, param, method, TE=False, l=0):
         return True
     return False
 
-def PlotRegret(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward):
 
+def PlotRegret(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward):
     axins = CreateZoomFig(ax, optimal_policy_reward)
 
     for method, parameter, temp_ext in sim_outputs.keys():
         if NeedToPlot(req_param, parameter, method):
 
-            y, std, steps = CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, 'online', optimal_policy_reward)
+            y, std, steps = CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, 'online',
+                                     optimal_policy_reward)
 
             if not temporal_extension_run:
                 c = PlotColor(method, parameter)
@@ -183,17 +183,17 @@ def PlotRegret(ax, sim_outputs, req_param, general_sim_params, temporal_extensio
                 c = PlotColor(method, parameter, temp_ext)
                 ax.plot(steps, y, color=c, label=r'$\lambda$ = ' + str(temp_ext))
                 axins.plot(steps, y, color=c,
-                                      label=r'$\lambda$ = ' + str(temp_ext))
+                           label=r'$\lambda$ = ' + str(temp_ext))
             ax.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5, color=c)
             axins.fill_between(steps, y + std / 4, y - std / 4, alpha=0.5,
-                                          color=c)
+                               color=c)
 
     # draw a bbox of the region of the inset axes in the parent axes and
     # connecting lines between the bbox and the inset axes area
     offset = global_dict['offset_list'][global_dict['i']][global_dict['j']]
     line = global_dict['line_loc'][global_dict['j']]
     if offset is not None:
-        mark_inset(ax, axins, loc1=line[0], loc2=line[1], fc=(1,1,1), ec="0.5")
+        mark_inset(ax, axins, loc1=line[0], loc2=line[1], fc=(1, 1, 1), ec="0.5")
 
 
 def PlotOffline(ax, sim_outputs, req_param, general_sim_params, temporal_extension_run, optimal_policy_reward):
@@ -201,7 +201,8 @@ def PlotOffline(ax, sim_outputs, req_param, general_sim_params, temporal_extensi
         TE = False
         if NeedToPlot(req_param, parameter, method, TE, temp_ext):
 
-            y, std, steps = CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, 'offline', optimal_policy_reward)
+            y, std, steps = CalcData(general_sim_params, sim_outputs, method, parameter, temp_ext, 'offline',
+                                     optimal_policy_reward)
 
             if not temporal_extension_run:
                 c = PlotColor(method, parameter)
@@ -218,7 +219,7 @@ def PlotOffline(ax, sim_outputs, req_param, general_sim_params, temporal_extensi
             ax.fill_between(steps, y + std / 4, y - std / 4, alpha=0.1, color=c)
 
     ax.axhline(y=1, color=PlotColor('optimal'), linestyle='-',
-                  label='optimal policy expected reward')
+               label='optimal policy expected reward')
 
     ax.set_ylim([global_dict['ylim1'][global_dict['j']], global_dict['ylim2'][global_dict['j']]])
 
@@ -229,7 +230,6 @@ def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, genera
         temporal_extension_run = len(general_sim_params['temporal_extension']) > 1
     except:
         temporal_extension_run = False
-
 
     ax = plt.Subplot(global_dict['global_fig'], global_dict['inner'][global_dict['j']])
     global_dict['global_fig'].add_subplot(ax)
@@ -246,16 +246,18 @@ def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
     for i, ((mdp_type, res_data), opt_reward) in enumerate(zip(result_list, opt_policy_reward_list)):
         PlotEvaluation(res_data, opt_reward, general_sim_params)
         # if mdp_type in ['chains', 'bridge']:
-            # CompareActivations(res_data, i)
+        # CompareActivations(res_data, i)
 
         # plt.show()
 
+
 MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
+
 
 def ListOfMDPFromPckl():
     # part
-    ylim1 = [0.9, 0.7, 0.7,   0.2, 0.7]
-    ylim2 = [1.01, 1.03,  1.03, 1.08, 1.03]
+    ylim1 = [0.9, 0.7, 0.7, 0.2, 0.7]
+    ylim2 = [1.01, 1.03, 1.03, 1.08, 1.03]
     # x1, x2, y1, y2
     offset_list = [[(8300, 8500, 8500, 10000),
                     (7200, 7500, 28000, 32000),
@@ -278,6 +280,7 @@ def ListOfMDPFromPckl():
     mdp_num = len(graph_name)
 
     res_tuple_list = {'res': [], 'opt_reward': []}
+    res_tuple = None
     for i, path in enumerate(data_path):
         res_tuple = pickle.load(open(path, 'rb'))
         res_tuple_list['res'].append(res_tuple['res'][0])
@@ -335,6 +338,7 @@ def FormatPlot(mdp_num, TE):
     BuildLegend(mdp_num, TE)
     # global_fig.show()
 
+
 def GTRes():
     # part
     titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
@@ -347,6 +351,7 @@ def GTRes():
     mdp_num = len(graph_name)
 
     res_tuple_list = {'res': [], 'opt_reward': []}
+    res_tuple = None
     for i, path in enumerate(data_path):
         res_tuple = pickle.load(open(path, 'rb'))
         res_tuple_list['res'].append(res_tuple['res'][0])
@@ -368,6 +373,7 @@ def GTRes():
     line_loc = [(4, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
     titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
+
 
 def TERes():
     '''
@@ -420,6 +426,7 @@ def TERes():
     mdp_num = len(graph_name)
 
     res_tuple_list = {'res': [], 'opt_reward': []}
+    res_tuple = None
     for i, path in enumerate(data_path):
         res_tuple = pickle.load(open(path, 'rb'))
         res_tuple_list['res'].append(res_tuple['res'][0])
@@ -431,11 +438,13 @@ def TERes():
 
 def AddBadStatesForGT(res_list, general_sim_params):
     ax = plt.Subplot(global_dict['global_fig'], global_dict['inner'][1])
+    steps = []
     global_dict['global_fig'].add_subplot(ax)
     # axes[0, 1] = ax
     bad_states = []
     for i, mdp_res in enumerate(res_list):
-        bad_states.append(np.asarray(mdp_res[1][('gittins', 'reward', 1)]['bad_states'][0]) / general_sim_params['eval_freq'])
+        bad_states.append(
+            np.asarray(mdp_res[1][('gittins', 'reward', 1)]['bad_states'][0]) / general_sim_params['eval_freq'])
         eval_count = int(general_sim_params['steps'] /
                          (general_sim_params['eval_freq']))
         max_step = eval_count * general_sim_params['eval_freq']
@@ -481,9 +490,7 @@ def BuildGlobalDict(param):
     global_dict['mdp_num'] = mdp_num
 
 
-
 def SetGlobals(plot_type, Results):
-
     if plot_type == 'GT':
         res = GTRes()
     elif plot_type == 'TE':
@@ -499,8 +506,6 @@ def SetGlobals(plot_type, Results):
 
 
 def PlotResultsWrraper(plot_type, Results=None):
-
-
     SetGlobals(plot_type, Results)
 
     global_dict['global_fig'] = plt.figure(figsize=(6, 8))
@@ -510,7 +515,7 @@ def PlotResultsWrraper(plot_type, Results=None):
     for i in [0, 1]:
         global_dict['i'] = i
         global_dict['inner'] = gridspec.GridSpecFromSubplotSpec(1, global_dict['mdp_num'],
-                                                 subplot_spec=outer[i], wspace=0.3, hspace=0.3)
+                                                                subplot_spec=outer[i], wspace=0.3, hspace=0.3)
         for j in range(global_dict['mdp_num']):
             global_dict['j'] = j
             PlotEvaluation(global_dict['res_tuple_list']['res'][j][1], global_dict['res_tuple_list']['opt_reward'][j],
@@ -521,8 +526,3 @@ def PlotResultsWrraper(plot_type, Results=None):
 
 if __name__ == '__main__':
     PlotResultsWrraper('TE')
-
-
-
-
-

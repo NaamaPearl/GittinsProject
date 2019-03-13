@@ -1,7 +1,7 @@
 from Framework.Plotting import *
 import pickle
 from itertools import product
-from functools import reduce
+from Simulator.Simulator import *
 
 
 def summarizeCritics(critics, critic_type):
@@ -34,13 +34,17 @@ def RunSimulations(_mdp_list, sim_params):
             critics = []
             indexes = []
             grades = []
+            gt_index = []
+
             for run_num in range(1, sim_params['runs_per_mdp'] + 1):
                 print('         start run # ' + str(run_num))
                 sim = SimulatorFactory(mdp, sim_params)
-                critic, graded_state, index, gt_index = sim.simulate(sim_input)
+                critic, graded_state, index, gt = sim.simulate(sim_input)
                 critics.append(critic)
                 indexes.append(index)
                 grades.append(graded_state)
+                gt_index.append(gt)
+
             result[i][1][(method, parameter, temp_extension)] = summarizeCritics(critics, mdp.type)
             result[i][2][(method, parameter, temp_extension)] = {}
             result[i][2][(method, parameter, temp_extension)]['eval'] = indexes
@@ -48,34 +52,6 @@ def RunSimulations(_mdp_list, sim_params):
             result[i][3][(method, parameter, temp_extension)] = grades
     return result
 
-
-# def compareSweepingWithAgents(mdp, sim_params, agent_ratio_vec):
-#     general_sim_params['eval_type'] = ['offline']
-#     sweeper = PrioritizedSweeping(ProblemInput(
-#         MDP_model=SimulatedModel(mdp), agent_num=sim_params['agents_to_run'], gamma=mdp.gamma, **sim_params),
-#         'sweeping')
-#     sweeper.simulate(SimulationInput(**sim_params))
-#     sweeping_result = sweeper.critic.value_vec['offline']
-#
-#     agents_result = []
-#     for agent_ratio in agent_ratio_vec:
-#         sim_params['agent_ratio'] = agent_ratio
-#
-#         agent_simulator = SimulatorFactory(mdp, 'gittins', sim_params)
-#         agent_simulator.simulate(SimInputFactory('greedy', 'error', sim_params))
-#
-#         agents_result.append(agent_simulator.critic.value_vec['offline'])
-#
-#     plt.figure()
-#     eval_count = int(np.ceil(general_sim_params['steps'] / general_sim_params['eval_freq']))
-#     steps = np.array(list(range(eval_count))) * general_sim_params['eval_freq']
-#
-#     plt.plot(steps, sweeping_result, label='sweeping')
-#     for i in range(len(agents_result)):
-#         plt.plot(steps, agents_result[i]['offline'], label=r'$\rho$ = ' + str(agent_ratio_vec[i]))
-#
-#     plt.legend()
-#     plt.show()
 
 def generateMDP(mdp_type):
     if mdp_type == 'tunnel':
@@ -146,7 +122,7 @@ if __name__ == '__main__':
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['reward']}#, 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['reward']}  # 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, sim_params=general_sim_params)
