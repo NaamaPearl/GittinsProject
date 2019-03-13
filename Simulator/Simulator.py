@@ -23,6 +23,7 @@ class Simulator:
         self.policy = [0] * state_num
         self.MDP_model.CalcPolicyData(self.policy)
         self.indexes_vec = []
+        self.gt_indexes_vec = []
 
         self.InitStatics()
 
@@ -105,7 +106,7 @@ class Simulator:
             # if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
             #     self.Reset()
 
-        return self.critic, self.indexes_vec, self.graded_states
+        return self.critic, self.graded_states, self.indexes_vec, self.gt_indexes_vec
 
     def Reset(self):
         pass
@@ -179,14 +180,23 @@ class AgentSimulator(Simulator):
         super().ImprovePolicy(sim_input)
 
         p, r = self.GetStatsForPrioritizer(sim_input.parameter)
+        p_gt, r_gt = self.GetStatsForPrioritizer('ground_truth')
         prioritizer = sim_input.prioritizer(states=self.MDP_model.states,
                                             policy=self.policy,
                                             p=p,
                                             r=r,
                                             temporal_extension=sim_input.temporal_extension,
                                             discount_factor=sim_input.gittins_discount)
+        gt_prioritizer = sim_input.prioritizer(states=self.MDP_model.states,
+                                            policy=self.policy,
+                                            p=p_gt,
+                                            r=r_gt,
+                                            temporal_extension=sim_input.temporal_extension,
+                                            discount_factor=sim_input.gittins_discount)
         self.graded_states, indexes = prioritizer.GradeStates()
         self.indexes_vec.append(indexes)
+        self.gittins, gt_indexes = gt_prioritizer.GradeStates()
+        self.gt_indexes_vec.append(gt_indexes)
         self.ReGradeAllAgents(kwargs['iteration_num'], sim_input.grades_freq)
 
     def ReincarnateAgent(self, agent, iteration_num, grades_freq):

@@ -12,7 +12,7 @@ class Prioritizer:
         self.states = states
 
     def GradeStates(self):
-        return {state.idx: random.random() for state in self.states}
+        return {state.idx: random.random() for state in self.states}, None
 
 
 class FunctionalPrioritizer(Prioritizer):
