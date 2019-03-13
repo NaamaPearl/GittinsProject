@@ -113,7 +113,7 @@ def generateMDP(mdp_type):
     raise NotImplementedError()
 
 
-def EvaluateGittinsByValue(res_list, general_sim_params):
+def EvaluateGittinsByValue(res_list):
     subs = []
     for i, mdp_res in enumerate(res_list):
 
@@ -140,7 +140,7 @@ def EvaluateGittinsByValue(res_list, general_sim_params):
     plt.show()
 
 
-def EvaluateGittinsByStates(res_list, general_sim_params):
+def EvaluateGittinsByStates(res_list):
     bad_states = []
     for i, mdp_res in enumerate(res_list):
 
@@ -159,11 +159,11 @@ def EvaluateGittinsByStates(res_list, general_sim_params):
     plt.show()
 
 
-def EvaluateGittins(res_list, general_sim_params):
+def EvaluateGittins(res_list):
     # pickle.load(open("run_res2.pckl", "rb"))
     # mdp_num = len(res_list)
     # EvaluateGittinsByValue(res_list, general_sim_params)
-    EvaluateGittinsByStates(res_list, general_sim_params)
+    EvaluateGittinsByStates(res_list)
 
 
 if __name__ == '__main__':
@@ -201,14 +201,14 @@ if __name__ == '__main__':
 
     # define general simulation params
     general_sim_params = {
-        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
+        'steps': 100, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['reward']}#, 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['reward']}  # 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, gittins, sim_params=general_sim_params)
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     with open('run_res2.pckl', 'wb') as f:
         pickle.dump(printalbe_res, f)
 
-    EvaluateGittins(res, general_sim_params)
+    EvaluateGittins(res)
     PlotResults(res, opt_policy_reward, general_sim_params)
 
     print('all done')

@@ -71,7 +71,6 @@ class Critic:
         self.eval_type_list = kwargs['evaluator_type']
         self.evaluator_dict = EvaluatorFactory().GenEvaluatorDict(kwargs['evaluator_type'], **kwargs)
         self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
-        self.reward_tunnel = {eval_type: [] for eval_type in self.eval_type_list}
         self.bad_activated_states = []
 
     def Update(self, chain, state_idx):

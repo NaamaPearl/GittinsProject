@@ -65,6 +65,40 @@ class GittinsPrioritizer(FunctionalPrioritizer):
         Operates Iteratively, until all states are ordered.
         """
 
+        def UpdateProbMat():
+            """ Calculate new transition probabilities, after optimal state omission (invoked after removal) """
+            P = self.P[-1]
+            for state1 in rs_list:
+                s1 = state1.object.idx
+                if P[s1, opt_state.idx] > 0:  # only update P for states from which opt_s is reachable
+                    for state2 in rs_list:
+                        s2 = state2.object.idx
+                        P[s1, s2] += ((P[s1, opt_state.idx] * P[opt_state.idx, s2]) /
+                                      (1 + epsilon - P[opt_state.idx, opt_state.idx]))
+
+            # zero out transitions to/ from opt_state
+            P[opt_state.idx] = 0
+            P[:, opt_state.idx] = 0
+
+        def UpdateStateIndex(state: StateScore):
+            """ Calc state's index after omission """
+            P = self.P[-1]
+            state_idx = state.idx
+            opt_state_idx = opt_state.reward.idx
+
+            # calculate needed sizes for final calculations
+            p_sub_optimal = 1 - P[state_idx, opt_state_idx]
+            p_opt_stay = P[opt_state_idx, opt_state_idx] + epsilon
+            sum_p_opt = 1 / (1 - p_opt_stay)
+            t_opt_expect = 1 / (2 * (1 - p_opt_stay) ** 2)
+            p_opt_back = P[state_idx, opt_state_idx] * sum_p_opt * (np.sum(P[opt_state_idx, :]) - p_opt_stay)
+
+            R = p_sub_optimal * state.score + p_opt_back * \
+                (state.score + opt_state.reward.score + opt_state.reward.score * t_opt_expect)
+            W = p_sub_optimal + p_opt_back * 2 + p_opt_back * t_opt_expect
+
+            state.score = R / W
+
         rs_list = [PrioritizedObject(s, StateScore(s, r)) for s, r in zip(self.states, self.r)]
         result = {}
         score = 1  # score is order of extraction
@@ -78,47 +112,10 @@ class GittinsPrioritizer(FunctionalPrioritizer):
             result[opt_state.idx] = score
             score += 1
 
-            for rewarded_state in rs_list:
-                self.CalcIndex(rewarded_state.reward, opt_state.reward)  # calc indexes after omission
+            [UpdateStateIndex(rewarded_state.reward) for rewarded_state in rs_list]  # calc indexes after omission
+            UpdateProbMat()  # calc new transition matrix
 
-            self.CalcNewProb(rs_list, opt_state)  # calc new transition matrix
         last_state = rs_list.pop()
         index_vec[last_state.idx] = last_state.reward.score
         result[last_state.object.idx] = score  # when only one state remains, simply add it to the result list
         return result, index_vec
-
-    def CalcNewProb(self, rs_list, opt_s: PrioritizedObject):
-        """
-    calculate new transition probabilities, after optimal state omission (invoked after removal)
-    """
-        P = self.P[-1]
-        for state1 in rs_list:
-            s1 = state1.object.idx
-            if P[s1, opt_s.idx] > 0:  # only update P for states from which opt_s is reachable
-                for state2 in rs_list:
-                    s2 = state2.object.idx
-                    P[s1, s2] += (P[s1, opt_s.idx] * P[opt_s.idx, s2] / (1 + epsilon - P[opt_s.idx, opt_s.idx]))
-
-        # zero out transitions to/ from opt_state
-        P[opt_s.idx] = 0
-        P[:, opt_s.idx] = 0
-
-    def CalcIndex(self, state: StateScore, opt_s: StateScore):
-        """
-        calc state's index after omission
-        """
-        P = self.P[-1]
-        state_idx = state.idx
-        opt_state_idx = opt_s.idx
-
-        # calculate needed sizes for final calculations
-        p_sub_optimal = 1 - P[state_idx, opt_state_idx]
-        p_opt_stay = P[opt_state_idx, opt_state_idx] + epsilon
-        sum_p_opt = 1 / (1 - p_opt_stay)
-        t_opt_expect = 1 / (2 * (1 - p_opt_stay) ** 2)
-        p_opt_back = P[state_idx, opt_state_idx] * sum_p_opt * (np.sum(P[opt_state_idx, :]) - p_opt_stay)
-
-        R = p_sub_optimal * state.score + p_opt_back * (state.score + opt_s.score + opt_s.score * t_opt_expect)
-        W = p_sub_optimal + p_opt_back * 2 + p_opt_back * t_opt_expect
-
-        state.score = R / W
