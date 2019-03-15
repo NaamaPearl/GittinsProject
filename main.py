@@ -113,9 +113,9 @@ if __name__ == '__main__':
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
-    # define general simulation params
+    # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents': [(10, 30), (20,30)],
+        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents': [(10, 30), (20, 30)],
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
     }
