@@ -5,7 +5,7 @@ import numpy as np
 class ProblemInput:
     def __init__(self, **kwargs):
         self.MDP_model = kwargs['MDP_model']
-        self.agent_num = kwargs['agents_to_generate']
+        self.agent_num = kwargs['agents'][1]
         self.gamma = kwargs['gamma']
         self.epsilon = kwargs['epsilon']
         self.eval_type = kwargs['eval_type']
@@ -17,7 +17,7 @@ class SimulationInput:
         self.reset_freq = kwargs['reset_freq']
         self.grades_freq = kwargs['grades_freq']
         self.evaluate_freq = kwargs['eval_freq']
-        self.agents_to_run = kwargs['agents_to_run']
+        self.agents_to_run = kwargs['agents'][0]
         self.trajectory_len = kwargs['trajectory_len']
         self.T_board = kwargs['T_board']
 

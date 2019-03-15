@@ -74,7 +74,8 @@ class Critic:
         pass
 
     def CriticEvaluate(self, **kwargs):
-        self.bad_activated_states.append(kwargs['bad_activated_states'])
+        if kwargs.get('bad_activated_states') is not None:
+            self.bad_activated_states.append(kwargs['bad_activated_states'])
         for eval_type in self.eval_type_list:
             evaluated_reward = self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs)
             self.value_vec[eval_type].append(evaluated_reward)

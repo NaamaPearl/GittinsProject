@@ -19,17 +19,17 @@ def summarizeCritics(critics, critic_type):
     return result
 
 
-def RunSimulations(_mdp_list, sim_params):
+def RunSimulations(_mdp_list, sim_params, varied_definition_str, gt_compare=False):
     sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method],
-                                                              sim_params['temporal_extension']))
+                                                              sim_params[varied_definition_str]))
                                                  for method in sim_params['method_dict'].keys()])
     result = [(mdp.type, {}, {}, {}) for mdp in _mdp_list]
     for i, mdp in enumerate(_mdp_list):
         print('run MDP num ' + str(i))
-        for method, parameter, temp_extension in sim_definition:
+        for method, parameter, varied_definition in sim_definition:
             print('     running ' + method + ' prioritization, using ' + str(parameter) + ':')
+            sim_params[varied_definition_str] = varied_definition
             sim_input = SimInputFactory(method, parameter, sim_params)
-            sim_input.temporal_extension = temp_extension
 
             critics = []
             indexes = []
@@ -38,18 +38,18 @@ def RunSimulations(_mdp_list, sim_params):
 
             for run_num in range(1, sim_params['runs_per_mdp'] + 1):
                 print('         start run # ' + str(run_num))
-                sim = SimulatorFactory(mdp, sim_params)
-                critic, graded_state, index, gt = sim.simulate(sim_input)
+                sim = SimulatorFactory(mdp, sim_params, gt_compare)
+                critic, index, graded_state, gt = sim.simulate(sim_input)
                 critics.append(critic)
                 indexes.append(index)
                 grades.append(graded_state)
                 gt_index.append(gt)
 
-            result[i][1][(method, parameter, temp_extension)] = summarizeCritics(critics, mdp.type)
-            result[i][2][(method, parameter, temp_extension)] = {}
-            result[i][2][(method, parameter, temp_extension)]['eval'] = indexes
-            result[i][2][(method, parameter, temp_extension)]['gt'] = gt_index
-            result[i][3][(method, parameter, temp_extension)] = grades
+            result[i][1][(method, parameter, varied_definition)] = summarizeCritics(critics, mdp.type)
+            result[i][2][(method, parameter, varied_definition)] = {}
+            result[i][2][(method, parameter, varied_definition)]['eval'] = indexes
+            result[i][2][(method, parameter, varied_definition)]['gt'] = gt_index
+            result[i][3][(method, parameter, varied_definition)] = grades
     return result
 
 
@@ -92,8 +92,8 @@ if __name__ == '__main__':
         star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
         tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
 
-        # mdp_list = [clique[0]]
-        mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
+        mdp_list = [clique[0]]
+        # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
 
     else:
         n = 46
@@ -115,9 +115,9 @@ if __name__ == '__main__':
 
     # define general simulation params
     general_sim_params = {
-        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents_to_run': 10, 'agents_to_generate': 30,
+        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents': [(10, 30), (20,30)],
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     _method_dict = {'gittins': ['reward']}  # 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
-    res = RunSimulations(mdp_list, sim_params=general_sim_params)
+    res = RunSimulations(mdp_list, general_sim_params, varied_definition_str='agents', gt_compare=False)
 
     printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
 
