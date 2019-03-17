@@ -115,14 +115,15 @@ if __name__ == '__main__':
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents': [(10, 30), (20, 30)],
+        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents': [(10, 10),(10, 20),(10, 30),(10, 40)],
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 1
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 3,
+        'varied_param': 'agents'
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['reward']}  # 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['error']}  # 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     res = RunSimulations(mdp_list, general_sim_params, varied_definition_str='agents', gt_compare=False)

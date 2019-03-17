@@ -26,21 +26,18 @@ def CalcData(general_sim_params, sim_outputs, optimal):
     return (gt_smooth - gittins_smooth) / optimal, steps, (gt_std_tmp - gittins_std_tmp) / optimal ** 2
 
 
-
-
-
-
 global_fig = None
 MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
+
 
 def ListOfMDPFromPckl():
     # part
     titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     graph_name = [r'GT/new calc/GT_clique.pckl',
-                 r'GT/new calc/GT_tunnel.pckl',
-                 r'GT/new calc/GT_tree.pckl',
-                 r'GT/new calc/GT_cliff.pckl'
-                ]
+                  r'GT/new calc/GT_tunnel.pckl',
+                  r'GT/new calc/GT_tree.pckl',
+                  r'GT/new calc/GT_cliff.pckl'
+                  ]
     data_path = [DATA_PATH(name) for name in graph_name]
     mdp_num = len(graph_name)
 
@@ -54,7 +51,6 @@ def ListOfMDPFromPckl():
     return res_tuple_list, titles, mdp_num
 
 
-
 def DATA_PATH(path):
     return MAIN_FOLDER + path
 
@@ -62,7 +58,6 @@ def DATA_PATH(path):
 def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
     subs = []
     for i, mdp_res in enumerate(res_list):
-
         evaluated_indexes = np.asarray(mdp_res[2][('gittins', 'reward', 1)]['eval'])[4]
         gt_indexes = np.asarray(mdp_res[2][('gittins', 'ground_truth', 1)]['gt'])
         eval_count = int(general_sim_params['steps'] /
@@ -87,8 +82,8 @@ def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
 def EvaluateGittinsByStates(res_list, general_sim_params, titles):
     bad_states = []
     for i, mdp_res in enumerate(res_list):
-
-        bad_states.append(np.asarray(mdp_res[1][('gittins', 'reward', 1)]['bad_states'][0]) / general_sim_params['eval_freq'])
+        bad_states.append(
+            np.asarray(mdp_res[1][('gittins', 'reward', 1)]['bad_states'][0]) / general_sim_params['eval_freq'])
         eval_count = int(general_sim_params['steps'] /
                          (general_sim_params['eval_freq']))
         max_step = eval_count * general_sim_params['eval_freq']
@@ -116,12 +111,12 @@ def EvaluateGittinsByPerf(res_list, general_sim_params, titles, optimal):
     axes[2].set_title('Performance Difference')
     axes[2].legend(titles)
 
+
 def EvaluateGittins(res_list, general_sim_params, titles):
-     # mdp_num = len(res_list)
+    # mdp_num = len(res_list)
     EvaluateGittinsByValue(res_list['res'], general_sim_params, titles, res_tuple_list['opt_reward'])
     EvaluateGittinsByStates(res_list['res'], general_sim_params, titles)
     EvaluateGittinsByPerf(res_list['res'], general_sim_params, titles, res_tuple_list['opt_reward'])
-
 
 
 def SetDefaults():
@@ -139,14 +134,11 @@ def SetDefaults():
     plt.rc('figure', titlesize=BIGGER_SIZE, titleweight="bold")  # fontsize of the figure title
 
 
-
-
 if __name__ == '__main__':
     res_tuple_list, titles, mdp_num = ListOfMDPFromPckl()
     SetDefaults()
     fig, axes = plt.subplots(1, 3)
-    fig.subplots_adjust(wspace=0.5, bottom = 0.2 )
+    fig.subplots_adjust(wspace=0.5, bottom=0.2)
     EvaluateGittins(res_tuple_list, res_tuple_list['params'], titles)
 
     plt.show()
-
