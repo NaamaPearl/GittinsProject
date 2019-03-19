@@ -1,8 +1,9 @@
 import queue as Q
-from Actor.Prioritizer import Prioritizer, GittinsPrioritizer, GreedyPrioritizer
+from Actor.Prioritizer import *
 from Critic.Critic import *
 from Simulator.SimulatorBasics import *
 from Framework.Inputs import *
+from Framework.PrioritizedObject import PrioritizedObject
 from collections import Counter
 import heapq
 
@@ -45,9 +46,8 @@ class Simulator:
 
     def getActionResults(self, state_action: StateActionPair):
         """ simulates desired action, and returns next_state, reward """
-        next_state = self.MDP_model.states[self.MDP_model.GetNextState(state_action)]
-        reward = self.MDP_model.GetReward(state_action)
-        return next_state, reward
+        next_state, reward = self.MDP_model.MDP_model.sample_state_action(state_action.state.idx, state_action.action)
+        return self.MDP_model.states[next_state], reward
 
     def updateModel(self, current_state_action, next_state, reward):
         def Update_V():
@@ -167,6 +167,8 @@ class AgentSimulator(Simulator):
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
         if parameter == 'ground_truth':
             return self.MDP_model.MDP_model.P, np.transpose(self.MDP_model.MDP_model.expected_r)
+        if parameter == 'model_free':
+            return self.MDP_model.MDP_model, None
 
     def ImprovePolicy(self, sim_input, **kwargs):
         """
@@ -187,12 +189,13 @@ class AgentSimulator(Simulator):
         self.indexes_vec.append(indexes)
 
         p_gt, r_gt = self.GetStatsForPrioritizer('ground_truth')
-        gt_prioritizer = sim_input.prioritizer(states=self.MDP_model.states,
-                                               policy=self.policy,
-                                               p=p_gt,
-                                               r=r_gt,
-                                               temporal_extension=sim_input.temporal_extension,
-                                               discount_factor=sim_input.gittins_discount)
+        gt_prioritizer = GittinsPrioritizer(states=self.MDP_model.states,
+                                            policy=self.policy,
+                                            p=p_gt,
+                                            r=r_gt,
+                                            temporal_extension=sim_input.temporal_extension,
+                                            discount_factor=sim_input.gittins_discount)
+
         self.gittins, gt_indexes = gt_prioritizer.GradeStates()
         self.gt_indexes_vec.append(gt_indexes)
 
@@ -301,8 +304,10 @@ class GTAgentSimulator(AgentSimulator):
 
 
 def SimulatorFactory(mdp: MDPModel, sim_params, gt_compare):
-    if gt_compare: simulator = GTAgentSimulator
-    else: simulator = AgentSimulator
+    if gt_compare:
+        simulator = GTAgentSimulator
+    else:
+        simulator = AgentSimulator
 
     return simulator(
         ProblemInput(MDP_model=SimulatedModel(mdp), gamma=mdp.gamma, **sim_params))
@@ -315,7 +320,7 @@ def SimInputFactory(method_type, parameter, sim_params):
         parameter = None
         prioritizer = Prioritizer
     elif method_type == 'gittins':
-        prioritizer = GittinsPrioritizer
+        prioritizer = ModelFreeGittinsPrioritizer if parameter == 'model_free' else GittinsPrioritizer
     elif method_type == 'greedy':
         prioritizer = GreedyPrioritizer
     else:

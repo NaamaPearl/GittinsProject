@@ -13,14 +13,14 @@ class SimulatedModel:
     def CalcPolicyData(self, policy):
         self.policy_dynamics, self.policy_expected_rewards = self.MDP_model.CalcPolicyData(policy)
 
-    def GetNextState(self, state_action):
-        return np.random.choice(range(self.MDP_model.n), p=self.MDP_model.P[state_action.state.idx][state_action.action])
-
     def calculate_V(self, gamma):
         return np.linalg.inv(np.eye(self.MDP_model.n) - gamma * self.policy_dynamics) @ self.policy_expected_rewards
 
     def GetReward(self, state_action):
         return self.MDP_model.r[state_action.state.idx][state_action.action].GiveReward()
+
+    def GetNextState(self, state_action):
+        return self.MDP_model.get_next_state(state_action.state.idx, state_action.action)
 
     @property
     def n(self):
