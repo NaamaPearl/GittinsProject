@@ -155,4 +155,4 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
 
         res = {}
         [CalcStateIndex(state_idx) for state_idx in range(self.n)]
-        return res, res.items()
+        return res, res.values()
