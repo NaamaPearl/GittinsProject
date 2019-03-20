@@ -1,9 +1,11 @@
+import random
+from abc import abstractmethod
+
 import numpy as np
+
 from Framework.PrioritizedObject import PrioritizedObject
 from MDPModel.MDPBasics import StateScore
 from MDPModel.MDPModel import MDPModel
-import random
-from abc import abstractmethod, ABC
 
 epsilon = 10 ** -5
 
@@ -113,46 +115,58 @@ class GittinsPrioritizer(TabularPrioritizer):
 
         rs_list = [PrioritizedObject(s, StateScore(s, r)) for s, r in zip(self.states, self.r)]
         result = {}
-        score = 1  # score is order of extraction
+        order = 1  # score is order of extraction
 
-        index_vec = np.empty(self.n)
         while len(rs_list) > 1:
             # identify optimal state, omit it from model and add it to result
             opt_state = max(rs_list)
-            index_vec[opt_state.idx] = opt_state.reward.score
             rs_list.remove(opt_state)
-            result[opt_state.idx] = score
-            score += 1
+            result[opt_state.idx] = (order, opt_state.reward.score)
+            order += 1
 
             [UpdateStateIndex(rewarded_state.reward) for rewarded_state in rs_list]  # calc indexes after omission
             UpdateProbMat()  # calc new transition matrix
 
+        # when only one state remains, simply add it to the result list
         last_state = rs_list.pop()
-        index_vec[last_state.idx] = last_state.reward.score
-        result[last_state.object.idx] = score  # when only one state remains, simply add it to the result list
-        return result, index_vec
+        result[last_state.object.idx] = (order, last_state.reward.score)
+        return result
 
 
 class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
     def __init__(self, states, policy, p, discount_factor, **kwargs):
         super().__init__(states, policy, discount_factor)
         self.model: MDPModel = p
-        self.trajectory_len = 20
+        self.max_trajectory_len = 2
+        self.trajectories_per_len = 2
 
     def GradeStates(self):
         def CalcStateIndex(state_idx):
-            accumulated_reward = 0
-            curr_state: int = state_idx
+            def MaxTrajectoryPerLength():
+                def CalcTrajectoryValue():
+                    accumulated_reward = 0
+                    curr_state: int = state_idx
 
-            for i in range(self.trajectory_len):
-                policy_action = self.policy[curr_state]
-                next_state, new_reward = self.model.sample_state_action(curr_state, policy_action)
+                    for i in range(trajectory_len):
+                        policy_action = self.policy[curr_state]
+                        next_state, new_reward = self.model.sample_state_action(curr_state, policy_action)
 
-                curr_state = next_state
-                accumulated_reward += (self.discount_factor ** i * new_reward)
+                        curr_state = next_state
+                        accumulated_reward += (self.discount_factor ** i * new_reward)
 
-            res[state_idx] = -accumulated_reward
+                    return accumulated_reward
+                expected_maximal_trajectory_value = 0
+                for _ in range(self.trajectories_per_len):
+                    expected_maximal_trajectory_value += CalcTrajectoryValue()
 
-        res = {}
-        [CalcStateIndex(state_idx) for state_idx in range(self.n)]
-        return res, res.values()
+                return expected_maximal_trajectory_value / self.trajectories_per_len
+
+            curr_max = -np.inf
+            for trajectory_len in range(self.max_trajectory_len):
+                curr_max = max(curr_max, MaxTrajectoryPerLength())
+
+            return curr_max
+
+        sorted_state_list = sorted({state_idx: -CalcStateIndex(state_idx) for state_idx in range(self.n)}.items(),
+                                   key=lambda x: x[1])
+        return {state[0]: (order + 1, state[1]) for order, state in enumerate(sorted_state_list)}
