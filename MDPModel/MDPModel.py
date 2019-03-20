@@ -286,7 +286,7 @@ class CliffWalker(TreeMDP):
         return p_vec
 
 
-class SeperateChainsMDP(TreeMDP):
+class CliquesMDP(TreeMDP):
     """ Initial state leads to different isolated cliques, each with different reward parameters"""
 
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num,
@@ -373,7 +373,7 @@ class SeperateChainsMDP(TreeMDP):
         return {self.chain_num - 1}
 
 
-class ChainsTunnelMDP(SeperateChainsMDP):
+class ChainsTunnelMDP(CliquesMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
         self.tunnel_indexes = tunnel_indexes
         super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, traps_num)
@@ -413,7 +413,7 @@ class ChainsTunnelMDP(SeperateChainsMDP):
         return super().GetRewardParams(state_idx)
 
 
-class StarMDP(SeperateChainsMDP):
+class StarMDP(CliquesMDP):
     """ Seperate MDPs, all connected via one initial state"""
 
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs):

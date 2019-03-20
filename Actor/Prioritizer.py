@@ -19,7 +19,7 @@ class Prioritizer:
 
 
 class FunctionalPrioritizer(Prioritizer):
-    def __init__(self, states, policy, discount_factor):
+    def __init__(self, states, policy, discount_factor, **kwargs):
         super().__init__(states)
         self.n = len(states)
         self.policy = policy
@@ -31,7 +31,7 @@ class FunctionalPrioritizer(Prioritizer):
 
 
 class TabularPrioritizer(FunctionalPrioritizer):
-    def __init__(self, states, policy, p, r, temporal_extension, discount_factor):
+    def __init__(self, states, policy, p, r, temporal_extension, discount_factor, **kwargs):
         super().__init__(states, policy, discount_factor)
         self.temporal_extension = temporal_extension
 
@@ -134,6 +134,41 @@ class GittinsPrioritizer(TabularPrioritizer):
 
 
 class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
+    def __init__(self, states, policy, discount_factor, p, trajectory_num, max_trajectory_len, **kwargs):
+        super().__init__(states, policy, discount_factor)
+        self.model: MDPModel = p
+        self.trajectory_num = trajectory_num
+        self.max_trajectory_len = max_trajectory_len
+
+    def GradeStates(self):
+        def CalcStateIndex(state_idx):
+            def create_trajectory():
+                res = [0.]
+                curr_state = state_idx
+
+                for i in range(self.max_trajectory_len):
+                    next_state, new_reward = self.model.sample_state_action(curr_state, self.policy[curr_state])
+
+                    res.append(res[-1] + self.discount_factor ** i * new_reward)
+                    curr_state = next_state
+
+                return np.array(res[1:]) / denom_vec
+
+            trajectory_mat = np.empty((self.trajectory_num, self.max_trajectory_len))
+            for trajectory_num in range(self.trajectory_num):
+                trajectory_mat[trajectory_num] = create_trajectory()
+
+            return max(np.mean(trajectory_mat, axis=0))
+
+        denom_vec = np.array([(self.discount_factor ** i - 1) / (self.discount_factor - 1)
+                              for i in range(1, self.max_trajectory_len + 1)])
+
+        sorted_state_list = sorted({state_idx: -CalcStateIndex(state_idx) for state_idx in range(self.n)}.items(),
+                                   key=lambda x: x[1])
+        return {state[0]: (order + 1, state[1]) for order, state in enumerate(sorted_state_list)}
+
+
+class ModelFreeGittinsPrioritizer_obselete(FunctionalPrioritizer):
     def __init__(self, states, policy, p, discount_factor, **kwargs):
         super().__init__(states, policy, discount_factor)
         self.model: MDPModel = p
@@ -155,6 +190,7 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
                         accumulated_reward += (self.discount_factor ** i * new_reward)
 
                     return accumulated_reward
+
                 expected_maximal_trajectory_value = 0
                 for _ in range(self.trajectories_per_len):
                     expected_maximal_trajectory_value += CalcTrajectoryValue()

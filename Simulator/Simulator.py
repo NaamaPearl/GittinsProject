@@ -181,7 +181,9 @@ class AgentSimulator(Simulator):
                                             p=p,
                                             r=r,
                                             temporal_extension=sim_input.temporal_extension,
-                                            discount_factor=sim_input.gittins_discount)
+                                            discount_factor=sim_input.gittins_discount,
+                                            trajectory_num=sim_input.trajectory_num,
+                                            max_trajectory_len=sim_input.max_trajectory_len)
         self.graded_states = prioritizer.GradeStates()
 
         self.ReGradeAllAgents(kwargs['iteration_num'], sim_input.grades_freq)
@@ -279,16 +281,15 @@ class GTAgentSimulator(AgentSimulator):
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
         activated_states_list = super().SimulateOneStep(agents_to_run, **kwargs)
-        real_grades = [(self.gittins[agent.object.curr_state.idx], agent.object.curr_state.idx)
-                       for agent in self.agents.queue]
+        real_grades = [(self.gittins[state][0], state) for state in activated_states_list]
         heapq.heapify(real_grades)
+
         optimal_states = [heapq.heappop(real_grades)[1] for _ in range(len(activated_states_list))]
+        real_counter = Counter(optimal_states)
 
         chosen_states = [state for state in activated_states_list]
-        real_counter = Counter(optimal_states)
         chosen_counter = Counter(chosen_states)
         chosen_counter.subtract(real_counter)
-        list(chosen_counter.elements())
         self.bad_activated_states += len(list(chosen_counter.elements()))
 
     def ImprovePolicy(self, sim_input, **kwargs):

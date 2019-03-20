@@ -59,12 +59,12 @@ def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
     method_list = general_sim_params['gittins_compare']
     for method in method_list:
         for i, mdp_res in enumerate(res_list):
-            evaluated_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['eval'])[i]
-            gt_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['gt'])[i]
-            eval_count = int(general_sim_params['steps'] /
-                             (general_sim_params['eval_freq']))
+            eval_count = int(general_sim_params['steps'] / (general_sim_params['eval_freq']))
             max_step = eval_count * general_sim_params['eval_freq']
             steps = np.linspace(0, max_step, num=eval_count)
+
+            evaluated_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['eval'])[i]
+            gt_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['gt'])[i]
             sub = np.abs(evaluated_indexes - gt_indexes) / optimal[i]
             sub = sub.sum(1)
             state_num = evaluated_indexes[0].shape[0]

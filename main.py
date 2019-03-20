@@ -73,9 +73,9 @@ def generateMDP(mdp_type):
                                      4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
                                      0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
     if mdp_type == 'cliques':
-        return SeperateChainsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
-                                 chain_num=chain_num, gamma=gamma,
-                                 reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+        return CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
+                          chain_num=chain_num, gamma=gamma,
+                          reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
 
     if mdp_type == 'cliff':
         return CliffWalker(size=size,  random_prob=random_prob, gamma=gamma)
@@ -87,7 +87,7 @@ def generateMDP(mdp_type):
 
 if __name__ == '__main__':
     # building the MDPs
-    load = True
+    load = False
     if load:
         directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
         clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
@@ -111,17 +111,17 @@ if __name__ == '__main__':
         depth = 6
         resets_num = 7
 
-        mdp_list = [generateMDP('directed')]
+        mdp_list = [generateMDP('cliques')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents': (10, 10),
+        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents': (10, 40),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
-        'varied_param': 'temporal_extension'
+        'varied_param': 'temporal_extension', 'trajectory_num': 10, 'max_trajectory_len': 15
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
