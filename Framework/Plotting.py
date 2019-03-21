@@ -45,7 +45,9 @@ def PlotColor(method, param=None, varied_param_str=None, l=None):
         # return (0,0,c[l])
 
     if varied_param_str == 'agents':
-        c = {(10, 10): 'robin\'s egg blue', (10, 20): 'baby blue', (10, 30): 'blue', (10, 40): 'indigo'}
+        c = {(10, 10): 'robin\'s egg blue', (10, 20): 'baby blue', (10, 30): 'blue', (10, 40): 'indigo',
+             (10, 40): 'robin\'s egg blue', (20, 40): 'baby blue', (30, 40): 'blue', (40, 40): 'indigo'
+        }
         return 'xkcd:' + c[l]
 
     if method == 'optimal':
@@ -98,7 +100,17 @@ def CreateLegendFig():
     return fig
 
 
-def BuildLegend(mdp_num, varied_param=False):
+def BuildLegend(mdp_num, varied_param=None):
+
+    if varied_param == 'agents':
+        for ax in global_dict['axes'][1]:
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = OrderedDict(zip(labels, handles))
+            by_label['optimal'] = by_label['optimal policy expected reward']
+            del by_label['optimal policy expected reward']
+            leg = ax.legend(by_label.values(), by_label.keys())
+        return
+
     handles, labels = global_dict['axes'][1,0].get_legend_handles_labels()
     if varied_param != 'temporal_extension':
         labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0][::-1]))
@@ -112,7 +124,7 @@ def BuildLegend(mdp_num, varied_param=False):
     by_label = OrderedDict(zip(labels, handles))
 
     if mdp_num > 1:
-        leg = global_dict['global_fig'].figlegend(by_label.values(), by_label.keys(), ncol=len(by_label), loc=8)
+        leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=len(by_label), loc=8)
     else:
         by_label['optimal'] = by_label['optimal policy expected reward']
         del by_label['optimal policy expected reward']
@@ -462,18 +474,28 @@ def TERes():
 
 
 def AgentsRes():
-    ylim1 = [0.3]
-    ylim2 = [1.1]
+    ylim1 = [0.3, 0.3]
+    ylim2 = [1.1, 1.1]
     # x1, x2, y1, y2
     offset_list = [[None, None, None, None, None, None],
                    [None, None, None, None, None, None]]
     zoom_list = [10, 3, 7, 2, 3, 3]
     loc_list = [8, 4, 4, 4, 4, 4]
     line_loc = [(4, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
-    titles = ['Cliques']
-    graph_name = DATA_PATH(r'agents\run_res2.pckl')
-    mdp_num = 1
-    res_tuple_list = pickle.load(open(graph_name, 'rb'))
+    titles = ['Cliques', 'Cliques']
+    graph_path_list = [r'agents\run_res2_3.pckl']
+                       # r'agents\run_res2_3.pckl']
+    graph_name = [DATA_PATH(path) for path in graph_path_list]
+    mdp_num = len(graph_name)
+
+    res_tuple_list = {'res': [], 'opt_reward': [], 'agents_ratio': []}
+    for i, path in enumerate(graph_name):
+        res_tuple = pickle.load(open(path, 'rb'))
+        res_tuple_list['res'].append(res_tuple['res'][0])
+        res_tuple_list['opt_reward'].append(res_tuple['opt_reward'][0])
+    res_tuple_list['params'] = res_tuple['params']
+
+    # res_tuple_list = [pickle.load(open(name, 'rb')) for name in graph_name]
 
     return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
 
