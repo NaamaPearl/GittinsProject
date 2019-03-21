@@ -1,8 +1,11 @@
-import numpy as np
-from Framework.PrioritizedObject import PrioritizedObject
-from MDPModel.MDPBasics import StateScore
 import random
 from abc import abstractmethod
+
+import numpy as np
+
+from Framework.PrioritizedObject import PrioritizedObject
+from MDPModel.MDPBasics import StateScore
+from MDPModel.MDPModel import MDPModel
 
 epsilon = 10 ** -5
 
@@ -16,49 +19,60 @@ class Prioritizer:
 
 
 class FunctionalPrioritizer(Prioritizer):
-    def __init__(self, states, policy, p, r, temporal_extension, discount_factor):
+    def __init__(self, states, policy, discount_factor, **kwargs):
         super().__init__(states)
         self.n = len(states)
         self.policy = policy
-        self.temporal_extension = temporal_extension
-        self.P = self.buildP(p, policy, temporal_extension)
-        self.r = self.buildRewardVec(r, policy, temporal_extension, discount_factor)
-
-    def buildP(self, p, policy, temporal_extension):
-        prob_mat = [np.zeros((self.n, self.n)) for _ in range(temporal_extension)]
-        for state in range(self.n):
-            prob_mat[0][state] = p[state][policy[state]]
-
-        for i in range(1, temporal_extension):
-            prob_mat[i] = prob_mat[i - 1] @ prob_mat[0]
-
-        return prob_mat
-
-    def buildRewardVec(self, reward_mat, policy, temporal_extension, gamma):
-        immediate_r = np.zeros(self.n)
-        r = np.zeros(self.n)
-        for idx in range(self.n):
-            immediate_r[idx] = reward_mat[idx][policy[idx]]
-
-        for state_idx in range(self.n):
-            r[state_idx] = immediate_r[state_idx]
-            for i in range(1, temporal_extension):
-                p = self.P[i][state_idx]
-                r[state_idx] += (gamma * (p @ immediate_r))
-
-        return r
+        self.discount_factor = discount_factor
 
     @abstractmethod
     def GradeStates(self):
         pass
 
 
-class GreedyPrioritizer(FunctionalPrioritizer):
+class TabularPrioritizer(FunctionalPrioritizer):
+    def __init__(self, states, policy, p, r, temporal_extension, discount_factor, **kwargs):
+        super().__init__(states, policy, discount_factor)
+        self.temporal_extension = temporal_extension
+
+        def buildP():
+            prob_mat = [np.zeros((self.n, self.n)) for _ in range(self.temporal_extension)]
+            for state in range(self.n):
+                prob_mat[0][state] = p[state][self.policy[state]]
+
+            for i in range(1, self.temporal_extension):
+                prob_mat[i] = prob_mat[i - 1] @ prob_mat[0]
+
+            return prob_mat
+
+        def buildRewardVec():
+            immediate_r = np.zeros(self.n)
+            new_r = np.zeros(self.n)
+            for idx in range(self.n):
+                immediate_r[idx] = r[idx][self.policy[idx]]
+
+            for state_idx in range(self.n):
+                new_r[state_idx] = immediate_r[state_idx]
+                for i in range(1, self.temporal_extension):
+                    state_p = self.P[i][state_idx]
+                    new_r[state_idx] += (self.discount_factor * (state_p @ immediate_r))
+
+            return new_r
+
+        self.P = buildP()
+        self.r = buildRewardVec()
+
+    @abstractmethod
+    def GradeStates(self):
+        pass
+
+
+class GreedyPrioritizer(TabularPrioritizer):
     def GradeStates(self):
         return {state.idx: -self.r[state.idx] for state in self.states}
 
 
-class GittinsPrioritizer(FunctionalPrioritizer):
+class GittinsPrioritizer(TabularPrioritizer):
     def GradeStates(self):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
@@ -101,21 +115,94 @@ class GittinsPrioritizer(FunctionalPrioritizer):
 
         rs_list = [PrioritizedObject(s, StateScore(s, r)) for s, r in zip(self.states, self.r)]
         result = {}
-        score = 1  # score is order of extraction
+        order = 1  # score is order of extraction
 
-        index_vec = np.empty(self.n)
         while len(rs_list) > 1:
             # identify optimal state, omit it from model and add it to result
             opt_state = max(rs_list)
-            index_vec[opt_state.idx] = opt_state.reward.score
             rs_list.remove(opt_state)
-            result[opt_state.idx] = score
-            score += 1
+            result[opt_state.idx] = (order, opt_state.reward.score)
+            order += 1
 
             [UpdateStateIndex(rewarded_state.reward) for rewarded_state in rs_list]  # calc indexes after omission
             UpdateProbMat()  # calc new transition matrix
 
+        # when only one state remains, simply add it to the result list
         last_state = rs_list.pop()
-        index_vec[last_state.idx] = last_state.reward.score
-        result[last_state.object.idx] = score  # when only one state remains, simply add it to the result list
-        return result, index_vec
+        result[last_state.object.idx] = (order, last_state.reward.score)
+        return result
+
+
+class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
+    def __init__(self, states, policy, discount_factor, p, trajectory_num, max_trajectory_len, **kwargs):
+        super().__init__(states, policy, discount_factor)
+        self.model: MDPModel = p
+        self.trajectory_num = trajectory_num
+        self.max_trajectory_len = max_trajectory_len
+
+    def GradeStates(self):
+        def CalcStateIndex(state_idx):
+            def create_trajectory():
+                res = [0.]
+                curr_state = state_idx
+
+                for i in range(self.max_trajectory_len):
+                    next_state, new_reward = self.model.sample_state_action(curr_state, self.policy[curr_state])
+
+                    res.append(res[-1] + self.discount_factor ** i * new_reward)
+                    curr_state = next_state
+
+                return np.array(res[1:]) / denom_vec
+
+            trajectory_mat = np.empty((self.trajectory_num, self.max_trajectory_len))
+            for trajectory_num in range(self.trajectory_num):
+                trajectory_mat[trajectory_num] = create_trajectory()
+
+            return max(np.mean(trajectory_mat, axis=0))
+
+        denom_vec = np.array([(self.discount_factor ** i - 1) / (self.discount_factor - 1)
+                              for i in range(1, self.max_trajectory_len + 1)])
+
+        sorted_state_list = sorted({state_idx: -CalcStateIndex(state_idx) for state_idx in range(self.n)}.items(),
+                                   key=lambda x: x[1])
+        return {state[0]: (order + 1, state[1]) for order, state in enumerate(sorted_state_list)}
+
+
+class ModelFreeGittinsPrioritizer_obselete(FunctionalPrioritizer):
+    def __init__(self, states, policy, p, discount_factor, **kwargs):
+        super().__init__(states, policy, discount_factor)
+        self.model: MDPModel = p
+        self.max_trajectory_len = 2
+        self.trajectories_per_len = 2
+
+    def GradeStates(self):
+        def CalcStateIndex(state_idx):
+            def MaxTrajectoryPerLength():
+                def CalcTrajectoryValue():
+                    accumulated_reward = 0
+                    curr_state: int = state_idx
+
+                    for i in range(trajectory_len):
+                        policy_action = self.policy[curr_state]
+                        next_state, new_reward = self.model.sample_state_action(curr_state, policy_action)
+
+                        curr_state = next_state
+                        accumulated_reward += (self.discount_factor ** i * new_reward)
+
+                    return accumulated_reward
+
+                expected_maximal_trajectory_value = 0
+                for _ in range(self.trajectories_per_len):
+                    expected_maximal_trajectory_value += CalcTrajectoryValue()
+
+                return expected_maximal_trajectory_value / self.trajectories_per_len
+
+            curr_max = -np.inf
+            for trajectory_len in range(self.max_trajectory_len):
+                curr_max = max(curr_max, MaxTrajectoryPerLength())
+
+            return curr_max
+
+        sorted_state_list = sorted({state_idx: -CalcStateIndex(state_idx) for state_idx in range(self.n)}.items(),
+                                   key=lambda x: x[1])
+        return {state[0]: (order + 1, state[1]) for order, state in enumerate(sorted_state_list)}

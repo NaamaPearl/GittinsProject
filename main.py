@@ -20,36 +20,39 @@ def summarizeCritics(critics, critic_type):
 
 
 def RunSimulations(_mdp_list, sim_params, varied_definition_str, gt_compare=False):
+    result = [{'type': mdp.type, 'critics': {}, 'indices': {}} for mdp in _mdp_list]
+
     sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method],
                                                               sim_params[varied_definition_str]))
                                                  for method in sim_params['method_dict'].keys()])
-    result = [(mdp.type, {}, {}, {}) for mdp in _mdp_list]
+
     for i, mdp in enumerate(_mdp_list):
         print('run MDP num ' + str(i))
         for method, parameter, varied_definition in sim_definition:
-            print('     running ' + method + ' prioritization, using ' + str(parameter) + ':')
+            curr_sim_result = result[i]
+            res_key = method, parameter, varied_definition
+            curr_sim_result['indices'][res_key] = {'eval': [], 'gt': []}
+            critic_list = []
+
+            print('     running ' + method + ' prioritization, using ' + str(parameter) +
+                  ', with ' + varied_definition_str + ' = ' + str(varied_definition) + ':')
             sim_params[varied_definition_str] = varied_definition
             sim_input = SimInputFactory(method, parameter, sim_params)
-
-            critics = []
-            indexes = []
-            grades = []
-            gt_index = []
 
             for run_num in range(1, sim_params['runs_per_mdp'] + 1):
                 print('         start run # ' + str(run_num))
                 sim = SimulatorFactory(mdp, sim_params, gt_compare)
-                critic, index, graded_state, gt = sim.simulate(sim_input)
-                critics.append(critic)
-                indexes.append(index)
-                grades.append(graded_state)
-                gt_index.append(gt)
+                sim_result = sim.simulate(sim_input)
+                if gt_compare:
+                    critic, index, gt = sim_result
+                    curr_sim_result['indices'][res_key]['eval'].append(index)
+                    curr_sim_result['indices'][res_key]['gt'].append(gt)
+                else:
+                    critic = sim_result
+                critic_list.append(critic)
 
-            result[i][1][(method, parameter, varied_definition)] = summarizeCritics(critics, mdp.type)
-            result[i][2][(method, parameter, varied_definition)] = {}
-            result[i][2][(method, parameter, varied_definition)]['eval'] = indexes
-            result[i][2][(method, parameter, varied_definition)]['gt'] = gt_index
-            result[i][3][(method, parameter, varied_definition)] = grades
+            curr_sim_result['critics'][res_key] = summarizeCritics(critic_list, mdp.type)
+
     return result
 
 
@@ -70,9 +73,9 @@ def generateMDP(mdp_type):
                                      4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
                                      0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
     if mdp_type == 'cliques':
-        return SeperateChainsMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
-                                 chain_num=chain_num, gamma=gamma,
-                                 reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+        return CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
+                          chain_num=chain_num, gamma=gamma,
+                          reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
 
     if mdp_type == 'cliff':
         return CliffWalker(size=size,  random_prob=random_prob, gamma=gamma)
@@ -84,7 +87,7 @@ def generateMDP(mdp_type):
 
 if __name__ == '__main__':
     # building the MDPs
-    load = True
+    load = False
     if load:
         directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
         clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
@@ -108,31 +111,41 @@ if __name__ == '__main__':
         depth = 6
         resets_num = 7
 
-        mdp_list = [generateMDP('directed')]
+        mdp_list = [generateMDP('cliques')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents': [(10, 40),(20, 40),(30, 40),(40, 40)],
+        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents': (10, 40),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': 1, 'T_board': 3, 'runs_per_mdp': 3,
-        'varied_param': 'agents'
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
+        'varied_param': 'temporal_extension', 'trajectory_num': 10, 'max_trajectory_len': 15
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
+    gt_comapre = True
+
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['error']}  # 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['model_free', 'reward']}  # 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
-    res = RunSimulations(mdp_list, general_sim_params, varied_definition_str='agents', gt_compare=False)
+    if gt_comapre:
+        general_sim_params['gittins_compare'] = ['model_free', 'reward']
+        general_sim_params['method_dict']['gittins'].append('ground_truth')
+    res = RunSimulations(mdp_list, general_sim_params, varied_definition_str='temporal_extension',
+                         gt_compare=gt_comapre)
 
-    printalbe_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
+    printable_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
 
     with open('run_res2.pckl', 'wb') as f:
-        pickle.dump(printalbe_res, f)
+        pickle.dump(printable_res, f)
 
     titles = ['tree']
-    PlotResultsWrraper('from main', (printalbe_res, titles))
+    if gt_comapre:
+        PlotResultsWrraper('GT', (printable_res, titles))
+    else:
+        PlotResultsWrraper('from main', (printable_res, titles))
+
     print('all done')

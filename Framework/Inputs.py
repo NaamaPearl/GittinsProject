@@ -29,6 +29,8 @@ class AgentSimulationInput(SimulationInput):
         self.parameter = parameter
         self.temporal_extension = kwargs['temporal_extension']
         self.gittins_discount = kwargs['gittins_discount']
+        self.trajectory_num = kwargs.get('trajectory_num')
+        self.max_trajectory_len = kwargs.get('max_trajectory_len')
 
 
 class RewardEvaluation:

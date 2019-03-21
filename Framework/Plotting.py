@@ -8,6 +8,7 @@ from Framework.plotUtils import *
 from matplotlib import scale as mscale
 import matplotlib.gridspec as gridspec
 from collections import OrderedDict
+from Framework.PlotGT import PlotGT
 
 # Global
 global_dict = {}
@@ -572,6 +573,9 @@ def SetGlobals(plot_type, Results):
 
 
 def PlotResultsWrraper(plot_type, Results=None):
+    if plot_type == 'GT':
+        PlotGT()
+        return
     SetGlobals(plot_type, Results)
 
     global_dict['global_fig'] = plt.figure(figsize=(6, 8))
@@ -582,12 +586,16 @@ def PlotResultsWrraper(plot_type, Results=None):
         global_dict['i'] = i
         global_dict['inner'] = gridspec.GridSpecFromSubplotSpec(1, global_dict['mdp_num'],
                                                                 subplot_spec=outer[i], wspace=0.3, hspace=0.3)
+
+        res_tuple_list = global_dict['res_tuple_list']
         for j in range(global_dict['mdp_num']):
             global_dict['j'] = j
-            PlotEvaluation(global_dict['res_tuple_list']['res'][j][1], global_dict['res_tuple_list']['opt_reward'][j],
-                           global_dict['res_tuple_list']['params'])
-    FormatPlot(global_dict['mdp_num'], global_dict['res_tuple_list']['params']['varied_param'])
+            PlotEvaluation(res_tuple_list['res'][j]['critics'],
+                           res_tuple_list['opt_reward'][j],
+                           res_tuple_list['params'])
+    FormatPlot(global_dict['mdp_num'], res_tuple_list['params']['varied_param'])
     global_dict['global_fig'].show()
+    plt.show()
 
 
 if __name__ == '__main__':

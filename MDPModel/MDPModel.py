@@ -1,10 +1,7 @@
-import numpy as np
 import random
 from functools import reduce
 
-from Framework.PrioritizedObject import PrioritizedObject
-from MDPModel.MDPBasics import StateScore
-from MDPModel.RewardGenerator import RewardGeneratorFactory
+from MDPModel.RewardGenerator import *
 
 threshold = 10 ** -10
 
@@ -25,6 +22,14 @@ class MDPModel:
         self.expected_r = np.array([[self.r[s][a].expected_reward for s in range(self.n)] for a in range(self.actions)])
         self.gamma = gamma
         self.opt_policy, self.V = self.CalcOptPolicy()
+
+    def get_next_state(self, state_idx, action):
+        return np.random.choice(range(self.n), p=self.P[state_idx][action])
+
+    def sample_state_action(self, state_idx, action):
+        r: RewardGenerator = self.r[state_idx][action]
+        return (self.get_next_state(state_idx, action),
+                r.GiveReward())
 
     @property
     def active_chains_ratio(self):
@@ -136,6 +141,7 @@ class MDPModel:
 
 class TreeMDP(MDPModel):
     """ Introducing traps, initial states and reset states to the main MDP class"""
+
     def __init__(self, n, actions, chain_num, gamma, succ_num, resets_num=0, traps_num=0,
                  init_states_idx=frozenset({0}), **kwargs):
 
@@ -166,6 +172,7 @@ class TreeMDP(MDPModel):
 
 class DirectedTreeMDP(TreeMDP):
     """ Directional graph. State can only lead to deeper states (except leaves which lead back to the root"""
+
     def __init__(self, depth, actions, gamma, resets_num, **kwargs):
         def get_level_states(level_depth):
             return set(range(2 ** level_depth - 1, 2 ** (level_depth + 1) - 1))
@@ -183,6 +190,7 @@ class DirectedTreeMDP(TreeMDP):
 
     def GenPossibleSuccessors(self, **kwargs):
         """ each state can lead to states one level deeper, excepts leaves, which lead to the initial states"""
+
         def calc_depth(state_idx):
             return int(np.log2(state_idx + 1))
 
@@ -206,6 +214,7 @@ class CliffWalker(TreeMDP):
     """ In this MDP, state-space is a rectangle. It's bottom edge is considered a cliff edge, from which an agent might
      fall. In such an occasion, the falling agent will be returned to the initial state.
      Initial state is left-bottom corner, and reward is only present at the bottom-right corner."""
+
     def __init__(self, size, gamma, random_prob, **kwargs):
         self.random_prob = random_prob
         self.size = size
@@ -277,8 +286,9 @@ class CliffWalker(TreeMDP):
         return p_vec
 
 
-class SeperateChainsMDP(TreeMDP):
+class CliquesMDP(TreeMDP):
     """ Initial state leads to different isolated cliques, each with different reward parameters"""
+
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num,
                  resets_num=0, traps_num=0, **kwargs):
         self.chain_num = chain_num
@@ -363,7 +373,7 @@ class SeperateChainsMDP(TreeMDP):
         return {self.chain_num - 1}
 
 
-class ChainsTunnelMDP(SeperateChainsMDP):
+class ChainsTunnelMDP(CliquesMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
         self.tunnel_indexes = tunnel_indexes
         super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, traps_num)
@@ -403,8 +413,9 @@ class ChainsTunnelMDP(SeperateChainsMDP):
         return super().GetRewardParams(state_idx)
 
 
-class StarMDP(SeperateChainsMDP):
+class StarMDP(CliquesMDP):
     """ Seperate MDPs, all connected via one initial state"""
+
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs):
         super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs)
         self.chain_num += 1
