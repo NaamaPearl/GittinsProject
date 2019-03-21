@@ -205,14 +205,14 @@ class AgentSimulator(Simulator):
 
     def GradeAgent(self, agent):
         """ Agents in non-visited states / initial states are prioritized"""
-        # if agent.curr_state in self.MDP_model.init_states_idx:
-        #     score = -np.inf
-        # else:
-        score = self.graded_states[agent.curr_state.idx]
+        state = agent.curr_state.idx
+        score = (0, -np.inf) if state in self.MDP_model.init_states_idx else self.graded_states[state]
         return PrioritizedObject(agent, score)
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
         """ Find top-priority agents, and activate them for a single step"""
+        possible_states = [agent.object.curr_state.idx for agent in self.agents.queue]
+
         agents_list = [self.agents.get().object for _ in range(agents_to_run)]
         activated_states = [agent.curr_state.idx for agent in agents_list]
 
@@ -227,7 +227,7 @@ class AgentSimulator(Simulator):
             if agent.type == 'regular':
                 self.agents.put(self.GradeAgent(agent))
 
-        return activated_states
+        return possible_states, activated_states
 
     def ChooseAction(self, state: SimulatedState, agent_type, T_board=0):
         if agent_type == 'optimal':
@@ -280,16 +280,17 @@ class GTAgentSimulator(AgentSimulator):
         super().SimEvaluate(**kwargs)
 
     def SimulateOneStep(self, agents_to_run, **kwargs):
-        activated_states_list = super().SimulateOneStep(agents_to_run, **kwargs)
-        real_grades = [(self.gittins[state][0], state) for state in activated_states_list]
-        heapq.heapify(real_grades)
+        possible_states, activated_states = super().SimulateOneStep(agents_to_run, **kwargs)
 
-        optimal_states = [heapq.heappop(real_grades)[1] for _ in range(len(activated_states_list))]
+        real_grades = [(self.gittins[state][0], state) for state in possible_states]
+        heapq.heapify(real_grades)
+        optimal_states = [heapq.heappop(real_grades)[1] for _ in range(len(activated_states))]
         real_counter = Counter(optimal_states)
 
-        chosen_states = [state for state in activated_states_list]
+        chosen_states = [state for state in activated_states]
         chosen_counter = Counter(chosen_states)
         chosen_counter.subtract(real_counter)
+        list(chosen_counter.elements())
         self.bad_activated_states += len(list(chosen_counter.elements()))
 
     def ImprovePolicy(self, sim_input, **kwargs):
