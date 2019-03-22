@@ -143,16 +143,16 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
     def GradeStates(self):
         def CalcStateIndex(state_idx):
             def create_trajectory():
-                res = [0.]
+                res = []
                 curr_state = state_idx
 
                 for i in range(self.max_trajectory_len):
                     next_state, new_reward = self.model.sample_state_action(curr_state, self.policy[curr_state])
 
-                    res.append(res[-1] + self.discount_factor ** i * new_reward)
+                    res.append(new_reward * (self.discount_factor ** i))
                     curr_state = next_state
 
-                return np.array(res[1:]) / denom_vec
+                return np.cumsum(np.array(res)) / denom_vec
 
             trajectory_mat = np.empty((self.trajectory_num, self.max_trajectory_len))
             for trajectory_num in range(self.trajectory_num):
@@ -160,12 +160,12 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
 
             return max(np.mean(trajectory_mat, axis=0))
 
-        denom_vec = np.array([(self.discount_factor ** i - 1) / (self.discount_factor - 1)
+        denom_vec = np.array([self.discount_factor * (self.discount_factor ** i - 1) / (self.discount_factor - 1)
                               for i in range(1, self.max_trajectory_len + 1)])
 
-        sorted_state_list = sorted({state_idx: -CalcStateIndex(state_idx) for state_idx in range(self.n)}.items(),
-                                   key=lambda x: x[1])
-        return {state[0]: (order + 1, state[1]) for order, state in enumerate(sorted_state_list)}
+        sorted_state_list = [(CalcStateIndex(state_idx), state_idx) for state_idx in range(self.n)]
+        sorted_state_list.sort(reverse=True)
+        return {state[1]: (order + 1, state[0]) for order, state in enumerate(sorted_state_list)}
 
 
 class ModelFreeGittinsPrioritizer_obselete(FunctionalPrioritizer):
