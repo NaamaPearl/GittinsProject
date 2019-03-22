@@ -189,9 +189,10 @@ class AgentSimulator(Simulator):
         self.ReGradeAllAgents(kwargs['iteration_num'], sim_input.grades_freq)
 
     def ReincarnateAgent(self, agent, iteration_num, grades_freq):
-        if iteration_num - agent.last_activation > 10000 * grades_freq:
-            agent.last_activation = iteration_num
-            agent.curr_state = self.RaffleInitialState()
+        pass
+        # if iteration_num - agent.last_activation > 10000 * grades_freq:
+        #     agent.last_activation = iteration_num
+        #     agent.curr_state = self.RaffleInitialState()
 
     def ReGradeAllAgents(self, iteration_num, grades_freq):
         """invoked after states re-prioritization. Replaces queue"""
@@ -287,10 +288,8 @@ class GTAgentSimulator(AgentSimulator):
         optimal_states = [heapq.heappop(real_grades)[1] for _ in range(len(activated_states))]
         real_counter = Counter(optimal_states)
 
-        chosen_states = [state for state in activated_states]
-        chosen_counter = Counter(chosen_states)
+        chosen_counter = Counter(activated_states)
         chosen_counter.subtract(real_counter)
-        list(chosen_counter.elements())
         self.bad_activated_states += len(list(chosen_counter.elements()))
 
     def ImprovePolicy(self, sim_input, **kwargs):

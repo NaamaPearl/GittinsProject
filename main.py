@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     titles = ['tree']
     if gt_comapre:
-        PlotResultsWrraper('GT from main', (printable_res, titles))
+        PlotResultsWrraper('GT', (printable_res, titles))
     else:
         PlotResultsWrraper('from main', (printable_res, titles))
 
