@@ -160,7 +160,7 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
 
             return max(np.mean(trajectory_mat, axis=0))
 
-        denom_vec = np.array([self.discount_factor * (self.discount_factor ** i - 1) / (self.discount_factor - 1)
+        denom_vec = np.array([(self.discount_factor ** i - 1) / (self.discount_factor - 1)
                               for i in range(1, self.max_trajectory_len + 1)])
 
         sorted_state_list = [(CalcStateIndex(state_idx), state_idx) for state_idx in range(self.n)]

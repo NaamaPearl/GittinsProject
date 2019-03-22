@@ -136,8 +136,11 @@ def SetDefaults():
     plt.rc('legend', fontsize=MEDIUM_SIZE)  # legend fontsize
     plt.rc('figure', titlesize=BIGGER_SIZE, titleweight="bold")  # fontsize of the figure title
 
-def PlotGT():
-    res_tuple_list, titles, mdp_num = ListOfMDPFromPckl()
+def PlotGT(Results=None):
+    if Results is None:
+        res_tuple_list, titles, _ = ListOfMDPFromPckl()
+    else:
+        res_tuple_list, titles = Results
     SetDefaults()
     fig, global_dict['axes'] = plt.subplots(1, 3)
     fig.subplots_adjust(wspace=0.5, bottom=0.2)

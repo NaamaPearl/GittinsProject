@@ -87,13 +87,14 @@ def generateMDP(mdp_type):
 
 if __name__ == '__main__':
     # building the MDPs
-    load = False
+    load = True
     if load:
-        directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
-        clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
-        cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
-        star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
-        tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
+        clique = pickle.load(open("mdp.pckl", "rb"))
+        # directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
+        # clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
+        # cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
+        # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
+        # tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
 
         mdp_list = [clique[0]]
         # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
@@ -118,10 +119,10 @@ if __name__ == '__main__':
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 2000, 'eval_type': ['online', 'offline'], 'agents': (20, 40),
+        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents': (20, 40),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
-        'varied_param': 'temporal_extension', 'trajectory_num': 20, 'max_trajectory_len': 30
+        'varied_param': 'temporal_extension', 'trajectory_num': 2, 'max_trajectory_len': 2
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 

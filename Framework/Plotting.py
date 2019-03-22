@@ -574,7 +574,7 @@ def SetGlobals(plot_type, Results):
 
 def PlotResultsWrraper(plot_type, Results=None):
     if plot_type == 'GT':
-        PlotGT()
+        PlotGT(Results)
         return
     SetGlobals(plot_type, Results)
 
