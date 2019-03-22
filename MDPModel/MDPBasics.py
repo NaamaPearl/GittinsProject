@@ -191,6 +191,8 @@ class StateScore:
             return False
         return self.state.visitations < other.state.visitations
 
+    def __str__(self):
+        return 'score=' + str(self.score)
 
 class EvaluatedModel:
     def __init__(self):

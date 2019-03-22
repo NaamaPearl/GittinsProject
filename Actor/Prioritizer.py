@@ -163,8 +163,8 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
         denom_vec = np.array([(self.discount_factor ** i - 1) / (self.discount_factor - 1)
                               for i in range(1, self.max_trajectory_len + 1)])
 
-        sorted_state_list = sorted({state_idx: -CalcStateIndex(state_idx) for state_idx in range(self.n)}.items(),
-                                   key=lambda x: x[1])
+        sorted_state_list = reversed(sorted({state_idx: CalcStateIndex(state_idx) for state_idx in range(self.n)}.items(),
+                                   key=lambda x: x[1]))
         return {state[0]: (order + 1, state[1]) for order, state in enumerate(sorted_state_list)}
 
 

@@ -118,21 +118,21 @@ if __name__ == '__main__':
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 5000, 'eval_type': ['online', 'offline'], 'agents': (10, 40),
+        'steps': 2000, 'eval_type': ['online', 'offline'], 'agents': (20, 40),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
-        'varied_param': 'temporal_extension', 'trajectory_num': 10, 'max_trajectory_len': 15
+        'varied_param': 'temporal_extension', 'trajectory_num': 20, 'max_trajectory_len': 30
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     gt_comapre = True
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['model_free', 'reward']}  # 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['model_free']}  # 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     if gt_comapre:
-        general_sim_params['gittins_compare'] = ['model_free', 'reward']
+        general_sim_params['gittins_compare'] = ['model_free']
         general_sim_params['method_dict']['gittins'].append('ground_truth')
     res = RunSimulations(mdp_list, general_sim_params, varied_definition_str='temporal_extension',
                          gt_compare=gt_comapre)
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     titles = ['tree']
     if gt_comapre:
-        PlotResultsWrraper('GT', (printable_res, titles))
+        PlotResultsWrraper('GT from main', (printable_res, titles))
     else:
         PlotResultsWrraper('from main', (printable_res, titles))
 
