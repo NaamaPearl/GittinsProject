@@ -24,7 +24,7 @@ def CalcData(general_sim_params, sim_outputs, optimal, param1, param2):
 # Global
 global_dict = {}
 global_fig = None
-MAIN_FOLDER = r'C:\Users\yonio\PycharmProjects\GittinsProject\\'
+MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
 
 
 def ListOfMDPFromPckl():
