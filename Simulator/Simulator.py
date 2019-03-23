@@ -283,14 +283,27 @@ class GTAgentSimulator(AgentSimulator):
     def SimulateOneStep(self, agents_to_run, **kwargs):
         possible_states, activated_states = super().SimulateOneStep(agents_to_run, **kwargs)
 
+        wrongly_activted = 0
         real_grades = [(self.gittins[state][0], state) for state in possible_states]
         heapq.heapify(real_grades)
         optimal_states = [heapq.heappop(real_grades)[1] for _ in range(len(activated_states))]
-        real_counter = Counter(optimal_states)
+        optimal_counter = Counter(optimal_states)
 
         chosen_counter = Counter(activated_states)
-        chosen_counter.subtract(real_counter)
-        self.bad_activated_states += len(list(chosen_counter.elements()))
+        wrongly_not_chosen_counter = optimal_counter.copy()
+        wrongly_not_chosen_counter.subtract(chosen_counter)
+        wrongly_not_chosen = [self.gittins[state][1] for state in wrongly_not_chosen_counter.elements()]
+
+        wrongly_chosen_counter = chosen_counter.copy()
+        wrongly_chosen_counter.subtract(optimal_counter)
+        for state in wrongly_chosen_counter.elements():
+            state_grade = self.gittins[state][1]
+            if state_grade in wrongly_not_chosen:
+                wrongly_not_chosen.remove(state_grade)
+            else:
+                wrongly_activted += 1
+
+        self.bad_activated_states += wrongly_activted
 
     def ImprovePolicy(self, sim_input, **kwargs):
         super().ImprovePolicy(sim_input, **kwargs)
