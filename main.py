@@ -121,7 +121,7 @@ if __name__ == '__main__':
         'steps': 5000, 'eval_type': ['online', 'offline'], 'agents': (10, 40),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
         'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
-        'varied_param': 'temporal_extension', 'trajectory_num': 30, 'max_trajectory_len': 15
+        'varied_param': 'temporal_extension', 'trajectory_num': 10, 'max_trajectory_len': 15
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
