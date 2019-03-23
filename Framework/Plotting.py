@@ -566,6 +566,7 @@ def PlotResultsWrraper(plot_type, Results=None):
                            global_dict['res_tuple_list']['params'])
     FormatPlot(global_dict['mdp_num'], global_dict['res_tuple_list']['params']['varied_param'])
     global_dict['global_fig'].show()
+    plt.show()
 
 
 if __name__ == '__main__':
