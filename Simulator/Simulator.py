@@ -51,7 +51,8 @@ class Simulator:
     def updateModel(self, current_state_action, next_state, reward):
         def Update_V():
             state = current_state_action.state
-            state.V_hat = current_state_action.r_hat + self.gamma * current_state_action.P_hat @ self.evaluated_model.V_hat
+            future_v = current_state_action.P_hat @ self.evaluated_model.V_hat
+            state.V_hat = current_state_action.r_hat + self.gamma * future_v
 
         def Update_Q():
             a_n = (current_state_action.visitations + 1) ** -0.7
@@ -283,27 +284,28 @@ class GTAgentSimulator(AgentSimulator):
     def SimulateOneStep(self, agents_to_run, **kwargs):
         possible_states, activated_states = super().SimulateOneStep(agents_to_run, **kwargs)
 
-        wrongly_activted = 0
-        real_grades = [(self.gittins[state][0], state) for state in possible_states]
-        heapq.heapify(real_grades)
-        optimal_states = [heapq.heappop(real_grades)[1] for _ in range(len(activated_states))]
+        wrongly_activated = 0
+        states_order = [(self.gittins[state][0], state) for state in possible_states]
+        heapq.heapify(states_order)
+        optimal_states = [heapq.heappop(states_order)[1] for _ in range(len(activated_states))]
+
         optimal_counter = Counter(optimal_states)
-
         chosen_counter = Counter(activated_states)
-        wrongly_not_chosen_counter = optimal_counter.copy()
-        wrongly_not_chosen_counter.subtract(chosen_counter)
-        wrongly_not_chosen = [self.gittins[state][1] for state in wrongly_not_chosen_counter.elements()]
 
-        wrongly_chosen_counter = chosen_counter.copy()
-        wrongly_chosen_counter.subtract(optimal_counter)
-        for state in wrongly_chosen_counter.elements():
+        # a list of states that are optimal, but weren't activated by the prioritizer
+        optimal_not_activated = [self.gittins[state][1] for state in (optimal_counter - chosen_counter).elements()]
+
+        # iterate through states that were activated, but aren't optimal.
+        # If a sub-optimal activated state's gittins index is equal to one from the optimal not activated,
+        # choosing it was not a mistake
+        for state in (chosen_counter - optimal_counter).elements():
             state_grade = self.gittins[state][1]
-            if state_grade in wrongly_not_chosen:
-                wrongly_not_chosen.remove(state_grade)
+            if state_grade in optimal_not_activated:
+                optimal_not_activated.remove(state_grade)
             else:
-                wrongly_activted += 1
+                wrongly_activated += 1
 
-        self.bad_activated_states += wrongly_activted
+        self.bad_activated_states += wrongly_activated
 
     def ImprovePolicy(self, sim_input, **kwargs):
         super().ImprovePolicy(sim_input, **kwargs)
