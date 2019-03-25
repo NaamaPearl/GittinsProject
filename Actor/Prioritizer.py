@@ -101,18 +101,22 @@ class GittinsPrioritizer(TabularPrioritizer):
             opt_state_idx = opt_state.reward.idx
 
             # calculate needed sizes for final calculations
-            p_sub_optimal = 1 - P[state_idx, opt_state_idx]
             p_opt_stay = P[opt_state_idx, opt_state_idx] + epsilon
-            sum_p_opt = 1 / (1 - p_opt_stay)
-            t_opt_expect = 1 / (2 * (1 - p_opt_stay) ** 2)
-            p_opt_back = P[state_idx, opt_state_idx] * sum_p_opt * (np.sum(P[opt_state_idx, :]) - p_opt_stay)
+            p_opt_sum = 1 / (1 - p_opt_stay)
+            p_s_not_opt = 1 - P[state_idx, opt_state_idx]
+            p_s_opt = P[state_idx, opt_state_idx]
+            p_opt_not_opt = (np.sum(P[opt_state_idx, :]) - p_opt_stay)
+            p_s_opt_not_opt = p_s_opt * p_opt_sum * p_opt_not_opt
 
-            R = p_sub_optimal * state.score + p_opt_back * \
-                (state.score + opt_state.reward.score + opt_state.reward.score * t_opt_expect)
-            W = p_sub_optimal + p_opt_back * 2 + p_opt_back * t_opt_expect
-
+            R = state.score * (p_s_not_opt + p_s_opt_not_opt) + \
+                (gamma * p_s_opt * p_opt_not_opt * opt_state.reward.score / (1 - gamma)) * \
+                (p_opt_sum - gamma / (1 - p_opt_stay * gamma))
+            W = p_s_not_opt + \
+                (p_s_opt * p_opt_not_opt / (1 - gamma)) * \
+                (p_opt_sum - gamma ** 2 / (1 - p_opt_stay * gamma))
             state.score = R / W
 
+        gamma = self.discount_factor
         rs_list = [PrioritizedObject(s, StateScore(s, r)) for s, r in zip(self.states, self.r)]
         result = {}
         order = 1  # score is order of extraction
