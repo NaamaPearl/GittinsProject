@@ -18,21 +18,22 @@ def CalcData(general_sim_params, sim_outputs, optimal, param1, param2):
     gt_mean_values, gt_std_tmp = sim_outputs['critics'][('gittins', param2, 1)].get('offline')
     gt_smooth = np.array(smooth(gt_mean_values))
 
-    return (gt_smooth - gittins_smooth) / optimal, steps, (gt_std_tmp - gittins_std_tmp) / optimal ** 2
+    return steps, (gittins_smooth, gittins_std_tmp), (
+    (gt_smooth - gittins_smooth) / optimal, (gt_std_tmp - gittins_std_tmp) / optimal ** 2)
 
 
 # Global
 global_dict = {}
 global_fig = None
-MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
+MAIN_FOLDER = r'C:\Users\yonio\Dropbox\semester 8\project\model free\\'
 
 
 def ListOfMDPFromPckl():
     # part
     # titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     titles = ['Cliques']
-    graph_name = [r'run_res2.pckl'
-        # r'GT/new calc/GT_clique.pckl',
+    graph_name = [r'tunnel_run_res2.pckl'
+                  # r'GT/new calc/GT_clique.pckl',
                   # r'GT/new calc/GT_tunnel.pckl',
                   # r'GT/new calc/GT_tree.pckl',
                   # r'GT/new calc/GT_cliff.pckl'
@@ -72,9 +73,11 @@ def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
     subs = np.asarray(subs).T
     global_dict['axes'][0].plot(steps, subs)
     # axes[0].set_xlabel('simulation steps')
-    global_dict['axes'][0].set_ylabel(r'$\frac{1}{N}\sum\frac{|I_{(s)}-\tilde{I}_{(s)}|}{MDP_{optimal reward}}$', fontsize=15)
+    global_dict['axes'][0].set_ylabel(r'$\frac{1}{N}\sum\frac{|I_{(s)}-\tilde{I}_{(s)}|}{MDP_{optimal reward}}$',
+                                      fontsize=15)
     global_dict['axes'][0].set_title('Gittins Index Differences')
-    global_dict['axes'][0].legend(method_list)
+    global_dict['axes'][0].set_ylim(0, 0.02)
+    global_dict['axes'][0].legend([x if x != 'reward' else 'model_based' for x in method_list])
 
 
 def EvaluateGittinsByStates(res_list, general_sim_params, titles):
@@ -83,7 +86,8 @@ def EvaluateGittinsByStates(res_list, general_sim_params, titles):
         bad_states = []
         for i, mdp_res in enumerate(res_list):
             bad_states.append(
-                np.asarray(mdp_res['critics'][('gittins', method, 1)]['bad_states'][0]) / general_sim_params['eval_freq'])
+                np.asarray(mdp_res['critics'][('gittins', method, 1)]['bad_states'][0]) / general_sim_params[
+                    'eval_freq'])
             eval_count = int(general_sim_params['steps'] /
                              (general_sim_params['eval_freq']))
             max_step = eval_count * general_sim_params['eval_freq']
@@ -92,25 +96,33 @@ def EvaluateGittinsByStates(res_list, general_sim_params, titles):
         global_dict['axes'][1].plot(steps, bad_states)
     global_dict['axes'][1].set_xlabel('simulation steps')
     global_dict['axes'][1].set_ylabel('wrong decisions')
+    global_dict['axes'][1].set_ylim(-0.02, 0.02)
     vals = global_dict['axes'][1].get_yticks()
     global_dict['axes'][1].set_yticklabels(['{:.0%}'.format(x) for x in vals])
     global_dict['axes'][1].set_title('Accuracy of Agents Chosen')
-    global_dict['axes'][1].legend(method_list)
+    global_dict['axes'][1].legend([x if x != 'reward' else 'model_based' for x in method_list])
 
 
 def EvaluateGittinsByPerf(res_list, general_sim_params, titles, optimal):
     method_list = general_sim_params['method_dict']['gittins']
-
-    for param1, param2 in set(itertools.combinations(method_list, 2)):
-        for i, mdp_res in enumerate(res_list):
-            y, steps, std = CalcData(general_sim_params, mdp_res, optimal[i], param1, param2)
+    param2 = 'ground_truth'
+    for i, mdp_res in enumerate(res_list):
+        # for param1, param2 in set(itertools.combinations(method_list, 2)):  # FOR COMPARISION
+        for param1 in method_list:
+            steps, (y, std), (y_diff, std_diff) = CalcData(general_sim_params, mdp_res, optimal[i], param1, param2)
 
             # c = PlotColor(method, parameter)
-            global_dict['axes'][2].plot(steps, y, label=param1 + 'vs' + param2)
+            global_dict['axes'][2].plot(steps, y, label=param1 if param1 != 'reward' else 'model_based')
+
+            # global_dict['axes'][2].plot(steps, y, label=param1 + ' vs ' + param2)
             # global_dict['axes'][2].fill_between(steps, y + std, y - std, alpha=0.2)
 
+        global_dict['axes'][2].axhline(y=optimal[i], color='0', linestyle='-',
+                                       label='optimal expected reward')
+
     # axes[2].set_xlabel('simulation steps')
-    global_dict['axes'][2].set_ylabel(r'$\frac{V_{ground\ truth} - V_{approximated}}{MDP_{optimal reward}}$', fontsize=15)
+    # global_dict['axes'][2].set_ylabel(r'$\frac{V_{ground\ truth} - V_{approximated}}{MDP_{optimal reward}}$', fontsize=15)
+    global_dict['axes'][2].set_ylabel(r'$V_{approximated}$', fontsize=15)
     global_dict['axes'][2].set_title('Performance Difference')
     global_dict['axes'][2].legend()
 
@@ -136,6 +148,7 @@ def SetDefaults():
     plt.rc('legend', fontsize=MEDIUM_SIZE)  # legend fontsize
     plt.rc('figure', titlesize=BIGGER_SIZE, titleweight="bold")  # fontsize of the figure title
 
+
 def PlotGT(Results=None):
     if Results is None:
         res_tuple_list, titles, _ = ListOfMDPFromPckl()
@@ -147,6 +160,7 @@ def PlotGT(Results=None):
     EvaluateGittins(res_tuple_list, res_tuple_list['params'], titles)
 
     plt.show()
+
 
 if __name__ == '__main__':
     PlotGT()
