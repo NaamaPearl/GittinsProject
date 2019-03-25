@@ -309,7 +309,7 @@ class GTAgentSimulator(AgentSimulator):
 
     def ImprovePolicy(self, sim_input, **kwargs):
         super().ImprovePolicy(sim_input, **kwargs)
-        self.indexes_vec.append([self.graded_states[key][1] for key in self.graded_states.keys()])
+        self.indexes_vec.append([self.graded_states[key][1] for key in range(self.MDP_model.MDP_model.n)])
 
         p_gt, r_gt = self.GetStatsForPrioritizer('ground_truth')
         gt_prioritizer = GittinsPrioritizer(states=self.MDP_model.states,
@@ -320,7 +320,7 @@ class GTAgentSimulator(AgentSimulator):
                                             discount_factor=sim_input.gittins_discount)
 
         self.gittins = gt_prioritizer.GradeStates()
-        self.gt_indexes_vec.append([self.gittins[key][1] for key in self.gittins.keys()])
+        self.gt_indexes_vec.append([self.gittins[key][1] for key in range(self.MDP_model.MDP_model.n)])
 
 
 def SimulatorFactory(mdp: MDPModel, sim_params, gt_compare):
