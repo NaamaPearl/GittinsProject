@@ -106,7 +106,7 @@ def EvaluateGittinsByPerf(res_list, general_sim_params, titles, optimal):
             y, steps, std = CalcData(general_sim_params, mdp_res, optimal[i], param1, param2)
 
             # c = PlotColor(method, parameter)
-            global_dict['axes'][2].plot(steps, y, label=param1 + 'vs' + param2)
+            global_dict['axes'][2].plot(steps, y, label=param1 + ' - ' + param2)
             # global_dict['axes'][2].fill_between(steps, y + std, y - std, alpha=0.2)
 
     # axes[2].set_xlabel('simulation steps')
