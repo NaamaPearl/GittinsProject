@@ -85,7 +85,7 @@ class Simulator:
         return reward, next_state
 
     def simulate(self, sim_input):
-        self.ImprovePolicy(sim_input, iteration_num=0)
+        self.init_simulation(sim_input)
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
             self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
                                  temporal_extension=sim_input.temporal_extension,
@@ -102,6 +102,9 @@ class Simulator:
         return self.critic
 
     def Reset(self):
+        pass
+
+    def init_simulation(self, sim_input):
         pass
 
     @abstractmethod
@@ -132,7 +135,7 @@ class AgentSimulator(Simulator):
         self.optimal_agents = self.generateOptimalAgents(sim_input.agent_num)
         self.ResetAgents(self.agents_num)
 
-        self.graded_states = {state.idx: random.random() for state in self.MDP_model.states}
+        self.graded_states = {state.idx: (state.idx, random.random()) for state in self.MDP_model.states}
 
     def generateOptimalAgents(self, agents_num):
         agents_list = []
@@ -258,7 +261,7 @@ class AgentSimulator(Simulator):
         self.agents = Q.PriorityQueue()
         for i in range(agents_num):
             init_state = self.ChooseInitState()
-            self.agents.put(PrioritizedObject(Agent(i, init_state), -np.inf))
+            self.agents.put(PrioritizedObject(Agent(i, init_state), (-np.inf, 0)))
 
     @property
     def agents_location(self):
@@ -307,8 +310,7 @@ class GTAgentSimulator(AgentSimulator):
 
         self.bad_activated_states += wrongly_activated
 
-    def ImprovePolicy(self, sim_input, **kwargs):
-        super().ImprovePolicy(sim_input, **kwargs)
+    def calc_index_vec(self, sim_input):
         self.indexes_vec.append([self.graded_states[key][1] for key in range(self.MDP_model.MDP_model.n)])
 
         p_gt, r_gt = self.GetStatsForPrioritizer('ground_truth')
@@ -321,6 +323,13 @@ class GTAgentSimulator(AgentSimulator):
 
         self.gittins = gt_prioritizer.GradeStates()
         self.gt_indexes_vec.append([self.gittins[key][1] for key in range(self.MDP_model.MDP_model.n)])
+
+    def init_simulation(self, sim_input):
+        self.calc_index_vec(sim_input)
+
+    def ImprovePolicy(self, sim_input, **kwargs):
+        super().ImprovePolicy(sim_input, **kwargs)
+        self.calc_index_vec(sim_input)
 
 
 def SimulatorFactory(mdp: MDPModel, sim_params, gt_compare):
