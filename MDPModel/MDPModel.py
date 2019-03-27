@@ -1,11 +1,7 @@
-import numpy as np
 import random
 from functools import reduce
 
-from Framework.PrioritizedObject import PrioritizedObject
-from MDPModel.MDPBasics import StateScore
-from MDPModel.RewardGenerator import RewardGeneratorFactory
-
+from MDPModel.RewardGenerator import *
 
 threshold = 10 ** -10
 
@@ -27,6 +23,14 @@ class MDPModel:
         self.gamma = gamma
         self.opt_policy, self.V = self.CalcOptPolicy()
 
+    def get_next_state(self, state_idx, action):
+        return np.random.choice(range(self.n), p=self.P[state_idx][action])
+
+    def sample_state_action(self, state_idx, action):
+        r: RewardGenerator = self.r[state_idx][action]
+        return (self.get_next_state(state_idx, action),
+                r.GiveReward())
+
     @property
     def active_chains_ratio(self):
         return 1
@@ -47,7 +51,7 @@ class MDPModel:
         return True
 
     def FindChain(self, state_idx):
-        return None
+        return 0
 
     def get_successors(self, state_idx, **kwargs):
         return set(random.sample(self.possible_suc[state_idx], self.succ_num))
@@ -135,8 +139,9 @@ class MDPModel:
         # raise ValueError('unexpected evaluation type')
 
 
-
 class TreeMDP(MDPModel):
+    """ Introducing traps, initial states and reset states to the main MDP class"""
+
     def __init__(self, n, actions, chain_num, gamma, succ_num, resets_num=0, traps_num=0,
                  init_states_idx=frozenset({0}), **kwargs):
 
@@ -166,105 +171,112 @@ class TreeMDP(MDPModel):
 
 
 class DirectedTreeMDP(TreeMDP):
+    """ Directional graph. State can only lead to deeper states (except leaves which lead back to the root"""
+
     def __init__(self, depth, actions, gamma, resets_num, **kwargs):
+        def get_level_states(level_depth):
+            return set(range(2 ** level_depth - 1, 2 ** (level_depth + 1) - 1))
+
         self.tree_depth = depth
-        self.levels = [self.get_level_states(level_depth) for level_depth in range(self.tree_depth)]
-        self.reward_param = {'basic': {'gauss_params':((0, 1), 0)},
-                             17: {'gauss_params':((50, 0), 0)}, 25: {'gauss_params':((-50, 0), 0)}}
+        self.levels = [get_level_states(level_depth) for level_depth in range(self.tree_depth)]
+        self.reward_param = {'basic': {'gauss_params': ((0, 1), 0)},
+                             17: {'gauss_params': ((50, 0), 0)}, 25: {'gauss_params': ((-50, 0), 0)}}
         super().__init__(n=2 ** depth - 1, actions=actions, chain_num=1, gamma=gamma, succ_num=2, resets_num=resets_num,
                          **kwargs)
-
-    def FindChain(self, state_idx):
-        return 0
 
     def GetRewardParams(self, state_idx):
         reward = self.reward_param.get(state_idx)
         return reward if reward is not None else self.reward_param['basic']
 
+    def GenPossibleSuccessors(self, **kwargs):
+        """ each state can lead to states one level deeper, excepts leaves, which lead to the initial states"""
+
+        def calc_depth(state_idx):
+            return int(np.log2(state_idx + 1))
+
+        res = [self.levels[calc_depth(state_idx) + 1]
+               for state_idx in list(reduce(lambda a, b: a.union(b), self.levels[:-1]))]
+        res += [self.init_states_idx for _ in self.leafs]
+
+        return res
+
+    def GenResetStates(self, **kwargs):
+        """ reset states are evenly distributed amongs tree's inner nodes """
+        possible_resets = set(reduce(lambda a, b: a.union(b), self.levels[1:-1]))
+        return random.sample(possible_resets, kwargs['resets_num']) + list(self.leafs)
 
     @property
     def leafs(self):
         return self.levels[-1]
 
-    def GenPossibleSuccessors(self, **kwargs):
-        res = [self.levels[self.calc_depth(state_idx) + 1]
-                for state_idx in list(reduce(lambda a, b: a.union(b), self.levels[:-1]))]
-        res += [self.init_states_idx for _ in self.leafs]
-        return res
-
-    def GenResetStates(self, **kwargs):
-        possible_resets = set(reduce(lambda a, b: a.union(b), self.levels[1:-1]))
-        return random.sample(possible_resets, kwargs['resets_num']) + list(self.leafs)
-
-    @staticmethod
-    def get_level_states(depth):
-        return set(range(2 ** depth - 1, 2 ** (depth + 1) - 1))
-
-    @staticmethod
-    def calc_depth(state_idx):
-        return int(np.log2(state_idx + 1))
-
 
 class CliffWalker(TreeMDP):
+    """ In this MDP, state-space is a rectangle. It's bottom edge is considered a cliff edge, from which an agent might
+     fall. In such an occasion, the falling agent will be returned to the initial state.
+     Initial state is left-bottom corner, and reward is only present at the bottom-right corner."""
+
     def __init__(self, size, gamma, random_prob, **kwargs):
         self.random_prob = random_prob
         self.size = size
         self.n = size ** 2
-        self.actions: int = 4
+        self.actions: int = 4  # up, down, right, left
         self.illegal_moves = {'row': [(0, 2), (self.size - 1, 0)],
-                              'col': [(0, 3), (self.size - 1, 1)]}
+                              'col': [(0, 3), (self.size - 1, 1)]}  # edge states
         super().__init__(self.n, self.actions, 1, gamma, 4, **kwargs)
-
-    def FindChain(self, state_idx):
-        return 0
 
     def GetRewardParams(self, state_idx):
         return {'gauss_params': ((1, 0), 0)}
 
     def IsStateActionRewarded(self, state, action):
+        """ only right-bottom corner"""
         return state == self.n - self.size
 
     def GenResetStates(self, **kwargs):
+        """ all bottom states, except the initial state"""
         return set(filter(lambda x: x % self.size == 0, list(range(self.n)))).difference(self.init_states_idx)
-
-    def convert_action_to_diff(self, action):
-        if action == 0:
-            return 1
-        if action == 1:
-            return self.size
-        if action == 2:
-            return -1
-        if action == 3:
-            return -self.size
-
-    def calc_next_state(self, state, action):
-        row = int(state % self.size)
-        col = int(state / self.size)
-
-        if (row, action) in self.illegal_moves['row'] or (col, action) in self.illegal_moves['col']:
-            return None
-
-        return state + self.convert_action_to_diff(action)
 
     def get_successors(self, state_idx, **kwargs):
         if state_idx in self.reset_states_idx:
             return self.init_states_idx
 
-        desired_action = kwargs['action']
-        desired_state = self.calc_next_state(state_idx, desired_action)
-        undesired_actions = list(set(range(self.actions)).difference({desired_action}))
-        undesired_states = [self.calc_next_state(state_idx, action) for action in undesired_actions]
+        def calc_next_state(action):
+            row = int(state_idx % self.size)
+            col = int(state_idx / self.size)
 
-        return desired_state, set(filter(lambda state: state is not None, undesired_states))
+            if (row, action) in self.illegal_moves['row'] or (col, action) in self.illegal_moves['col']:
+                return
+
+            def convert_action_to_diff():
+                if action == 0:
+                    return 1
+                if action == 1:
+                    return self.size
+                if action == 2:
+                    return -1
+                if action == 3:
+                    return -self.size
+
+            return state_idx + convert_action_to_diff()
+
+        desired_action = kwargs['action']
+        desired_state = calc_next_state(desired_action)
+
+        undesired_actions = list(set(range(self.actions)).difference({desired_action}))
+        undesired_states = set(filter(lambda state: state is not None,
+                                      [calc_next_state(action) for action in undesired_actions]))
+
+        return desired_state, undesired_states
 
     def gen_row_of_P(self, succesors, state_idx):
         if state_idx in self.reset_states_idx:
             row = np.array([random.random() if idx in succesors else 0 for idx in range(self.n)])
             return row / sum(row)
+
         p_vec = np.zeros(self.n)
         desired_state = succesors[0]
         undesired_states = succesors[1]
 
+        # if action is legal, give it's state 1 - random_prob, while other possible share the remaining
         if desired_state is not None:
             p_vec[desired_state] = 1 - self.random_prob
             p_vec[list(undesired_states)] = self.random_prob / len(undesired_states)
@@ -274,7 +286,9 @@ class CliffWalker(TreeMDP):
         return p_vec
 
 
-class SeperateChainsMDP(TreeMDP):
+class CliquesMDP(TreeMDP):
+    """ Initial state leads to different isolated cliques, each with different reward parameters"""
+
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num,
                  resets_num=0, traps_num=0, **kwargs):
         self.chain_num = chain_num
@@ -303,6 +317,7 @@ class SeperateChainsMDP(TreeMDP):
     def GenPossibleSuccessors(self, **kwargs):
         forbidden_states = self.GenForbiddenStates()
 
+        # reachable states from every chain
         possible_per_chain = [chain.difference(forbidden_states) for chain in self.chains]
         return [self.GenPossibleSuccessorsPerState(self.FindChain(s), possible_per_chain, state_idx=s)
                 for s in range(self.n)]
@@ -311,12 +326,16 @@ class SeperateChainsMDP(TreeMDP):
         return self.init_states_idx
 
     def GenPossibleSuccessorsPerState(self, chain_num, possible_per_chain, **kwargs):
+        """ Initial states lead to all reachable staets (per chain). Any other state only lead to a small group of
+        states"""
+
         if chain_num is None:
             return [set(opt) for opt in possible_per_chain]
 
         return set(random.sample(possible_per_chain[chain_num], self.op_succ_num))
 
     def get_successors(self, state_idx, **kwargs):
+        """ Initial state leads evenly to all chains. Other states only to a small group of states from their chain"""
         if state_idx in self.init_states_idx:
             max_states = min([len(chain_states) for chain_states in self.possible_suc[state_idx]])
             return reduce(lambda a, b: a.union(b), [set(random.sample(chain_succ, max_states))
@@ -354,14 +373,7 @@ class SeperateChainsMDP(TreeMDP):
         return {self.chain_num - 1}
 
 
-def GetSuccessorsInLine(state_idx, line_idxs, action):
-    if state_idx == line_idxs[-1] or action != 0:
-        return {line_idxs[0]}
-
-    return {line_idxs[state_idx - line_idxs[0] + 1]}
-
-
-class ChainsTunnelMDP(SeperateChainsMDP):
+class ChainsTunnelMDP(CliquesMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
         self.tunnel_indexes = tunnel_indexes
         super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, traps_num)
@@ -373,11 +385,19 @@ class ChainsTunnelMDP(SeperateChainsMDP):
         return super().IsStateActionRewarded(state_idx, action)
 
     def GenForbiddenStates(self):
+        """ Tunnel states are unreachable from states outside the tunnel"""
         return super().GenForbiddenStates().union(set(self.tunnel_indexes[1:]))
 
     def get_successors(self, state_idx, **kwargs):
+        def GetSuccessorsInLine():
+            """ Action 0 leads one step forward. All other actions lead to line start"""
+            if state_idx == self.tunnel_indexes[-1] or kwargs['action'] != 0:
+                return {self.tunnel_indexes[0]}
+
+            return {self.tunnel_indexes[state_idx - self.tunnel_indexes[0] + 1]}
+
         if state_idx in self.tunnel_indexes[:-1]:
-            return GetSuccessorsInLine(state_idx, self.tunnel_indexes, kwargs['action'])
+            return GetSuccessorsInLine()
 
         return super().get_successors(state_idx, **kwargs)
 
@@ -393,7 +413,9 @@ class ChainsTunnelMDP(SeperateChainsMDP):
         return super().GetRewardParams(state_idx)
 
 
-class StarMDP(SeperateChainsMDP):
+class StarMDP(CliquesMDP):
+    """ Seperate MDPs, all connected via one initial state"""
+
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs):
         super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, **kwargs)
         self.chain_num += 1
@@ -420,114 +442,3 @@ class StarMDP(SeperateChainsMDP):
 
     def GetActiveChains(self):
         return MDPModel.GetActiveChains(self)
-
-
-class GittinsMDP(StarMDP):
-    def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, terminal_probability,
-                 **kwargs):
-        self.terminal_probability = terminal_probability
-        super().__init__(n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, resets_num=chain_num,
-                         **kwargs)
-
-    def gen_row_of_P(self, succesors, state_idx):
-        if state_idx in self.init_states_idx.union(self.reset_states_idx):
-            return super().gen_row_of_P(succesors, state_idx)
-
-        reset_state = self.reset_states_idx[self.FindChain(state_idx)]
-        row = np.array([random.random() if idx in succesors.difference({reset_state}) else 0 for idx in range(self.n)])
-        row *= ((1 - self.terminal_probability) / sum(row))
-
-        row[reset_state] = self.terminal_probability
-        return row
-
-    def GetRewardParams(self, state_idx):
-        chain = self.FindChain(state_idx)
-        if chain is None:
-            return None
-        if state_idx in self.traps_idx:
-            return self.reward_params['trap']
-
-        reward_params = self.reward_params.get(chain)
-        return reward_params['first'] if state_idx == min(self.chains[chain]) else reward_params['others']
-
-
-# class StarMDP(SeperateChainsMDP):
-#     def get_succesors(self, state_idx, action):
-#         if state_idx == 0:
-#             return {list(self.chains[(action % self.chain_num)])[0]}
-#
-#         next_state = state_idx + 1
-#         next_chain = self.FindChain(state_idx)
-#         curr_chain = self.FindChain(state_idx)
-#         if next_chain == curr_chain:
-#             return next_state
-#         else:
-#             return self.chains[curr_chain][0]
-
-
-class EyeMDP(MDPModel):
-    def get_successors(self, state_idx, **kwargs):
-        return {np.mod(state_idx + 1, self.n)}
-
-
-class SingleLineMDP(MDPModel):
-    def IsStateActionRewarded(self, state_idx, action):
-        return state_idx == self.n - 2 and action == 0
-
-    def get_successors(self, state_idx, **kwargs):
-        if kwargs['action'] == 0:  # forward -->
-            return {(state_idx + 1) % self.n}
-        return {0}
-
-
-class BridgedMDP(SeperateChainsMDP):
-    def __init__(self, bridges_num, chain_num=2, **kwargs):
-        self.bridges_num = bridges_num
-        self.bridge_states = None
-        super().__init__(chain_num=chain_num, **kwargs)
-        self.type = 'bridge'
-
-    def GenPossibleSuccessorsPerState(self, chain_num, possible_per_chain, **kwargs):
-        new_chain = 1 - chain_num if kwargs['state_idx'] in self.bridge_states else chain_num
-        return super().GenPossibleSuccessorsPerState(new_chain, possible_per_chain)
-
-    def IsStateActionRewarded(self, state_idx, act):
-        return False if state_idx in self.bridge_states else super().IsStateActionRewarded(state_idx, act)
-
-    def GetRewardParams(self, state_idx):
-        if self.FindChain(state_idx) == 0:
-            return self.reward_params['medium']
-
-        return self.reward_params['high'] if np.random.random() < 0.5 else self.reward_params['low']
-
-    def buildChains(self, **kwargs):
-        super().buildChains()
-        self.bridge_states = reduce(lambda a, b: a + b, [random.sample(chain, self.bridges_num)
-                                                         for chain_num, chain in enumerate(self.chains)
-                                                         if chain_num != kwargs.get('no_bridges_tunnels')])
-
-    def GetActiveChains(self):
-        return {0, 1}
-
-
-class LevelsMDP(BridgedMDP):
-    def __init__(self, bridges_num, chain_num, **kwargs):
-        super().__init__(bridges_num, chain_num=chain_num, **kwargs)
-
-    def GenPossibleSuccessorsPerState(self, chain_num, possible_per_chain, **kwargs):
-        new_chain = 1 + chain_num if kwargs['state_idx'] in self.bridge_states else chain_num
-        return SeperateChainsMDP.GenPossibleSuccessorsPerState(self, new_chain, possible_per_chain)
-
-    def buildChains(self):
-        super().buildChains(no_bridges_tunnels=self.chain_num - 1)
-
-    def GetActiveChains(self):
-        return MDPModel.GetActiveChains(self)
-
-    def GetRewardParams(self, state_idx):
-        return SeperateChainsMDP.GetRewardParams(self, state_idx)
-
-
-if __name__ == "__main__":
-    cliff = CliffWalker(5, 0.2, 0.9)
-    print('doen')
