@@ -176,7 +176,7 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
     def get_state_sim_result(self, state):
         next_state, new_reward = self.model.sample_state_action(state, self.policy[state])
         if self.parameter == 'error':
-            new_reward = self.reward[next_state]
+            new_reward = self.reward[next_state][self.policy[next_state]]
 
         return next_state, new_reward
 
