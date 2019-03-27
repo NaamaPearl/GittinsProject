@@ -25,14 +25,14 @@ def CalcData(general_sim_params, sim_outputs, optimal, param1, param2):
 # Global
 global_dict = {}
 global_fig = None
-MAIN_FOLDER = r'C:\Users\yonio\PycharmProjects\GittinsProject\\'
+MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\model free\\'
 
 
 def ListOfMDPFromPckl():
     # part
     # titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     titles = ['Cliques']
-    graph_name = [r'run_res2.pckl'
+    graph_name = [r'tunnel_run_res2.pckl'
                   # r'GT/new calc/GT_clique.pckl',
                   # r'GT/new calc/GT_tunnel.pckl',
                   # r'GT/new calc/GT_tree.pckl',
@@ -97,6 +97,7 @@ def EvaluateGittinsByStates(res_list, general_sim_params, titles):
     global_dict['axes'][1].set_xlabel('simulation steps')
     global_dict['axes'][1].set_ylabel('wrong decisions')
     # global_dict['axes'][1].set_ylim(-0.02, 0.02)
+    global_dict['axes'][1].set_xlim(0, 500)
     vals = global_dict['axes'][1].get_yticks()
     global_dict['axes'][1].set_yticklabels(['{:.0%}'.format(x) for x in vals])
     global_dict['axes'][1].set_title('Accuracy of Agents Chosen')
