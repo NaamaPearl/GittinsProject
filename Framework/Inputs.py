@@ -23,9 +23,10 @@ class SimulationInput:
 
 
 class AgentSimulationInput(SimulationInput):
-    def __init__(self, prioritizer, parameter, **kwargs):
+    def __init__(self, method, prioritizer, parameter, **kwargs):
         super().__init__(**kwargs)
         self.prioritizer = prioritizer
+        self.method = method
         self.parameter = parameter
         self.temporal_extension = kwargs['temporal_extension']
         self.gittins_discount = kwargs['gittins_discount']
