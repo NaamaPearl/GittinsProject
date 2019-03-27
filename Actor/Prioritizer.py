@@ -138,11 +138,13 @@ class GittinsPrioritizer(TabularPrioritizer):
 
 
 class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
-    def __init__(self, states, policy, discount_factor, p, trajectory_num, max_trajectory_len, **kwargs):
+    def __init__(self, states, policy, discount_factor, p, trajectory_num, max_trajectory_len, parameter, r, **kwargs):
         super().__init__(states, policy, discount_factor)
         self.model: MDPModel = p
         self.trajectory_num = trajectory_num
         self.max_trajectory_len = max_trajectory_len
+        self.parameter = parameter
+        self.reward = r
 
     def GradeStates(self):
         def CalcStateIndex(state_idx):
@@ -151,7 +153,7 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
                 curr_state = state_idx
 
                 for i in range(self.max_trajectory_len):
-                    next_state, new_reward = self.model.sample_state_action(curr_state, self.policy[curr_state])
+                    next_state, new_reward = self.get_state_sim_result(curr_state)
 
                     res.append(new_reward * (self.discount_factor ** i))
                     curr_state = next_state
@@ -170,6 +172,14 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
         sorted_state_list = [(CalcStateIndex(state_idx), state_idx) for state_idx in range(self.n)]
         sorted_state_list.sort(reverse=True)
         return {state[1]: (order + 1, state[0]) for order, state in enumerate(sorted_state_list)}
+
+    def get_state_sim_result(self, state):
+        next_state, new_reward = self.model.sample_state_action(state, self.policy[state])
+        if self.parameter == 'error':
+            new_reward = self.reward[next_state]
+
+        return next_state, new_reward
+
 
 
 class ModelFreeGittinsPrioritizer_obselete(FunctionalPrioritizer):
