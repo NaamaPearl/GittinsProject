@@ -196,7 +196,7 @@ def PlotData(ax, sim_outputs, req_param, general_sim_params, optimal_policy_rewa
         if NeedToPlot(req_param, parameter, method):
             y, std, steps = CalcData(general_sim_params,
                                      sim_outputs[(method, parameter, varied_param)],
-                                     general_sim_params['varied_param'],
+                                     varied_param,
                                      eval_type,
                                      optimal_policy_reward)
 

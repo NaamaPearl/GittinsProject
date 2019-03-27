@@ -105,7 +105,7 @@ if __name__ == '__main__':
         actions = 3
         succ_num = 3
         op_succ_num = 5
-        gamma = 0.95
+        gamma = 0.9
         tunnel_length = 5
         size = 5
         random_prob = 0.2
@@ -119,17 +119,17 @@ if __name__ == '__main__':
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
+        'steps': 1000, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
-        'grades_freq': 50, 'gittins_discount': 0.95, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
-        'varied_param': 'temporal_extension', 'trajectory_num': 50, 'max_trajectory_len': 15
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
+        'varied_param': None, 'trajectory_num': 2, 'max_trajectory_len': 2
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
-    gt_comapre = True
+    gt_comapre = False
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['model_free', 'reward']}  # 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['model_free', 'reward', 'ground_truth']}  # 'greedy': ['reward', 'error','ground_truth']}
     general_sim_params['method_dict'] = _method_dict
 
     if gt_comapre:
