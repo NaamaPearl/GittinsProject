@@ -373,6 +373,9 @@ class CliquesMDP(TreeMDP):
         return {self.chain_num - 1}
 
 
+class SeperateChainsMDP(CliquesMDP):
+    pass
+
 class ChainsTunnelMDP(CliquesMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):
         self.tunnel_indexes = tunnel_indexes

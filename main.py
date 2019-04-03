@@ -72,7 +72,7 @@ def generateMDP(mdp_type):
                                      3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
                                      4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
                                      0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
-    if mdp_type == 'cliques':
+    if mdp_type == 'clique':
         return CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
                           chain_num=chain_num, gamma=gamma,
                           reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
@@ -90,13 +90,13 @@ if __name__ == '__main__':
     load = True
     if load:
         # clique = pickle.load(open("mdp.pckl", "rb"))
-        # directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
-        # clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
-        # cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
+        directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
+        clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
+        cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
         # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
         tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
 
-        mdp_list = [tunnel[0]]
+        mdp_list = [directed[0], cliff[0], clique[0], tunnel[0]]
         # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
 
     else:
@@ -112,25 +112,24 @@ if __name__ == '__main__':
         depth = 6
         resets_num = 7
 
-        mdp_list = [generateMDP('tunnel')]
+        mdp_list = [generateMDP('clique')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 100, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
-        'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 10000,
+        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
+        'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 20000,
         'grades_freq': 50, 'gittins_discount': 0.95, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3,
-        'varied_param': 'temporal_extension', 'trajectory_num': 100, 'max_trajectory_len': 15
+        'varied_param': None, 'trajectory_num': 100, 'max_trajectory_len': 15
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     gt_comapre = False
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'gittins': ['reward', 'error'], 'model_free': ['reward', 'error']}  # 'greedy': ['reward', 'error','ground_truth']}
-    _method_dict = {'model_free': ['error']}  # 'greedy': ['reward', 'error','ground_truth']}
+    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error', 'v_f'], 'random': [None]}
     general_sim_params['method_dict'] = _method_dict
 
     if gt_comapre:

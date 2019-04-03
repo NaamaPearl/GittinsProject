@@ -50,9 +50,8 @@ class Simulator:
 
     def updateModel(self, current_state_action, next_state, reward):
         def Update_V():
-            state = current_state_action.state
             future_v = current_state_action.P_hat @ self.evaluated_model.V_hat
-            state.V_hat = current_state_action.r_hat + self.gamma * future_v
+            current_state_action.state.V_hat = current_state_action.r_hat + self.gamma * future_v
 
         def Update_Q():
             a_n = (current_state_action.visitations + 1) ** -0.7
@@ -170,6 +169,8 @@ class AgentSimulator(Simulator):
             return self.evaluated_model.P_hat, self.evaluated_model.r_hat
         if sim_input.parameter == 'error':
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
+        if sim_input.parameter == 'v_f':
+            return self.evaluated_model.P_hat, self.evaluated_model.V_hat
         if sim_input.parameter == 'ground_truth':
             return self.model.MDP.P, np.transpose(self.model.MDP.expected_r)
 
