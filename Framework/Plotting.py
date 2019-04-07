@@ -46,8 +46,15 @@ def PlotColor(method, param=None, varied_param_str=None, l=None):
         # return (0,0,c[l])
 
     if varied_param_str == 'agents':
-        c = {(10, 10): 'robin\'s egg blue', (10, 20): 'baby blue', (10, 30): 'blue', (10, 40): 'indigo',
-             (10, 40): 'robin\'s egg blue', (20, 40): 'baby blue', (30, 40): 'blue', (40, 40): 'indigo'
+        c = {(10, 10): 'robin\'s egg blue',
+             (10, 20): 'baby blue',
+             (10, 30): 'blue',
+             (10, 40): 'indigo',
+
+             (10, 40): 'robin\'s egg blue',
+             (20, 40): 'baby blue',
+             (30, 40): 'blue',
+             (40, 40): 'indigo'
         }
         return 'xkcd:' + c[l]
 
@@ -63,6 +70,12 @@ def PlotColor(method, param=None, varied_param_str=None, l=None):
             return 'xkcd:red'
         if method == 'greedy':
             return 'xkcd:orange'
+        if method == 'model_free':
+            return 'xkcd:yellow'
+
+    ## v_f
+    if param == 'v_f':
+        return  'xkcd:purple'
 
     ## Reward
     if param == 'reward':
@@ -70,6 +83,8 @@ def PlotColor(method, param=None, varied_param_str=None, l=None):
             return 'xkcd:bright blue'
         if method == 'greedy':
             return 'xkcd:sky blue'
+        if method == 'model_free':
+            return 'xkcd:robin\'s egg blue'
 
     if param == 'ground_truth':
         if method == 'gittins':
@@ -86,7 +101,10 @@ def CreateZoomFig(ax, optimal_policy_reward):
     offset = global_dict['offset_list'][global_dict['i']][global_dict['j']]
     if offset is not None:
         axins.set_xlim(offset[0], offset[1])
-        axins.set_ylim(offset[2] / optimal_policy_reward, offset[3] / optimal_policy_reward)
+        if global_dict['i'] == 1:
+            axins.set_ylim(offset[2], offset[3])
+        else:
+            axins.set_ylim(offset[2] / optimal_policy_reward, offset[3] / optimal_policy_reward)
     else:
         axins.set_visible(False)
     plt.yticks([], visible=False)
@@ -109,6 +127,7 @@ def BuildLegend(mdp_num, varied_param=None):
             by_label = OrderedDict(zip(labels, handles))
             by_label['optimal'] = by_label['optimal policy expected reward']
             del by_label['optimal policy expected reward']
+            # leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=len(by_label), loc=8)
             leg = ax.legend(by_label.values(), by_label.keys())
         return
 
@@ -125,7 +144,7 @@ def BuildLegend(mdp_num, varied_param=None):
     by_label = OrderedDict(zip(labels, handles))
 
     if mdp_num > 1:
-        leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=len(by_label), loc=8)
+        leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=min(len(by_label), 5), loc=8)
     else:
         by_label['optimal'] = by_label['optimal policy expected reward']
         del by_label['optimal policy expected reward']
@@ -261,7 +280,7 @@ def createLabel(varied_param_str, varied_param_val, method, parameter):
         return label
     if varied_param_str == 'agents':
         agent_frac = str(int(varied_param_val[0] / 10)) + '/' + str(int(varied_param_val[1] / 10))
-        return agent_frac + ' agents ratio'
+        return agent_frac
         # return method + ' ' + str(parameter) + ' ' + agent_frac + 'agents ratio run'
     return method + ' ' + str(parameter)
 
@@ -328,19 +347,41 @@ def ListOfMDPFromPckl():
 
 
 def ListOfMDPFromPath():
-    ylim1 = [0.95, 0.87, 0.5, 0.95, 0.7]
-    ylim2 = [1.001, 1.03, 1.005, 1.03, 1.03]
-    titles = ['Tree', 'Cliques', 'Cliff', 'Star', 'Tunnel']
-    res_tuple_list = pickle.load(open(r'C:\Users\Naama\Dropbox\project\report graphs\6_mdps_res_1.pckl', 'rb'))
+    ylim1 = [0.85, 0.6, 0.85, -0.01, 0.65]
+    # ylim1 = [0.95, 0.87, 0.5, 0.95, 0.7]
+    ylim2 = [1.01, 1.03, 1.01, 1.05, 1.1]
+    # ylim2 = [1.001, 1.03, 1.005, 1.03, 1.03]
+    # titles = ['Tree', 'cliff', 'Clique', 'Tunnel']
+    titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
+
+    model_free = pickle.load(open(r'C:\Users\Naama\Dropbox\project\model free\4mdps.pckl', 'rb'))
+    res_tuple_list = pickle.load(open(r'C:\Users\Naama\Dropbox\project\graphs\value function\run_res2.pckl', 'rb'))
+    cliff = pickle.load(open(r'C:\Users\Naama\Dropbox\project\graphs\value function\cliff_with_vf.pckl', 'rb'))
+
+    # exchange cliff
+    res_tuple_list['res'][1] = cliff['res'][0]
+    res_tuple_list['opt_reward'][1] = cliff['opt_reward'][0]
+
+    # add model free
+    for res1, res2 in zip(res_tuple_list['res'], model_free['res']):
+        res1['critics'] = {**res1['critics'], **res2['critics']}
+        res1['indices'] = {**res1['indices'], **res2['indices']}
+
+
+
+    index = [2, 3, 0, 1]
+    res_tuple_list['res'] = [res_tuple_list['res'][i] for i in index]
+    res_tuple_list['opt_reward'] = [res_tuple_list['opt_reward'][i] for i in index]
+
     # x1, x2, y1, y2
-    offset_list = [[(8300, 8500, 8500, 10000),
-                    (8000, 9000, 300, 320),
-                    (8000, 9000, 15000, 17500),
-                    (7200, 7500, 28000, 32000),
+    offset_list = [[(8300, 8500, 7500, 11000),
+                    None,
+                    (8000, 9000, 13500, 16800),
+                    (7000, 8500, 140, 270),
                     (8000, 9000, 20000, 30000),
-                    (8000, 9000, 20000, 30000)],
+                    (8000, 9000, 2000, 3000)],
                    [None, None, None, None, None, None]]
-    zoom_list = [10, 3, 3, 7, 2, 3]
+    zoom_list = [10, 3, 2.5, 1.5, 2, 3]
     loc_list = [8, 4, 4, 4, 4, 4]
     line_loc = [(4, 1), (1, 2), (1, 2), (1, 3), (2, 1), (3, 1)]
     mdp_num = len(res_tuple_list['res'])
@@ -365,7 +406,7 @@ def FormatPlot(mdp_num, varied_param):
             # axes[0, 2].set_title('Regret' + '\n\n' + titles[2])
             # axes[1, 2].set_title('Evaluation')
     else:
-        global_dict['axes'][1, 0].set_xlabel('simulation_steps')
+        global_dict['axes'][1, 0].set_xlabel('simulation steps')
         global_dict['axes'][0, 0].set_ylabel('evaluated regret')
         global_dict['axes'][1, 0].set_ylabel('average reward')
         # axes[0, 0].set_title('Regret')
@@ -475,17 +516,28 @@ def TERes():
 
 
 def AgentsRes():
-    ylim1 = [0.3, 0.3]
-    ylim2 = [1.1, 1.1]
+    ylim1 = [0.75, 0.75]
+    ylim2 = [1.01, 1.01]
     # x1, x2, y1, y2
+
+    # # k const
+    # offset_list = [[None, None, None, None, None, None],
+    #                [(5000, 6000, 0.95, 1.005), None, None, None, None, None]]
+    # zoom_list = [2, 3, 7, 2, 3, 3]
+    # loc_list = [8, 4, 4, 4, 4, 4]
+    # line_loc = [(2, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
+    # graph_path_list = [r'agents\run_res2_2.pckl']
+
+    # N const
     offset_list = [[None, None, None, None, None, None],
-                   [None, None, None, None, None, None]]
-    zoom_list = [10, 3, 7, 2, 3, 3]
+                   [(3500, 4500, 0.95, 1.005), None, None, None, None, None]]
+    zoom_list = [2, 3, 7, 2, 3, 3]
     loc_list = [8, 4, 4, 4, 4, 4]
-    line_loc = [(4, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
-    titles = ['Cliques', 'Cliques']
+    line_loc = [(2, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
     graph_path_list = [r'agents\run_res2_3.pckl']
-                       # r'agents\run_res2_3.pckl']
+
+    titles = ['Cliques', 'Cliques']
+
     graph_name = [DATA_PATH(path) for path in graph_path_list]
     mdp_num = len(graph_name)
 
@@ -594,9 +646,10 @@ def PlotResultsWrraper(plot_type, Results=None):
                            res_tuple_list['opt_reward'][j],
                            res_tuple_list['params'])
     FormatPlot(global_dict['mdp_num'], res_tuple_list['params']['varied_param'])
+    global_dict['global_fig'].subplots_adjust(left=0.15)
     global_dict['global_fig'].show()
     plt.show()
 
 
 if __name__ == '__main__':
-    PlotResultsWrraper('agents')
+    PlotResultsWrraper('combined pickle')

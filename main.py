@@ -91,12 +91,12 @@ if __name__ == '__main__':
     if load:
         # clique = pickle.load(open("mdp.pckl", "rb"))
         directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
-        clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
-        cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
+        # clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
+        # cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
         # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
-        tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
+        # tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
 
-        mdp_list = [directed[0], cliff[0], clique[0], tunnel[0]]
+        mdp_list = [directed[0]]
         # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
 
     else:
@@ -105,7 +105,7 @@ if __name__ == '__main__':
         actions = 3
         succ_num = 3
         op_succ_num = 5
-        gamma = 0.95
+        gamma = 0.9
         tunnel_length = 5
         size = 5
         random_prob = 0.2
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     general_sim_params = {
         'steps': 10000, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 20000,
-        'grades_freq': 50, 'gittins_discount': 0.95, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3,
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3,
         'varied_param': None, 'trajectory_num': 100, 'max_trajectory_len': 15
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
