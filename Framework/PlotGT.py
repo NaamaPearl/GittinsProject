@@ -7,13 +7,13 @@ from Framework.CustomScale import CustomScale
 from Framework.plotUtils import *
 
 
-def CalcData(general_sim_params, sim_outputs, optimal, param1, param2):
+def CalcData(general_sim_params, sim_outputs, optimal, method, param1, param2):
     eval_count = int(general_sim_params['steps'] /
                      (general_sim_params['eval_freq']))
     max_step = eval_count * general_sim_params['eval_freq']
     steps = np.linspace(0, max_step, num=eval_count)
 
-    gittins_mean_values, gittins_std_tmp = sim_outputs['critics'][('gittins', param1, 1)].get('offline')
+    gittins_mean_values, gittins_std_tmp = sim_outputs['critics'][(method, param1, 1)].get('offline')
     gittins_smooth = np.array(smooth(gittins_mean_values))
     gt_mean_values, gt_std_tmp = sim_outputs['critics'][('gittins', param2, 1)].get('offline')
     gt_smooth = np.array(smooth(gt_mean_values))
@@ -32,17 +32,17 @@ def ListOfMDPFromPckl():
     # part
     # titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     titles = ['Cliques']
-    graph_name = [r'tunnel_run_res2.pckl'
+    graph_name = [r'C:\Users\Naama\Dropbox\project\pnina\run_res2_tunnel.pckl'
                   # r'GT/new calc/GT_clique.pckl',
                   # r'GT/new calc/GT_tunnel.pckl',
                   # r'GT/new calc/GT_tree.pckl',
                   # r'GT/new calc/GT_cliff.pckl'
                   ]
-    data_path = [DATA_PATH(name) for name in graph_name]
+    # data_path = [DATA_PATH(name) for name in graph_name]
     mdp_num = len(graph_name)
 
     res_tuple_list = {'res': [], 'opt_reward': []}
-    for i, path in enumerate(data_path):
+    for i, path in enumerate(graph_name):
         res_tuple = pickle.load(open(path, 'rb'))
         res_tuple_list['res'].append(res_tuple['res'][0])
         res_tuple_list['opt_reward'].append(res_tuple['opt_reward'][0])
@@ -58,14 +58,14 @@ def DATA_PATH(path):
 def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
     subs = []
     method_list = general_sim_params['gittins_compare']
-    for method in method_list:
+    for method, param in method_list:
         for i, mdp_res in enumerate(res_list):
             eval_count = int(general_sim_params['steps'] / (general_sim_params['eval_freq']))
             max_step = eval_count * general_sim_params['eval_freq']
             steps = np.linspace(0, max_step, num=eval_count)
 
-            evaluated_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['eval'])[i]
-            gt_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['gt'])[i]
+            evaluated_indexes = np.asarray(mdp_res['indices'][(method, param, 1)]['eval'])[i]
+            gt_indexes = np.asarray(mdp_res['indices'][(method, param, 1)]['gt'])[i]
             sub = np.abs(evaluated_indexes - gt_indexes) / optimal[i]
             sub = sub.sum(1)
             state_num = evaluated_indexes[0].shape[0]
@@ -82,11 +82,11 @@ def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
 
 def EvaluateGittinsByStates(res_list, general_sim_params, titles):
     method_list = general_sim_params['gittins_compare']
-    for method in method_list:
+    for method, param in method_list:
         bad_states = []
         for i, mdp_res in enumerate(res_list):
             bad_states.append(
-                np.asarray(mdp_res['critics'][('gittins', method, 1)]['bad_states'][0]) / general_sim_params[
+                np.asarray(mdp_res['critics'][(method, param, 1)]['bad_states'][0]) / general_sim_params[
                     'eval_freq'])
             eval_count = int(general_sim_params['steps'] /
                              (general_sim_params['eval_freq']))
@@ -105,15 +105,17 @@ def EvaluateGittinsByStates(res_list, general_sim_params, titles):
 
 
 def EvaluateGittinsByPerf(res_list, general_sim_params, titles, optimal):
-    method_list = general_sim_params['method_dict']['gittins']
+    method_list_gittins = [('gittins', param) for param in general_sim_params['method_dict']['gittins']]
+    method_list_model_based = [('model_free', param) for param in general_sim_params['method_dict']['model_free']]
+    method_list = method_list_gittins + method_list_model_based
     param2 = 'ground_truth'
     for i, mdp_res in enumerate(res_list):
         # for param1, param2 in set(itertools.combinations(method_list, 2)):  # FOR COMPARISION
-        for param1 in method_list:
-            steps, (y, std), (y_diff, std_diff) = CalcData(general_sim_params, mdp_res, optimal[i], param1, param2)
+        for method, param1 in method_list:
+            steps, (y, std), (y_diff, std_diff) = CalcData(general_sim_params, mdp_res, optimal[i], method, param1, param2)
 
             # c = PlotColor(method, parameter)
-            global_dict['axes'][2].plot(steps, y, label=param1 if param1 != 'reward' else 'model_based')
+            global_dict['axes'][2].plot(steps, y, label=method + param1)
 
             # global_dict['axes'][2].plot(steps, y, label=param1 + ' vs ' + param2)
             # global_dict['axes'][2].fill_between(steps, y + std, y - std, alpha=0.2)

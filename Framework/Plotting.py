@@ -347,20 +347,36 @@ def ListOfMDPFromPckl():
 
 
 def ListOfMDPFromPath():
-    ylim1 = [0.85, 0.6, 0.85, -0.01, 0.65]
+    ylim1 = [0, 0, 0.7, -0.01, 0.65]
+    # ylim1 = [0.85, 0.6, 0.7, -0.01, 0.65]
     # ylim1 = [0.95, 0.87, 0.5, 0.95, 0.7]
     ylim2 = [1.01, 1.03, 1.01, 1.05, 1.1]
+    # ylim2 = [1.01, 1.03, 1.01, 1.05, 1.1]
     # ylim2 = [1.001, 1.03, 1.005, 1.03, 1.03]
     # titles = ['Tree', 'cliff', 'Clique', 'Tunnel']
     titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
 
-    model_free = pickle.load(open(r'C:\Users\Naama\Dropbox\project\model free\4mdps.pckl', 'rb'))
+    model_free = pickle.load(open(r'C:\Users\Naama\Dropbox\project\model free\4mdps_new.pckl', 'rb'))
+    model_free_tunnel = pickle.load(open(r'C:\Users\Naama\Dropbox\project\pnina\run_res2_tunnel.pckl', 'rb'))
+    model_free_clique = pickle.load(open(r'C:\Users\Naama\Dropbox\project\model free\model_free_clique.pckl', 'rb'))
     res_tuple_list = pickle.load(open(r'C:\Users\Naama\Dropbox\project\graphs\value function\run_res2.pckl', 'rb'))
     cliff = pickle.load(open(r'C:\Users\Naama\Dropbox\project\graphs\value function\cliff_with_vf.pckl', 'rb'))
+    tree = pickle.load(open(r'C:\Users\Naama\Dropbox\project\graphs\value function\tree_with_vf.pckl', 'rb'))
 
-    # exchange cliff
+    # model free clique
+    model_free['res'][1] = model_free_clique['res'][0]
+    # model free tunnel
+    model_free['res'][3] = model_free_tunnel['res'][0]
+    model_free_index = [0, 2, 1, 3]
+    model_free['res'] = [model_free['res'][i] for i in model_free_index]
+    model_free['opt_reward'] = [model_free['opt_reward'][i] for i in model_free_index]
+
+
+    # exchange cliff and tree
     res_tuple_list['res'][1] = cliff['res'][0]
-    res_tuple_list['opt_reward'][1] = cliff['opt_reward'][0]
+    res_tuple_list['res'][0] = tree['res'][0]
+    # res_tuple_list['opt_reward'][1] = cliff['opt_reward'][0]
+    # res_tuple_list['opt_reward'][0] = tree['opt_reward'][0]
 
     # add model free
     for res1, res2 in zip(res_tuple_list['res'], model_free['res']):
@@ -384,9 +400,9 @@ def ListOfMDPFromPath():
     zoom_list = [10, 3, 2.5, 1.5, 2, 3]
     loc_list = [8, 4, 4, 4, 4, 4]
     line_loc = [(4, 1), (1, 2), (1, 2), (1, 3), (2, 1), (3, 1)]
-    mdp_num = len(res_tuple_list['res'])
-
-    return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
+    # mdp_num = len(res_tuple_list['res'])
+    mdp_num = 1
+    return model_free_tunnel, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
 
 
 def DATA_PATH(path):
