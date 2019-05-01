@@ -25,14 +25,14 @@ def CalcData(general_sim_params, sim_outputs, optimal, param1, param2):
 # Global
 global_dict = {}
 global_fig = None
-MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\model free\\'
+MAIN_FOLDER = r'C:\Users\yonio\PycharmProjects\GittinsProject\\'
 
 
 def ListOfMDPFromPckl():
     # part
     # titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     titles = ['Cliques']
-    graph_name = [r'tunnel_run_res2.pckl'
+    graph_name = [r'run_res2.pckl'
                   # r'GT/new calc/GT_clique.pckl',
                   # r'GT/new calc/GT_tunnel.pckl',
                   # r'GT/new calc/GT_tree.pckl',
@@ -58,14 +58,14 @@ def DATA_PATH(path):
 def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
     subs = []
     method_list = general_sim_params['gittins_compare']
-    for method in method_list:
+    for (method, param) in method_list:
         for i, mdp_res in enumerate(res_list):
             eval_count = int(general_sim_params['steps'] / (general_sim_params['eval_freq']))
             max_step = eval_count * general_sim_params['eval_freq']
             steps = np.linspace(0, max_step, num=eval_count)
 
-            evaluated_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['eval'])[i]
-            gt_indexes = np.asarray(mdp_res['indices'][('gittins', method, 1)]['gt'])[i]
+            evaluated_indexes = np.asarray(mdp_res['indices'][(method, param, 1)]['eval'])[i]
+            gt_indexes = np.asarray(mdp_res['indices'][(method, param, 1)]['gt'])[i]
             sub = np.abs(evaluated_indexes - gt_indexes) / optimal[i]
             sub = sub.sum(1)
             state_num = evaluated_indexes[0].shape[0]
@@ -82,11 +82,11 @@ def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
 
 def EvaluateGittinsByStates(res_list, general_sim_params, titles):
     method_list = general_sim_params['gittins_compare']
-    for method in method_list:
+    for (method, param) in method_list:
         bad_states = []
         for i, mdp_res in enumerate(res_list):
             bad_states.append(
-                np.asarray(mdp_res['critics'][('gittins', method, 1)]['bad_states'][0]) / general_sim_params[
+                np.asarray(mdp_res['critics'][(method, param, 1)]['bad_states'][0]) / general_sim_params[
                     'eval_freq'])
             eval_count = int(general_sim_params['steps'] /
                              (general_sim_params['eval_freq']))

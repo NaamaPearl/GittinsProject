@@ -96,8 +96,8 @@ if __name__ == '__main__':
         # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
         tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
 
-        mdp_list = [directed[0], cliff[0], clique[0], tunnel[0]]
-        # mdp_list = [directed[0], clique[0], cliff[0], star[0], tunnel[0]]
+        mdp_list = [tunnel[0]]
+        # mdp_list = [directed[0], clique[0], cliff[0], tunnel[0]]
 
     else:
         n = 46
@@ -121,19 +121,20 @@ if __name__ == '__main__':
     general_sim_params = {
         'steps': 10000, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 20000,
-        'grades_freq': 50, 'gittins_discount': 0.95, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3,
-        'varied_param': None, 'trajectory_num': 100, 'max_trajectory_len': 15
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3,
+        'varied_param': None, 'trajectory_num': 50, 'max_trajectory_len': 50
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
 
     gt_comapre = False
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error', 'v_f'], 'random': [None]}
+    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error', 'v_f'], 'random': [None]}
+    _method_dict = {'model_free': ['error', 'reward']}
     general_sim_params['method_dict'] = _method_dict
 
     if gt_comapre:
-        general_sim_params['gittins_compare'] = ['model_free', 'reward']
+        general_sim_params['gittins_compare'] = [('model_free', 'error'), ('gittins', 'error')]
         general_sim_params['method_dict']['gittins'].append('ground_truth')
     res = RunSimulations(mdp_list, general_sim_params, varied_definition_str='temporal_extension',
                          gt_compare=gt_comapre)

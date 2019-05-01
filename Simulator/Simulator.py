@@ -158,20 +158,20 @@ class AgentSimulator(Simulator):
     def ChooseInitState(self):
         return np.random.choice(self.model.states, p=self.init_prob)
 
-    def GetStatsForPrioritizer(self, sim_input):
-        if sim_input.parameter is None:
+    def GetStatsForPrioritizer(self, method, parameter):
+        if parameter is None:
             return None, None
 
-        if sim_input.method == 'model_free':
-            return self.model.MDP, self.evaluated_model.TD_error if sim_input.parameter == 'error' else None
+        if method == 'model_free':
+            return self.model.MDP, self.evaluated_model.TD_error if parameter == 'error' else None
 
-        if sim_input.parameter == 'reward':
+        if parameter == 'reward':
             return self.evaluated_model.P_hat, self.evaluated_model.r_hat
-        if sim_input.parameter == 'error':
+        if parameter == 'error':
             return self.evaluated_model.P_hat, abs(self.evaluated_model.TD_error)
-        if sim_input.parameter == 'v_f':
+        if parameter == 'v_f':
             return self.evaluated_model.P_hat, self.evaluated_model.V_hat
-        if sim_input.parameter == 'ground_truth':
+        if parameter == 'ground_truth':
             return self.model.MDP.P, np.transpose(self.model.MDP.expected_r)
 
     def ImprovePolicy(self, sim_input, **kwargs):
@@ -182,7 +182,7 @@ class AgentSimulator(Simulator):
         """
         super().ImprovePolicy(sim_input)
 
-        p, r = self.GetStatsForPrioritizer(sim_input)
+        p, r = self.GetStatsForPrioritizer(sim_input.method, sim_input.parameter)
         prioritizer = sim_input.prioritizer(states=self.model.states,
                                             policy=self.policy,
                                             p=p,
@@ -317,7 +317,7 @@ class GTAgentSimulator(AgentSimulator):
     def calc_index_vec(self, sim_input):
         self.indexes_vec.append([self.graded_states[key][1] for key in range(self.model.MDP.n)])
 
-        p_gt, r_gt = self.GetStatsForPrioritizer('ground_truth')
+        p_gt, r_gt = self.GetStatsForPrioritizer('gittins', sim_input.parameter)
         gt_prioritizer = GittinsPrioritizer(states=self.model.states,
                                             policy=self.policy,
                                             p=p_gt,

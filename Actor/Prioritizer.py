@@ -180,9 +180,11 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
         return self.build_result([(CalcStateIndex(state_idx), state_idx) for state_idx in range(self.n)])
 
     def get_state_sim_result(self, state):
-        next_state, new_reward = self.model.sample_state_action(state, self.policy[state])
-        if self.parameter == 'error':
-            new_reward = self.reward[next_state][self.policy[next_state]]
+        """Simulate one step, and retrieve next_state and reward. If prioritization is done according to error, return
+        estimated error instead of error"""
+        next_state, reward = self.model.sample_state_action(state, self.policy[state])
+        reward = reward if self.parameter == 'reward' else abs(self.reward[next_state][self.policy[next_state]])
 
-        return next_state, new_reward
+        return next_state, reward
+
 

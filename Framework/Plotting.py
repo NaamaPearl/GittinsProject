@@ -331,7 +331,7 @@ def ListOfMDPFromPath():
     ylim1 = [0.95, 0.87, 0.5, 0.95, 0.7]
     ylim2 = [1.001, 1.03, 1.005, 1.03, 1.03]
     titles = ['Tree', 'Cliques', 'Cliff', 'Star', 'Tunnel']
-    res_tuple_list = pickle.load(open(r'C:\Users\Naama\Dropbox\project\report graphs\6_mdps_res_1.pckl', 'rb'))
+    res_tuple_list = pickle.load(open(r'C:\Users\yonio\Dropbox\semester 8\project\model free\clique_tunnel.pckl', 'rb'))
     # x1, x2, y1, y2
     offset_list = [[(8300, 8500, 8500, 10000),
                     (8000, 9000, 300, 320),
@@ -572,7 +572,7 @@ def SetGlobals(plot_type, Results):
     BuildGlobalDict(res)
 
 
-def PlotResultsWrraper(plot_type, Results=None):
+def PlotResultsWrraper(plot_type='combined pickle', Results=None):
     if plot_type == 'GT':
         PlotGT(Results)
         return
@@ -599,4 +599,4 @@ def PlotResultsWrraper(plot_type, Results=None):
 
 
 if __name__ == '__main__':
-    PlotResultsWrraper('agents')
+    PlotResultsWrraper('combined pickle')
