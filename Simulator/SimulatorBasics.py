@@ -17,7 +17,7 @@ class SimulatedModel:
         return np.linalg.inv(np.eye(self.MDP.n) - gamma * self.policy_dynamics) @ self.policy_expected_rewards
 
     def GetReward(self, state_action):
-        return self.MDP.r[state_action.state.idx][state_action.action].GiveReward()
+        return self.MDP.generate_reward(state_action.state.idx, state_action.action)
 
     def GetNextState(self, state_action):
         return self.MDP.get_next_state(state_action.state.idx, state_action.action)

@@ -8,7 +8,6 @@ from Framework.Inputs import *
 from Framework.PrioritizedObject import PrioritizedObject
 from Simulator.SimulatorBasics import *
 
-
 class Simulator:
     """ Abstract class which tries to learn optimal policy via Q-Learning, based on observations """
 

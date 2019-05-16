@@ -1,5 +1,6 @@
 import random
 from functools import reduce
+from itertools import product
 
 from MDPModel.RewardGenerator import *
 
@@ -19,17 +20,22 @@ class MDPModel:
         self.P = self.BuildP()
 
         self.r = self.gen_r_mat()
-        self.expected_r = np.array([[self.r[s][a].expected_reward for s in range(self.n)] for a in range(self.actions)])
+        self.expected_r = np.array(
+            [[self.get_expected_reward(s, a) for s in range(self.n)] for a in range(self.actions)])
         self.gamma = gamma
         self.opt_policy, self.V = self.CalcOptPolicy()
+
+    def get_expected_reward(self, s, a):
+        return self.r.get((s, a), RewardGenerator()).expected_reward
 
     def get_next_state(self, state_idx, action):
         return np.random.choice(range(self.n), p=self.P[state_idx][action])
 
     def sample_state_action(self, state_idx, action):
-        r: RewardGenerator = self.r[state_idx][action]
-        return (self.get_next_state(state_idx, action),
-                r.GiveReward())
+        return self.get_next_state(state_idx, action), self.generate_reward(state_idx, action)
+
+    def generate_reward(self, state_idx, action):
+        return self.r.get((state_idx, action), RewardGenerator()).GiveReward()
 
     @property
     def active_chains_ratio(self):
@@ -42,7 +48,8 @@ class MDPModel:
                           for act in range(self.actions)]) for state_idx in range(self.n)]
 
     def GenPossibleSuccessors(self, **kwargs):
-        return [list(range(self.n)) for _ in range(self.n)]
+        all_states = list(range(self.n))
+        return {s: all_states for s in all_states}
 
     def GetActiveChains(self):
         return {0}
@@ -57,7 +64,7 @@ class MDPModel:
         return set(random.sample(self.possible_suc[state_idx], self.succ_num))
 
     def gen_P_matrix(self, state_idx, succesors):
-        if self.IsSinkState(state_idx):
+        if self.is_sink_state(state_idx):
             self_vec = np.zeros(self.n)
             self_vec[state_idx] = 1
             return np.array(self_vec)
@@ -73,16 +80,13 @@ class MDPModel:
         return None
 
     def gen_r_mat(self):
-        res = [[] for _ in range(self.n)]
-        for state_idx in range(self.n):
-            reward_params = self.GetRewardParams(state_idx)
-            res[state_idx] = [RewardGeneratorFactory.Generate(self.IsStateActionRewarded(state_idx, act),
-                                                              reward_params=reward_params)
-                              for act in range(self.actions)]
+        active_s_a = filter(lambda s_a: self.IsStateActionRewarded(*s_a), product(range(self.n), range(self.actions)))
+        res = {(s, a): RewardGeneratorFactory.Generate(reward_params=self.GetRewardParams(s)) for (s, a) in active_s_a}
 
         return res
 
-    def IsSinkState(self, state_idx):
+    @staticmethod
+    def is_sink_state(state_idx):
         return False
 
     def GenInitialProbability(self):
@@ -91,9 +95,9 @@ class MDPModel:
     def CalcPolicyData(self, policy):
         policy_dynamics = np.zeros((self.n, self.n))
         policy_expected_rewards = np.zeros(self.n)
-        for i, a in enumerate(policy):
-            policy_dynamics[i] = self.P[i][a]
-            policy_expected_rewards[i] = self.r[i][a].expected_reward
+        for s, a in enumerate(policy):
+            policy_dynamics[s] = self.P[s][a]
+            policy_expected_rewards[s] = self.get_expected_reward(s, a)
 
         return policy_dynamics, policy_expected_rewards
 
@@ -104,7 +108,7 @@ class MDPModel:
         while any(abs(V - V_old) > threshold):
             V_old = np.copy(V)
             for s in range(self.n):
-                r = [rv.expected_reward for rv in self.r[s]]
+                r = [self.get_expected_reward(s, a) for a in range(self.actions)]
                 V_new = r + (self.P[s] @ (self.gamma * V_old))
                 V[s] = max(V_new)
                 policy[s] = np.argmax(V_new)
@@ -115,7 +119,7 @@ class MDPModel:
 
     @property
     def opt_r(self):
-        return np.array([self.r[s][self.opt_policy[s]].expected_reward for s in range(self.n)])
+        return np.array([self.get_expected_reward(s, self.opt_policy[s]) for s in range(self.n)])
 
     @property
     def opt_P(self):
@@ -175,18 +179,17 @@ class DirectedTreeMDP(TreeMDP):
 
     def __init__(self, depth, actions, gamma, resets_num, **kwargs):
         def get_level_states(level_depth):
-            return set(range(2 ** level_depth - 1, 2 ** (level_depth + 1) - 1))
+            return 2 ** level_depth - 1, 2 ** (level_depth + 1) - 1
 
         self.tree_depth = depth
-        self.levels = [get_level_states(level_depth) for level_depth in range(self.tree_depth)]
+        self.levels = list(map(get_level_states, range(self.tree_depth)))
         self.reward_param = {'basic': {'gauss_params': ((0, 1), 0)},
                              17: {'gauss_params': ((50, 0), 0)}, 25: {'gauss_params': ((-50, 0), 0)}}
         super().__init__(n=2 ** depth - 1, actions=actions, chain_num=1, gamma=gamma, succ_num=2, resets_num=resets_num,
                          **kwargs)
 
     def GetRewardParams(self, state_idx):
-        reward = self.reward_param.get(state_idx)
-        return reward if reward is not None else self.reward_param['basic']
+        return self.reward_param.get(state_idx, self.reward_param['basic'])
 
     def GenPossibleSuccessors(self, **kwargs):
         """ each state can lead to states one level deeper, excepts leaves, which lead to the initial states"""
@@ -233,7 +236,7 @@ class CliffWalker(TreeMDP):
 
     def GenResetStates(self, **kwargs):
         """ all bottom states, except the initial state"""
-        return set(filter(lambda x: x % self.size == 0, list(range(self.n)))).difference(self.init_states_idx)
+        return set(filter(lambda x: x % self.size == 0, range(self.n))).difference(self.init_states_idx)
 
     def get_successors(self, state_idx, **kwargs):
         if state_idx in self.reset_states_idx:
@@ -261,9 +264,8 @@ class CliffWalker(TreeMDP):
         desired_action = kwargs['action']
         desired_state = calc_next_state(desired_action)
 
-        undesired_actions = list(set(range(self.actions)).difference({desired_action}))
-        undesired_states = set(filter(lambda state: state is not None,
-                                      [calc_next_state(action) for action in undesired_actions]))
+        undesired_actions = set(range(self.actions)) - {desired_action}
+        undesired_states = set(filter(lambda state: state is not None, map(calc_next_state, undesired_actions)))
 
         return desired_state, undesired_states
 
@@ -319,8 +321,8 @@ class CliquesMDP(TreeMDP):
 
         # reachable states from every chain
         possible_per_chain = [chain.difference(forbidden_states) for chain in self.chains]
-        return [self.GenPossibleSuccessorsPerState(self.FindChain(s), possible_per_chain, state_idx=s)
-                for s in range(self.n)]
+        return {s: self.GenPossibleSuccessorsPerState(self.FindChain(s), possible_per_chain, state_idx=s)
+                for s in range(self.n)}
 
     def GenForbiddenStates(self):
         return self.init_states_idx
@@ -330,17 +332,20 @@ class CliquesMDP(TreeMDP):
         states"""
 
         if chain_num is None:
-            return [set(opt) for opt in possible_per_chain]
+            return {chain: set(opt) for chain, opt in enumerate(possible_per_chain)}
 
         return set(random.sample(possible_per_chain[chain_num], self.op_succ_num))
 
     def get_successors(self, state_idx, **kwargs):
         """ Initial state leads evenly to all chains. Other states only to a small group of states from their chain"""
-        if state_idx in self.init_states_idx:
-            max_states = min([len(chain_states) for chain_states in self.possible_suc[state_idx]])
-            return reduce(lambda a, b: a.union(b), [set(random.sample(chain_succ, max_states))
-                                                    for chain_succ in self.possible_suc[state_idx]])
-        return super().get_successors(state_idx)
+        if state_idx not in self.init_states_idx:
+            return super().get_successors(state_idx)
+
+        def choose_possible_succ(chain_succ):
+            return set(random.sample(chain_succ, max_states))
+
+        max_states = min(map(lambda x: len(x), self.possible_suc[state_idx].values()))
+        return reduce(lambda a, b: a.union(b), map(choose_possible_succ, self.possible_suc[state_idx].values()))
 
     def IsStateActionRewarded(self, state_idx, action):
         return self.FindChain(state_idx) in self.active_chains
@@ -375,6 +380,7 @@ class CliquesMDP(TreeMDP):
 
 class SeperateChainsMDP(CliquesMDP):
     pass
+
 
 class ChainsTunnelMDP(CliquesMDP):
     def __init__(self, n, actions, succ_num, reward_param, gamma, chain_num, op_succ_num, tunnel_indexes, traps_num=0):

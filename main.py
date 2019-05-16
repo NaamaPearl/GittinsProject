@@ -4,7 +4,7 @@ from itertools import product
 from Simulator.Simulator import *
 
 
-def summarizeCritics(critics, critic_type):
+def summarize_critics(critics, critic_type):
     result = {
         'online': (np.cumsum(np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
                    np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
@@ -19,7 +19,7 @@ def summarizeCritics(critics, critic_type):
     return result
 
 
-def RunSimulations(_mdp_list, sim_params, varied_definition_str, gt_compare=False):
+def run_simulations(_mdp_list, sim_params, varied_definition_str, gt_compare=False):
     result = [{'type': mdp.type, 'critics': {}, 'indices': {}} for mdp in _mdp_list]
 
     sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method],
@@ -51,12 +51,12 @@ def RunSimulations(_mdp_list, sim_params, varied_definition_str, gt_compare=Fals
                     critic = sim_result
                 critic_list.append(critic)
 
-            curr_sim_result['critics'][res_key] = summarizeCritics(critic_list, mdp.type)
+            curr_sim_result['critics'][res_key] = summarize_critics(critic_list, mdp.type)
 
     return result
 
 
-def generateMDP(mdp_type):
+def generate_mdp(mdp_type):
     if mdp_type == 'tunnel':
         tunnel_indexes = list(range(n - tunnel_length, n))
         return ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
@@ -87,7 +87,7 @@ def generateMDP(mdp_type):
 
 if __name__ == '__main__':
     # building the MDPs
-    load = True
+    load = False
     if load:
         # clique = pickle.load(open("mdp.pckl", "rb"))
         directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
@@ -112,16 +112,16 @@ if __name__ == '__main__':
         depth = 6
         resets_num = 7
 
-        mdp_list = [generateMDP('clique')]
+        mdp_list = [generate_mdp('tunnel')]
 
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
     # define general simulation params. At most 1 parameter can be a list- compare results according to it
     general_sim_params = {
-        'steps': 10000, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
+        'steps': 100, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
         'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 20000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 3,
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
         'varied_param': None, 'trajectory_num': 50, 'max_trajectory_len': 50
     }
     opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
@@ -130,14 +130,14 @@ if __name__ == '__main__':
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error', 'v_f'], 'random': [None]}
-    _method_dict = {'model_free': ['error', 'reward']}
+    _method_dict = {'greedy': ['error']}
     general_sim_params['method_dict'] = _method_dict
 
     if gt_comapre:
         general_sim_params['gittins_compare'] = [('model_free', 'error'), ('gittins', 'error')]
         general_sim_params['method_dict']['gittins'].append('ground_truth')
-    res = RunSimulations(mdp_list, general_sim_params, varied_definition_str='temporal_extension',
-                         gt_compare=gt_comapre)
+    res = run_simulations(mdp_list, general_sim_params, varied_definition_str='temporal_extension',
+                          gt_compare=gt_comapre)
 
     printable_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
 
