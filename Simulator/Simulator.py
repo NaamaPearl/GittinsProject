@@ -1,12 +1,125 @@
 import heapq
 import queue as Q
+import numpy as np
 from collections import Counter
+from abc import abstractmethod
+from functools import reduce
+from itertools import product
+import random
 
-from Actor.Prioritizer import *
-from Critic.Critic import *
-from Framework.Inputs import *
+import Actor.Prioritizer as Pr
+from Critic.Critic import CriticFactory
+from Framework.Inputs import ProblemInput, AgentSimulationInput
 from Framework.PrioritizedObject import PrioritizedObject
-from Simulator.SimulatorBasics import *
+from Simulator.SimulatorBasics import MDPModel, SimulatedModel, EvaluatedModel, SimulatedState, StateActionPair, Agent
+
+
+class Runner:
+    """
+    Auxiliary class which holds executes all the requested runs, and outputs their result.
+    Initiation requires all simulation parameters, which are shared between all runs.
+    Executing also requires an iterable of all MDPs.
+    """
+    sim_params = None
+    varied_definition_str = None
+    gt_compare = None
+
+    def __init__(self, sim_params, varied_definition_str, gt_compare=False):
+        Runner.varied_definition_str = varied_definition_str
+        Runner.sim_params = sim_params
+        Runner.gt_compare = gt_compare
+
+        def create_definitions(param):
+            return list(product([param], sim_params['method_dict'][param], sim_params[varied_definition_str]))
+
+        self.definitions = reduce(lambda a, b: a + b, map(create_definitions, sim_params['method_dict'].keys()))
+
+    def run(self, mdp_list):
+        """Executes a run for each mdp stored"""
+
+        def run_mdp(mdp_idx, mdp):
+            """Executes required runs for a single MDP. Creates and returns an updated MDPResult objects"""
+            print(f'run MDP num {mdp_idx}')
+            return MDPResult(mdp).run(self.definitions)
+
+        return list(map(lambda e: run_mdp(*e), enumerate(mdp_list)))
+
+
+class MDPResult:
+    """Executes required runs for a single MDP, and holds results, alongside it's optimal reward"""
+
+    def __init__(self, mdp):
+        self.mdp: MDPModel = mdp
+        self.optimal_reward = self.mdp.CalcOptExpectedReward()
+        self.result = None
+
+    def run(self, definitions):
+        def run_mdp_with_defs(method, parameter, varied_definition):
+            """Run every configuration for the required amount of times. Returns results"""
+            print(f'    running {method}, prioritizing using {parameter}, with {Runner.varied_definition_str} = '
+                  f'{varied_definition}:')
+            Runner.sim_params[Runner.varied_definition_str] = varied_definition
+            res = ResFactory.generate(Runner.gt_compare, self.mdp)
+
+            for idx in range(1, Runner.sim_params['runs_per_mdp'] + 1):
+                print(f'     start run #{idx}')
+                simulator = SimulatorFactory(self.mdp, Runner.sim_params, Runner.gt_compare)
+                res.update(simulator.simulate((SimInputFactory(method, parameter, Runner.sim_params))))
+
+            res.summarize_critics()
+            return res
+
+        self.result = {definition: run_mdp_with_defs(*definition) for definition in definitions}
+        return self
+
+
+class RunResult:
+    """Container for the results of all runs of a single configuration"""
+
+    def __init__(self, mdp):
+        self.mdp_type = mdp.type
+        self.critics = []
+
+    def update(self, critics):
+        """Add new result to the container"""
+        self.critics.append(critics)
+
+    def summarize_critics(self):
+        """After all runs of the configuration were made, summarize results, in preparations for presentation"""
+        res = {
+            'online': (np.cumsum(np.mean(list(map(lambda critic: critic.value_vec['online'], self.critics)), axis=0)),
+                       np.std(list(map(lambda critic: critic.value_vec['online'], self.critics)), axis=0)),
+            'offline': (np.mean(list(map(lambda critic: critic.value_vec['offline'], self.critics)), axis=0),
+                        np.std(list(map(lambda critic: critic.value_vec['offline'], self.critics)), axis=0)),
+            'bad_states': list(map(lambda critic: np.diff(critic.bad_activated_states), self.critics)),
+            'critics': self.critics}
+
+        if self.mdp_type in ['chains', 'bridge']:
+            res['chain_activations'] = np.mean(list(map(lambda critic: critic.chain_activations, self.critics)), axis=0)
+
+        return res
+
+
+class GTRunResult(RunResult):
+    """In Ground Truth runs we also track calculated Gittins indices versus true indices"""
+
+    def __init__(self, mdp):
+        super().__init__(mdp)
+        self.indices = []
+        self.gt = []
+
+    def update(self, critics, **kwargs):
+        """Add new result to the container"""
+        super().update(critics)
+        self.indices.append(kwargs['indices'])
+        self.gt.append(kwargs['gt'])
+
+
+class ResFactory:
+    @staticmethod
+    def generate(gt_compare, mdp):
+        return GTRunResult(mdp) if gt_compare else RunResult(mdp)
+
 
 class Simulator:
     """ Abstract class which tries to learn optimal policy via Q-Learning, based on observations """
@@ -18,7 +131,7 @@ class Simulator:
         self.epsilon = sim_input.epsilon
         self.evaluated_model = EvaluatedModel()
 
-        self.critic = CriticFactory.Generate(model=self.model, evaluator_type=self.evaluation_type)
+        self.critic = CriticFactory.generate(model=self.model, evaluator_type=self.evaluation_type)
         state_num = self.model.n
         SimulatedState.action_num = self.model.actions
         self.evaluated_model.ResetData(self.model.n, self.model.actions)
@@ -35,88 +148,88 @@ class Simulator:
         StateActionPair.r_hat_mat = self.evaluated_model.r_hat
         StateActionPair.visitations_mat = self.evaluated_model.visitations
 
-    def ImprovePolicy(self, sim_input, **kwargs):
+    def improve_policy(self, sim_input, **kwargs):
         """ Choose best action per state, based on Q value"""
         for state in self.model.states:
             state.policy_action = state.best_action.action
 
         self.model.CalcPolicyData(self.policy)
 
-    def getActionResults(self, state_action: StateActionPair):
+    def get_action_results(self, state_action: StateActionPair):
         """ simulates desired action, and returns next_state, reward """
         next_state, reward = self.model.MDP.sample_state_action(state_action.state.idx, state_action.action)
         return self.model.states[next_state], reward
 
-    def updateModel(self, current_state_action, next_state, reward):
-        def Update_V():
+    def update_model(self, current_state_action, next_state, reward):
+        def update_v():
             future_v = current_state_action.P_hat @ self.evaluated_model.V_hat
             current_state_action.state.V_hat = current_state_action.r_hat + self.gamma * future_v
 
-        def Update_Q():
+        def update_q():
             a_n = (current_state_action.visitations + 1) ** -0.7
             current_state_action.TD_error = reward + self.gamma * max(
                 next_state.actions).Q_hat - current_state_action.Q_hat
             current_state_action.Q_hat += (a_n * current_state_action.TD_error)
 
-        def UpdateP():
+        def update_p():
             curr_num_of_tran = current_state_action.P_hat * current_state_action.visitations
             curr_num_of_tran[next_state.idx] += 1
 
             new_est_p_row = curr_num_of_tran / (current_state_action.visitations + 1)
             current_state_action.P_hat = new_est_p_row
 
-        def UpdateReward():
+        def update_reward():
             current_state_action.r_hat = (current_state_action.r_hat * current_state_action.visitations + reward) / (
                     current_state_action.visitations + 1)
 
-        UpdateReward()
-        UpdateP()
-        Update_V()
-        Update_Q()
+        update_reward()
+        update_p()
+        update_v()
+        update_q()
         current_state_action.UpdateVisits()
 
-    def SampleStateAction(self, agent_type, state_action: StateActionPair):
-        next_state, reward = self.getActionResults(state_action)
+    def sample_state_action(self, agent_type, state_action: StateActionPair):
+        next_state, reward = self.get_action_results(state_action)
         if agent_type == 'regular':
-            self.updateModel(state_action, next_state, reward)
+            self.update_model(state_action, next_state, reward)
 
         return reward, next_state
 
     def simulate(self, sim_input):
         self.init_simulation(sim_input)
         for i in range(int(sim_input.steps / sim_input.temporal_extension)):
-            self.SimulateOneStep(agents_to_run=sim_input.agents_to_run,
-                                 temporal_extension=sim_input.temporal_extension,
-                                 iteration_num=i,
-                                 T_board=sim_input.T_board)
+            self.simulate_one_step(agents_to_run=sim_input.agents_to_run,
+                                   temporal_extension=sim_input.temporal_extension,
+                                   iteration_num=i,
+                                   T_board=sim_input.T_board)
             if i % sim_input.grades_freq == 0:
-                self.ImprovePolicy(sim_input, iteration_num=i)
+                self.improve_policy(sim_input, iteration_num=i)
             if i % sim_input.evaluate_freq == 0:  # sim_input.evaluate_freq - 1:
-                self.SimEvaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run,
-                                 gamma=self.gamma)
+                self.sim_evaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run,
+                                  gamma=self.gamma)
             # if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
             #     self.Reset()
 
         return self.critic
 
-    def Reset(self):
+    def reset(self):
         pass
 
     def init_simulation(self, sim_input):
         pass
 
     @abstractmethod
-    def SimulateOneStep(self, agents_to_run, **kwargs):
+    def simulate_one_step(self, agents_to_run, **kwargs):
         pass
 
-    def SimEvaluate(self, **kwargs):
-        self.critic.CriticEvaluate(initial_state=self.RaffleInitialState(), good_agents=50,
-                                   chain_num=self.model.MDP.chain_num,
-                                   active_chains_ratio=self.model.MDP.active_chains_ratio,
-                                   active_chains=self.model.MDP.GetActiveChains(),
-                                   **kwargs)
+    def sim_evaluate(self, **kwargs):
+        self.critic.critic_evaluate(initial_state=self.raffle_initial_state(), good_agents=50,
+                                    chain_num=self.model.MDP.chain_num,
+                                    active_chains_ratio=self.model.MDP.active_chains_ratio,
+                                    active_chains=self.model.MDP.GetActiveChains(),
+                                    **kwargs)
 
-    def RaffleInitialState(self):
+    def raffle_initial_state(self):
         return np.random.choice(self.model.states, p=self.model.MDP.init_prob)
 
     @property
@@ -130,17 +243,17 @@ class AgentSimulator(Simulator):
         self.agents_num = sim_input.agent_num
         self.init_prob = self.model.init_prob
         self.agents = Q.PriorityQueue()
-        self.optimal_agents = self.generateOptimalAgents(sim_input.agent_num)
-        self.ResetAgents(self.agents_num)
+        self.optimal_agents = self.generate_optimal_agents(sim_input.agent_num)
+        self.reset_agents(self.agents_num)
 
         self.graded_states = {state.idx: (state.idx, random.random()) for state in self.model.states}
 
-    def generateOptimalAgents(self, agents_num):
+    def generate_optimal_agents(self, agents_num):
         agents_list = []
         good_agents = 0
         while good_agents < agents_num:
-            new_agent = Agent(100 + good_agents, self.RaffleInitialState(), agent_type='optimal')
-            next_state, _ = self.getActionResults(self.ChooseAction(new_agent.curr_state, new_agent.type))
+            new_agent = Agent(100 + good_agents, self.raffle_initial_state(), agent_type='optimal')
+            next_state, _ = self.get_action_results(self.choose_action(new_agent.curr_state, new_agent.type))
             if next_state.chain not in self.model.MDP.GetActiveChains():
                 continue
             new_agent.curr_state = next_state
@@ -149,15 +262,15 @@ class AgentSimulator(Simulator):
 
         return agents_list
 
-    def SimEvaluate(self, **kwargs):
-        kwargs['agents_reward'] = [agent.object.getOnlineAndZero() for agent in self.agents.queue]
-        kwargs['optimal_agents_reward'] = [agent.getOnlineAndZero() for agent in self.optimal_agents]
-        super().SimEvaluate(**kwargs)
+    def sim_evaluate(self, **kwargs):
+        kwargs['agents_reward'] = list(map(lambda agent: agent.object.getOnlineAndZero(), self.agents.queue))
+        kwargs['optimal_agents_reward'] = list(map(lambda agent: agent.getOnlineAndZero(), self.optimal_agents))
+        super().sim_evaluate(**kwargs)
 
-    def ChooseInitState(self):
+    def choose_init_state(self):
         return np.random.choice(self.model.states, p=self.init_prob)
 
-    def GetStatsForPrioritizer(self, method, parameter):
+    def get_stats_for_prioritizer(self, method, parameter):
         if parameter is None:
             return None, None
 
@@ -173,15 +286,15 @@ class AgentSimulator(Simulator):
         if parameter == 'ground_truth':
             return self.model.MDP.P, np.transpose(self.model.MDP.expected_r)
 
-    def ImprovePolicy(self, sim_input, **kwargs):
+    def improve_policy(self, sim_input, **kwargs):
         """
         :param sim_input: simulation parameters
         :param kwargs: must contain current iteration number, for reincarnation
         :effect: calculate new indexes for all sates, and grade agents accordingly
         """
-        super().ImprovePolicy(sim_input)
+        super().improve_policy(sim_input)
 
-        p, r = self.GetStatsForPrioritizer(sim_input.method, sim_input.parameter)
+        p, r = self.get_stats_for_prioritizer(sim_input.method, sim_input.parameter)
         prioritizer = sim_input.prioritizer(states=self.model.states,
                                             policy=self.policy,
                                             p=p,
@@ -193,31 +306,31 @@ class AgentSimulator(Simulator):
                                             parameter=sim_input.parameter)
         self.graded_states = prioritizer.GradeStates()
 
-        self.ReGradeAllAgents(kwargs['iteration_num'], sim_input.grades_freq)
+        self.regrade_all_agents(kwargs['iteration_num'], sim_input.grades_freq)
 
-    def ReincarnateAgent(self, agent, iteration_num, grades_freq):
+    def reincarnate_agent(self, agent, iteration_num, grades_freq):
         pass
         # if iteration_num - agent.last_activation > 10000 * grades_freq:
         #     agent.last_activation = iteration_num
         #     agent.curr_state = self.RaffleInitialState()
 
-    def ReGradeAllAgents(self, iteration_num, grades_freq):
+    def regrade_all_agents(self, iteration_num, grades_freq):
         """invoked after states re-prioritization. Replaces queue"""
         new_queue = Q.PriorityQueue()
         while self.agents.qsize() > 0:
             agent = self.agents.get().object
-            self.ReincarnateAgent(agent, iteration_num, grades_freq)
-            new_queue.put(self.GradeAgent(agent))
+            self.reincarnate_agent(agent, iteration_num, grades_freq)
+            new_queue.put(self.grade_agent(agent))
 
         self.agents = new_queue
 
-    def GradeAgent(self, agent):
+    def grade_agent(self, agent):
         """ Agents in non-visited states / initial states are prioritized"""
         state = agent.curr_state.idx
         score = (0, -np.inf) if state in self.model.init_states_idx else self.graded_states[state]
         return PrioritizedObject(agent, score)
 
-    def SimulateOneStep(self, agents_to_run, **kwargs):
+    def simulate_one_step(self, agents_to_run, **kwargs):
         """ Find top-priority agents, and activate them for a single step"""
         possible_states = [agent.object.curr_state.idx for agent in self.agents.queue]
 
@@ -228,42 +341,42 @@ class AgentSimulator(Simulator):
 
         for agent in agents_list + self.optimal_agents:
             for _ in range(kwargs['temporal_extension']):
-                self.SimulateAgent(agent, **kwargs)
+                self.simulate_agent(agent, **kwargs)
                 if agent.type == 'regular':
-                    self.critic.Update(agent.chain, agent.curr_state.idx)
+                    self.critic.update(agent.chain, agent.curr_state.idx)
 
             if agent.type == 'regular':
-                self.agents.put(self.GradeAgent(agent))
+                self.agents.put(self.grade_agent(agent))
 
         return possible_states, activated_states
 
-    def ChooseAction(self, state: SimulatedState, agent_type, T_board=0):
+    def choose_action(self, state: SimulatedState, agent_type, t_board=0):
         if agent_type == 'optimal':
             return state.actions[self.opt_policy[state.idx]]
 
         if agent_type == 'regular':
             min_visits, min_action = state.min_visitations
-            if min_visits < T_board:
+            if min_visits < t_board:
                 return state.actions[min_action]
 
             return state.policy_action if random.random() > self.epsilon else np.random.choice(state.actions)
 
-    def SimulateAgent(self, agent: Agent, iteration_num, **kwargs):
+    def simulate_agent(self, agent: Agent, iteration_num, **kwargs):
         """simulate one action of an agent, and re-grade it, according to it's new state"""
 
-        state_action = self.ChooseAction(agent.curr_state, agent.type, kwargs['T_board'])
+        state_action = self.choose_action(agent.curr_state, agent.type, kwargs['T_board'])
 
         agent.last_activation = iteration_num
-        reward, next_state = self.SampleStateAction(agent.type, state_action)
+        reward, next_state = self.sample_state_action(agent.type, state_action)
         agent.update(reward, next_state)
 
-    def Reset(self):
-        self.ResetAgents(self.agents.qsize())
+    def reset(self):
+        self.reset_agents(self.agents.qsize())
 
-    def ResetAgents(self, agents_num):
+    def reset_agents(self, agents_num):
         self.agents = Q.PriorityQueue()
         for i in range(agents_num):
-            init_state = self.ChooseInitState()
+            init_state = self.choose_init_state()
             self.agents.put(PrioritizedObject(Agent(i, init_state), (-np.inf, 0)))
 
     @property
@@ -283,12 +396,12 @@ class GTAgentSimulator(AgentSimulator):
     def simulate(self, sim_input):
         return super().simulate(sim_input), self.indexes_vec[1:], self.gt_indexes_vec[1:]
 
-    def SimEvaluate(self, **kwargs):
+    def sim_evaluate(self, **kwargs):
         kwargs['bad_activated_states'] = self.bad_activated_states
-        super().SimEvaluate(**kwargs)
+        super().sim_evaluate(**kwargs)
 
-    def SimulateOneStep(self, agents_to_run, **kwargs):
-        possible_states, activated_states = super().SimulateOneStep(agents_to_run, **kwargs)
+    def simulate_one_step(self, agents_to_run, **kwargs):
+        possible_states, activated_states = super().simulate_one_step(agents_to_run, **kwargs)
 
         wrongly_activated = 0
         states_order = [(self.gittins[state][0], state) for state in possible_states]
@@ -316,13 +429,13 @@ class GTAgentSimulator(AgentSimulator):
     def calc_index_vec(self, sim_input):
         self.indexes_vec.append([self.graded_states[key][1] for key in range(self.model.MDP.n)])
 
-        p_gt, r_gt = self.GetStatsForPrioritizer('gittins', sim_input.parameter)
-        gt_prioritizer = GittinsPrioritizer(states=self.model.states,
-                                            policy=self.policy,
-                                            p=p_gt,
-                                            r=r_gt,
-                                            temporal_extension=sim_input.temporal_extension,
-                                            discount_factor=sim_input.gittins_discount)
+        p_gt, r_gt = self.get_stats_for_prioritizer('gittins', sim_input.parameter)
+        gt_prioritizer = Pr.GittinsPrioritizer(states=self.model.states,
+                                               policy=self.policy,
+                                               p=p_gt,
+                                               r=r_gt,
+                                               temporal_extension=sim_input.temporal_extension,
+                                               discount_factor=sim_input.gittins_discount)
 
         self.gittins = gt_prioritizer.GradeStates()
         self.gt_indexes_vec.append([self.gittins[key][1] for key in range(self.model.MDP.n)])
@@ -330,8 +443,8 @@ class GTAgentSimulator(AgentSimulator):
     def init_simulation(self, sim_input):
         self.calc_index_vec(sim_input)
 
-    def ImprovePolicy(self, sim_input, **kwargs):
-        super().ImprovePolicy(sim_input, **kwargs)
+    def improve_policy(self, sim_input, **kwargs):
+        super().improve_policy(sim_input, **kwargs)
         self.calc_index_vec(sim_input)
 
 
@@ -350,13 +463,13 @@ def SimInputFactory(method_type, parameter, sim_params):
 
     if method_type == 'random':
         parameter = None
-        prioritizer = Prioritizer
+        prioritizer = Pr.Prioritizer
     elif method_type == 'gittins':
-        prioritizer = GittinsPrioritizer
+        prioritizer = Pr.GittinsPrioritizer
     elif method_type == 'greedy':
-        prioritizer = GreedyPrioritizer
+        prioritizer = Pr.GreedyPrioritizer
     elif method_type == 'model_free':
-        prioritizer = ModelFreeGittinsPrioritizer
+        prioritizer = Pr.ModelFreeGittinsPrioritizer
     else:
         raise IOError('unrecognized method type:' + method_type)
 

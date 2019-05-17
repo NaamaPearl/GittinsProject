@@ -1,4 +1,3 @@
-import numpy as np
 from functools import reduce
 from abc import abstractmethod
 from Simulator.SimulatorBasics import Agent
@@ -6,7 +5,7 @@ from Simulator.SimulatorBasics import Agent
 
 class Evaluator:
     @abstractmethod
-    def EvaluatePolicy(self, **kwargs):
+    def evaluate_policy(self, **kwargs):
         pass
 
 
@@ -14,7 +13,7 @@ class OfflinePolicyEvaluator(Evaluator):
     def __init__(self, model):
         self.model = model
 
-    def EvaluatePolicy(self, **kwargs):
+    def evaluate_policy(self, **kwargs):
         reward = 0
         good_agents = 0
         while good_agents < kwargs['good_agents']:
@@ -28,12 +27,13 @@ class OfflinePolicyEvaluator(Evaluator):
                 new_reward = self.model.GetReward(agent.curr_state.policy_action)
                 reward += (new_reward * kwargs['gamma'] ** i)
                 agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
-        return reward * (kwargs['active_chains_ratio'] / kwargs['good_agents'])  # assume next states after initial are evenly
-        # distributed between chains
+
+        'assume next states after initial are evenly distributed between chains'
+        return reward * (kwargs['active_chains_ratio'] / kwargs['good_agents'])
 
 
 class OnlinePolicyEvaluator(Evaluator):
-    def EvaluatePolicy(self, **kwargs):
+    def evaluate_policy(self, **kwargs):
         def sum_reward_vec(reward_vec):
             return reduce(lambda a, b: a + b, reward_vec)
 
@@ -43,19 +43,19 @@ class OnlinePolicyEvaluator(Evaluator):
 
 class EvaluatorFactory:
     @staticmethod
-    def Generate(eval_type, **kwargs):
+    def generate(eval_type, **kwargs):
         if eval_type == 'online':
             return OnlinePolicyEvaluator()
         if eval_type == 'offline':
             return OfflinePolicyEvaluator(kwargs['model'])
 
-    def GenEvaluatorDict(self, eval_type_list, **kwargs):
-        return {eval_type: self.Generate(eval_type, **kwargs) for eval_type in eval_type_list}
+    def gen_evaluator_dict(self, eval_type_list, **kwargs):
+        return {eval_type: self.generate(eval_type, **kwargs) for eval_type in eval_type_list}
 
 
 class CriticFactory:
     @staticmethod
-    def Generate(**kwargs):
+    def generate(**kwargs):
         model = kwargs['model']
         if model.type == 'chains':
             return ChainMDPCritic(model.chain_num, **kwargs)
@@ -66,31 +66,31 @@ class CriticFactory:
 class Critic:
     def __init__(self, **kwargs):
         self.eval_type_list = kwargs['evaluator_type']
-        self.evaluator_dict = EvaluatorFactory().GenEvaluatorDict(kwargs['evaluator_type'], **kwargs)
+        self.evaluator_dict = EvaluatorFactory().gen_evaluator_dict(kwargs['evaluator_type'], **kwargs)
         self.value_vec = {eval_type: [] for eval_type in self.eval_type_list}
         self.bad_activated_states = []
 
-    def Update(self, chain, state_idx):
+    def update(self, chain, state_idx):
         pass
 
-    def CriticEvaluate(self, **kwargs):
+    def critic_evaluate(self, **kwargs):
         bad_activated_states = kwargs.get('bad_activated_states')
         if bad_activated_states is not None:
             self.bad_activated_states.append(bad_activated_states)
         for eval_type in self.eval_type_list:
-            evaluated_reward = self.evaluator_dict[eval_type].EvaluatePolicy(**kwargs)
+            evaluated_reward = self.evaluator_dict[eval_type].evaluate_policy(**kwargs)
             self.value_vec[eval_type].append(evaluated_reward)
 
 
 class ChainMDPCritic(Critic):
     def __init__(self, chain_num, **kwargs):
         self.chain_num = chain_num
-        self.chain_activations = self.buildChainVec()
+        self.chain_activations = self.build_chain_vec()
         super().__init__(**kwargs)
 
-    def buildChainVec(self):
+    def build_chain_vec(self):
         return [0 for _ in range(self.chain_num)]
 
-    def Update(self, chain, state_idx):
+    def update(self, chain, state_idx):
         if chain is not None:
             self.chain_activations[chain] += 1

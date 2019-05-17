@@ -1,92 +1,50 @@
 from Framework.Plotting import *
 import pickle
-from itertools import product
-from Simulator.Simulator import *
-
-
-def summarize_critics(critics, critic_type):
-    result = {
-        'online': (np.cumsum(np.mean(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
-                   np.std(np.asarray([critic.value_vec['online'] for critic in critics]), axis=0)),
-        'offline': (np.mean(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0),
-                    np.std(np.asarray([critic.value_vec['offline'] for critic in critics]), axis=0)),
-        'bad_states': [np.diff(critic.bad_activated_states) for critic in critics],
-        'critics': critics}
-
-    if critic_type in ['chains', 'bridge']:
-        result['chain_activations'] = np.mean(np.asarray([critic.chain_activations for critic in critics]), axis=0)
-
-    return result
-
-
-def run_simulations(_mdp_list, sim_params, varied_definition_str, gt_compare=False):
-    result = [{'type': mdp.type, 'critics': {}, 'indices': {}} for mdp in _mdp_list]
-
-    sim_definition = reduce(lambda a, b: a + b, [list(product([method], sim_params['method_dict'][method],
-                                                              sim_params[varied_definition_str]))
-                                                 for method in sim_params['method_dict'].keys()])
-
-    for i, mdp in enumerate(_mdp_list):
-        print('run MDP num ' + str(i))
-        for method, parameter, varied_definition in sim_definition:
-            curr_sim_result = result[i]
-            res_key = method, parameter, varied_definition
-            curr_sim_result['indices'][res_key] = {'eval': [], 'gt': []}
-            critic_list = []
-
-            print('     running ' + method + ' prioritization, using ' + str(parameter) +
-                  ', with ' + varied_definition_str + ' = ' + str(varied_definition) + ':')
-            sim_params[varied_definition_str] = varied_definition
-            sim_input = SimInputFactory(method, parameter, sim_params)
-
-            for run_num in range(1, sim_params['runs_per_mdp'] + 1):
-                print('         start run # ' + str(run_num))
-                sim = SimulatorFactory(mdp, sim_params, gt_compare)
-                sim_result = sim.simulate(sim_input)
-                if gt_compare:
-                    critic, index, gt = sim_result
-                    curr_sim_result['indices'][res_key]['eval'].append(index)
-                    curr_sim_result['indices'][res_key]['gt'].append(gt)
-                else:
-                    critic = sim_result
-                critic_list.append(critic)
-
-            curr_sim_result['critics'][res_key] = summarize_critics(critic_list, mdp.type)
-
-    return result
+from Simulator.Simulator import Runner
+import MDPModel.MDPModel as Mdp
 
 
 def generate_mdp(mdp_type):
     if mdp_type == 'tunnel':
         tunnel_indexes = list(range(n - tunnel_length, n))
-        return ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
-                               gamma=gamma, traps_num=0, tunnel_indexes=tunnel_indexes,
-                               reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
-                                             'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                             'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
+        return Mdp.ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num,
+                                   chain_num=chain_num,
+                                   gamma=gamma, traps_num=0, tunnel_indexes=tunnel_indexes,
+                                   reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
+                                                 'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                                 'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
     if mdp_type == 'star':
-        return StarMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
-                       gamma=gamma,
-                       reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
-                                     2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
-                                     3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
-                                     4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                     0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
+        return Mdp.StarMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                           gamma=gamma,
+                           reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
+                                         2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
+                                         3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
+                                         4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
+                                         0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
     if mdp_type == 'clique':
-        return CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
-                          chain_num=chain_num, gamma=gamma,
-                          reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+        return Mdp.CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
+                              chain_num=chain_num, gamma=gamma,
+                              reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
 
     if mdp_type == 'cliff':
-        return CliffWalker(size=size,  random_prob=random_prob, gamma=gamma)
+        return Mdp.CliffWalker(size=size, random_prob=random_prob, gamma=gamma)
     if mdp_type == 'directed':
-        return DirectedTreeMDP(depth, actions, gamma, resets_num)
+        return Mdp.DirectedTreeMDP(depth, actions, gamma, resets_num)
 
     raise NotImplementedError()
 
 
+def generate_sim_params():
+    return {
+        'steps': 100, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
+        'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 20000,
+        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
+        'varied_param': None, 'trajectory_num': 50, 'max_trajectory_len': 50
+    }
+
+
 if __name__ == '__main__':
-    # building the MDPs
+    ''''build the MDPs'''
     load = False
     if load:
         # clique = pickle.load(open("mdp.pckl", "rb"))
@@ -117,37 +75,29 @@ if __name__ == '__main__':
         with open('mdp.pckl', 'wb') as f:
             pickle.dump(mdp_list, f)
 
-    # define general simulation params. At most 1 parameter can be a list- compare results according to it
-    general_sim_params = {
-        'steps': 100, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
-        'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 20000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
-        'varied_param': None, 'trajectory_num': 50, 'max_trajectory_len': 50
-    }
-    opt_policy_reward = [mdp.CalcOptExpectedReward() for mdp in mdp_list]
-
-    gt_comapre = False
+    '''define general simulation params. At most 1 parameter can be a list- compare results according to it'''
+    gt_compare = False
+    general_sim_params = generate_sim_params()
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error', 'v_f'], 'random': [None]}
-    _method_dict = {'greedy': ['error']}
+    _method_dict = {'greedy': ['error', 'reward']}
     general_sim_params['method_dict'] = _method_dict
 
-    if gt_comapre:
+    if gt_compare:
         general_sim_params['gittins_compare'] = [('model_free', 'error'), ('gittins', 'error')]
         general_sim_params['method_dict']['gittins'].append('ground_truth')
-    res = run_simulations(mdp_list, general_sim_params, varied_definition_str='temporal_extension',
-                          gt_compare=gt_comapre)
 
-    printable_res = {'res': res, 'opt_reward': opt_policy_reward, 'params': general_sim_params}
+    runner = Runner(general_sim_params, gt_compare=gt_compare, varied_definition_str='temporal_extension')
+    res = runner.run(mdp_list)
 
     with open('run_res2.pckl', 'wb') as f:
-        pickle.dump(printable_res, f)
+        pickle.dump(res, f)
 
     titles = ['tree']
-    if gt_comapre:
-        PlotResultsWrraper('GT', (printable_res, titles))
+    if gt_compare:
+        PlotResultsWrraper('GT', (res, titles))
     else:
-        PlotResultsWrraper('from main', (printable_res, titles))
+        PlotResultsWrraper('from main', (res, titles))
 
     print('all done')
