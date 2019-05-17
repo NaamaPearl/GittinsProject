@@ -4,36 +4,6 @@ from Simulator.Simulator import Runner
 import MDPModel.MDPModel as Mdp
 
 
-def generate_mdp(mdp_type):
-    if mdp_type == 'tunnel':
-        tunnel_indexes = list(range(n - tunnel_length, n))
-        return Mdp.ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num,
-                                   chain_num=chain_num,
-                                   gamma=gamma, traps_num=0, tunnel_indexes=tunnel_indexes,
-                                   reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
-                                                 'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                 'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-    if mdp_type == 'star':
-        return Mdp.StarMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
-                           gamma=gamma,
-                           reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
-                                         2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
-                                         3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
-                                         4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                         0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
-    if mdp_type == 'clique':
-        return Mdp.CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
-                              chain_num=chain_num, gamma=gamma,
-                              reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
-
-    if mdp_type == 'cliff':
-        return Mdp.CliffWalker(size=size, random_prob=random_prob, gamma=gamma)
-    if mdp_type == 'directed':
-        return Mdp.DirectedTreeMDP(depth, actions, gamma, resets_num)
-
-    raise NotImplementedError()
-
-
 def generate_sim_params():
     return {
         'steps': 100, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
@@ -43,37 +13,71 @@ def generate_sim_params():
     }
 
 
+def load_mdp_list():
+    # clique = pickle.load(open("mdp.pckl", "rb"))
+    # directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
+    # clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
+    # cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
+    # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
+    tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
+
+    mdps = [tunnel[0]]
+    # mdps = [directed[0], clique[0], cliff[0], tunnel[0]]
+
+    return mdps
+
+
+def generate_mdp_list():
+    def generate_mdp(mdp_type):
+        if mdp_type == 'tunnel':
+            tunnel_indexes = list(range(n - tunnel_length, n))
+            return Mdp.ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num,
+                                       chain_num=chain_num,
+                                       gamma=gamma, traps_num=0, tunnel_indexes=tunnel_indexes,
+                                       reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
+                                                     'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
+                                                     'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
+        if mdp_type == 'star':
+            return Mdp.StarMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
+                               gamma=gamma,
+                               reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
+                                             2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
+                                             3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
+                                             4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
+                                             0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
+        if mdp_type == 'clique':
+            return Mdp.CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
+                                  chain_num=chain_num, gamma=gamma,
+                                  reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
+
+        if mdp_type == 'cliff':
+            return Mdp.CliffWalker(size=size, random_prob=random_prob, gamma=gamma)
+        if mdp_type == 'directed':
+            return Mdp.DirectedTreeMDP(depth, actions, gamma, resets_num)
+
+        raise NotImplementedError()
+    n = 46
+    chain_num = 3
+    actions = 3
+    succ_num = 3
+    op_succ_num = 5
+    gamma = 0.95
+    tunnel_length = 5
+    size = 5
+    random_prob = 0.2
+    depth = 6
+    resets_num = 7
+
+    mdps = [generate_mdp('tunnel')]
+
+    with open('mdp.pckl', 'wb') as f:
+        pickle.dump(mdps, f)
+
+
 if __name__ == '__main__':
-    ''''build the MDPs'''
+    ''''build the MDPs or load new'''
     load = False
-    if load:
-        # clique = pickle.load(open("mdp.pckl", "rb"))
-        directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
-        clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
-        cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
-        # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
-        tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
-
-        mdp_list = [tunnel[0]]
-        # mdp_list = [directed[0], clique[0], cliff[0], tunnel[0]]
-
-    else:
-        n = 46
-        chain_num = 3
-        actions = 3
-        succ_num = 3
-        op_succ_num = 5
-        gamma = 0.95
-        tunnel_length = 5
-        size = 5
-        random_prob = 0.2
-        depth = 6
-        resets_num = 7
-
-        mdp_list = [generate_mdp('tunnel')]
-
-        with open('mdp.pckl', 'wb') as f:
-            pickle.dump(mdp_list, f)
+    mdp_list = load_mdp_list() if load else generate_mdp_list()
 
     '''define general simulation params. At most 1 parameter can be a list- compare results according to it'''
     gt_compare = False
