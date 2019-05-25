@@ -5,7 +5,7 @@ class RewardGenerator:
     def __init__(self, reward=0):
         self.expected_reward = reward
 
-    def GiveReward(self):
+    def give_reward(self):
         return self.expected_reward
 
     def __str__(self):
@@ -21,7 +21,7 @@ class RandomRewardGenerator(RewardGenerator):
 
         self.expected_reward = self.gauss_mu * self.bernoulli_p
 
-    def GiveReward(self):
+    def give_reward(self):
         return np.random.binomial(1, self.bernoulli_p) * np.random.normal(self.gauss_mu, self.gauss_sigma)
 
     def __str__(self):

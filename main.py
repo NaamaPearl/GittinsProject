@@ -1,6 +1,6 @@
 from Framework.Plotting import *
 import pickle
-from Simulator.Simulator import Runner
+from Simulator.SimulatorBasics import Runner
 import MDPModel.MDPModel as Mdp
 
 
@@ -70,8 +70,8 @@ def generate_mdp_list():
 
     mdps = [generate_mdp('tunnel')]
 
-    with open('mdp.pckl', 'wb') as f:
-        pickle.dump(mdps, f)
+    with open('mdp.pckl', 'wb') as f1:
+        pickle.dump(mdps, f1)
 
 
 if __name__ == '__main__':

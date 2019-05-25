@@ -35,7 +35,7 @@ class MDPModel:
         return self.get_next_state(state_idx, action), self.generate_reward(state_idx, action)
 
     def generate_reward(self, state_idx, action):
-        return self.r.get((state_idx, action), RewardGenerator()).GiveReward()
+        return self.r.get((state_idx, action), RewardGenerator()).give_reward()
 
     @property
     def active_chains_ratio(self):

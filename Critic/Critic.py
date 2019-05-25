@@ -18,15 +18,15 @@ class OfflinePolicyEvaluator(Evaluator):
         good_agents = 0
         while good_agents < kwargs['good_agents']:
             agent = Agent(0, kwargs['initial_state'])
-            agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
+            agent.curr_state = self.model.states[self.model.get_next_state(agent.curr_state.policy_action)]
             if agent.curr_state.chain not in kwargs['active_chains']:
                 continue
 
             good_agents += 1
             for i in range(1, kwargs['trajectory_len']+1):
-                new_reward = self.model.GetReward(agent.curr_state.policy_action)
+                new_reward = self.model.get_reward(agent.curr_state.policy_action)
                 reward += (new_reward * kwargs['gamma'] ** i)
-                agent.curr_state = self.model.states[self.model.GetNextState(agent.curr_state.policy_action)]
+                agent.curr_state = self.model.states[self.model.get_next_state(agent.curr_state.policy_action)]
 
         'assume next states after initial are evenly distributed between chains'
         return reward * (kwargs['active_chains_ratio'] / kwargs['good_agents'])

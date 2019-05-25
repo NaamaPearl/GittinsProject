@@ -412,7 +412,7 @@ def gt_res():
 
 
 def te_res():
-    '''
+    """
     res_tuple_add = [pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_8.pckl'), 'rb')),
                      pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_16.pckl'), 'rb'))]
     res_tuple_list = pickle.load(open(DATA_PATH(r'temporal_extension\run_res.pckl'), 'rb'))
@@ -437,7 +437,7 @@ def te_res():
     loc_list = [8]
     line_loc = [(4, 1)]
     mdp_num = len(res_tuple_list['res'])
-    '''
+    """
     # part
     ylim1 = [0.7, 0.6, 0.5, 0.3, 0.5, 0.5]
     ylim2 = [1.02, 1.03, 1.05, 1.05, 1.05, 1.05]
