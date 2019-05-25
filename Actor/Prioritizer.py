@@ -1,8 +1,6 @@
 import random
 from abc import abstractmethod
-
 import numpy as np
-
 from Framework.PrioritizedObject import PrioritizedObject
 from MDPModel.MDPBasics import StateScore
 from MDPModel.MDPModel import MDPModel
@@ -15,7 +13,7 @@ class Prioritizer:
         self.n = len(states)
         self.states = states
 
-    def GradeStates(self):
+    def grade_states(self):
         return self.build_result([(random.random(), i) for i in range(self.n)])
 
     @staticmethod
@@ -31,7 +29,7 @@ class FunctionalPrioritizer(Prioritizer):
         self.discount_factor = discount_factor
 
     @abstractmethod
-    def GradeStates(self):
+    def grade_states(self):
         pass
 
 
@@ -40,7 +38,7 @@ class TabularPrioritizer(FunctionalPrioritizer):
         super().__init__(states, policy, discount_factor)
         self.temporal_extension = temporal_extension
 
-        def buildP():
+        def build_p():
             prob_mat = [np.zeros((self.n, self.n)) for _ in range(self.temporal_extension)]
             for state in range(self.n):
                 prob_mat[0][state] = p[state][self.policy[state]]
@@ -50,7 +48,7 @@ class TabularPrioritizer(FunctionalPrioritizer):
 
             return prob_mat
 
-        def buildRewardVec():
+        def build_reward_vec():
             immediate_r = np.zeros(self.n)
             new_r = np.zeros(self.n)
             for idx in range(self.n):
@@ -67,27 +65,27 @@ class TabularPrioritizer(FunctionalPrioritizer):
 
             return new_r
 
-        self.P = buildP()
-        self.r = buildRewardVec()
+        self.P = build_p()
+        self.r = build_reward_vec()
 
     @abstractmethod
-    def GradeStates(self):
+    def grade_states(self):
         pass
 
 
 class GreedyPrioritizer(TabularPrioritizer):
-    def GradeStates(self):
+    def grade_states(self):
         return self.build_result([(v, i) for i, v in (enumerate(list(self.r)))])
 
 
 class GittinsPrioritizer(TabularPrioritizer):
-    def GradeStates(self):
+    def grade_states(self):
         """
         Identifies optimal state (maximal priority), updates result dictionary, and omits state from model.
         Operates Iteratively, until all states are ordered.
         """
 
-        def UpdateProbMat():
+        def update_prob_mat():
             """ Calculate new transition probabilities, after optimal state omission (invoked after removal) """
             P = self.P[-1]
             for state1 in rs_list:
@@ -102,7 +100,7 @@ class GittinsPrioritizer(TabularPrioritizer):
             P[opt_state.idx] = 0
             P[:, opt_state.idx] = 0
 
-        def UpdateStateIndex(state: StateScore):
+        def update_state_index(state: StateScore):
             """ Calc state's index after omission """
             P = self.P[-1]
             state_idx = state.idx
@@ -136,8 +134,8 @@ class GittinsPrioritizer(TabularPrioritizer):
             result[opt_state.idx] = (order, opt_state.reward.score)
             order += 1
 
-            [UpdateStateIndex(rewarded_state.reward) for rewarded_state in rs_list]  # calc indexes after omission
-            UpdateProbMat()  # calc new transition matrix
+            [update_state_index(rewarded_state.reward) for rewarded_state in rs_list]  # calc indexes after omission
+            update_prob_mat()  # calc new transition matrix
 
         # when only one state remains, simply add it to the result list
         last_state = rs_list.pop()
@@ -154,8 +152,8 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
         self.parameter = parameter
         self.reward = r
 
-    def GradeStates(self):
-        def CalcStateIndex(state_idx):
+    def grade_states(self):
+        def calc_state_index(state_idx):
             def create_trajectory():
                 res = []
                 curr_state = state_idx
@@ -177,7 +175,7 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
         denom_vec = np.array([(self.discount_factor ** i - 1) / (self.discount_factor - 1)
                               for i in range(1, self.max_trajectory_len + 1)])
 
-        return self.build_result([(CalcStateIndex(state_idx), state_idx) for state_idx in range(self.n)])
+        return self.build_result([(calc_state_index(state_idx), state_idx) for state_idx in range(self.n)])
 
     def get_state_sim_result(self, state):
         """Simulate one step, and retrieve next_state and reward. If prioritization is done according to error, return
@@ -186,5 +184,3 @@ class ModelFreeGittinsPrioritizer(FunctionalPrioritizer):
         reward = reward if self.parameter == 'reward' else abs(self.reward[next_state][self.policy[next_state]])
 
         return next_state, reward
-
-

@@ -31,6 +31,6 @@ class RandomRewardGenerator(RewardGenerator):
 
 class RewardGeneratorFactory:
     @staticmethod
-    def Generate(**kwargs):
+    def generate(**kwargs):
         return RandomRewardGenerator(gauss_params=kwargs['reward_params']['gauss_params'],
                                      bernoulli_p=kwargs['reward_params'].get('bernoulli_p'))

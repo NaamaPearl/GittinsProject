@@ -85,8 +85,7 @@ if __name__ == '__main__':
 
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
     # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error', 'v_f'], 'random': [None]}
-    _method_dict = {'greedy': ['error', 'reward']}
-    general_sim_params['method_dict'] = _method_dict
+    general_sim_params['method_dict'] = {'greedy': ['error', 'reward']}
 
     if gt_compare:
         general_sim_params['gittins_compare'] = [('model_free', 'error'), ('gittins', 'error')]
@@ -100,8 +99,8 @@ if __name__ == '__main__':
 
     titles = ['tree']
     if gt_compare:
-        PlotResultsWrraper('GT', (res, titles))
+        plot_results_wrraper('GT', (res, titles))
     else:
-        PlotResultsWrraper('from main', (res, titles))
+        plot_results_wrraper('from main', (res, titles))
 
     print('all done')

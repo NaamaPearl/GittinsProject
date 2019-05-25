@@ -1,5 +1,4 @@
 import pickle
-import itertools
 import matplotlib.pyplot as plt
 from matplotlib import scale as mscale
 
@@ -7,7 +6,7 @@ from Framework.CustomScale import CustomScale
 from Framework.plotUtils import *
 
 
-def CalcData(general_sim_params, sim_outputs, optimal, param1, param2):
+def calc_data(general_sim_params, sim_outputs, optimal, param1, param2):
     eval_count = int(general_sim_params['steps'] /
                      (general_sim_params['eval_freq']))
     max_step = eval_count * general_sim_params['eval_freq']
@@ -19,7 +18,7 @@ def CalcData(general_sim_params, sim_outputs, optimal, param1, param2):
     gt_smooth = np.array(smooth(gt_mean_values))
 
     return steps, (gittins_smooth, gittins_std_tmp), (
-    (gt_smooth - gittins_smooth) / optimal, (gt_std_tmp - gittins_std_tmp) / optimal ** 2)
+        (gt_smooth - gittins_smooth) / optimal, (gt_std_tmp - gittins_std_tmp) / optimal ** 2)
 
 
 # Global
@@ -28,7 +27,7 @@ global_fig = None
 MAIN_FOLDER = r'C:\Users\yonio\PycharmProjects\GittinsProject\\'
 
 
-def ListOfMDPFromPckl():
+def list_of_mdp_from_pckl():
     # part
     # titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     titles = ['Cliques']
@@ -55,7 +54,7 @@ def DATA_PATH(path):
     return MAIN_FOLDER + path
 
 
-def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
+def evaluate_gittins_by_value(res_list, general_sim_params, titles, optimal):
     subs = []
     method_list = general_sim_params['gittins_compare']
     for (method, param) in method_list:
@@ -80,7 +79,7 @@ def EvaluateGittinsByValue(res_list, general_sim_params, titles, optimal):
     global_dict['axes'][0].legend([x if x != 'reward' else 'model_based' for x in method_list])
 
 
-def EvaluateGittinsByStates(res_list, general_sim_params, titles):
+def evaluate_gittins_by_states(res_list, general_sim_params, titles):
     method_list = general_sim_params['gittins_compare']
     for (method, param) in method_list:
         bad_states = []
@@ -104,13 +103,13 @@ def EvaluateGittinsByStates(res_list, general_sim_params, titles):
     global_dict['axes'][1].legend([x if x != 'reward' else 'model_based' for x in method_list])
 
 
-def EvaluateGittinsByPerf(res_list, general_sim_params, titles, optimal):
+def evaluate_gittins_by_perf(res_list, general_sim_params, titles, optimal):
     method_list = general_sim_params['method_dict']['gittins']
     param2 = 'ground_truth'
     for i, mdp_res in enumerate(res_list):
         # for param1, param2 in set(itertools.combinations(method_list, 2)):  # FOR COMPARISION
         for param1 in method_list:
-            steps, (y, std), (y_diff, std_diff) = CalcData(general_sim_params, mdp_res, optimal[i], param1, param2)
+            steps, (y, std), (y_diff, std_diff) = calc_data(general_sim_params, mdp_res, optimal[i], param1, param2)
 
             # c = PlotColor(method, parameter)
             global_dict['axes'][2].plot(steps, y, label=param1 if param1 != 'reward' else 'model_based')
@@ -122,20 +121,19 @@ def EvaluateGittinsByPerf(res_list, general_sim_params, titles, optimal):
                                        label='optimal expected reward')
 
     # axes[2].set_xlabel('simulation steps')
-    # global_dict['axes'][2].set_ylabel(r'$\frac{V_{ground\ truth} - V_{approximated}}{MDP_{optimal reward}}$', fontsize=15)
     global_dict['axes'][2].set_ylabel(r'$V_{approximated}$', fontsize=15)
     global_dict['axes'][2].set_title('Performance Difference')
     global_dict['axes'][2].legend()
 
 
-def EvaluateGittins(res_list, general_sim_params, titles):
+def evaluate_gittins(res_list, general_sim_params, titles):
     # mdp_num = len(res_list)
-    EvaluateGittinsByValue(res_list['res'], general_sim_params, titles, res_list['opt_reward'])
-    EvaluateGittinsByStates(res_list['res'], general_sim_params, titles)
-    EvaluateGittinsByPerf(res_list['res'], general_sim_params, titles, res_list['opt_reward'])
+    evaluate_gittins_by_value(res_list['res'], general_sim_params, titles, res_list['opt_reward'])
+    evaluate_gittins_by_states(res_list['res'], general_sim_params, titles)
+    evaluate_gittins_by_perf(res_list['res'], general_sim_params, titles, res_list['opt_reward'])
 
 
-def SetDefaults():
+def set_defaults():
     SMALL_SIZE = 13
     MEDIUM_SIZE = 14
     BIGGER_SIZE = 16
@@ -150,18 +148,18 @@ def SetDefaults():
     plt.rc('figure', titlesize=BIGGER_SIZE, titleweight="bold")  # fontsize of the figure title
 
 
-def PlotGT(Results=None):
-    if Results is None:
-        res_tuple_list, titles, _ = ListOfMDPFromPckl()
+def plot_gt(results=None):
+    if results is None:
+        res_tuple_list, titles, _ = list_of_mdp_from_pckl()
     else:
-        res_tuple_list, titles = Results
-    SetDefaults()
+        res_tuple_list, titles = results
+    set_defaults()
     fig, global_dict['axes'] = plt.subplots(1, 3)
     fig.subplots_adjust(wspace=0.5, bottom=0.2)
-    EvaluateGittins(res_tuple_list, res_tuple_list['params'], titles)
+    evaluate_gittins(res_tuple_list, res_tuple_list['params'], titles)
 
     plt.show()
 
 
 if __name__ == '__main__':
-    PlotGT()
+    plot_gt()

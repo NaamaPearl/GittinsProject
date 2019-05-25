@@ -8,13 +8,13 @@ from Framework.plotUtils import *
 from matplotlib import scale as mscale
 import matplotlib.gridspec as gridspec
 from collections import OrderedDict
-from Framework.PlotGT import PlotGT
+from Framework.PlotGT import plot_gt
 
 # Global
 global_dict = {}
 
 
-def CompareActivations(data_output, mdp_i):
+def compare_activations(data_output, mdp_i):
     chain_num = len(next(iter(data_output.values())).get('chain_activations'))
     plt.figure()
     tick_shift = np.linspace(-0.35, 0.35, len(data_output))
@@ -28,17 +28,16 @@ def CompareActivations(data_output, mdp_i):
     plt.legend()
 
 
-def PlotEvaluation(data_output, optimal_policy_reward, general_sim_params):
+def plot_evaluation(data_output, optimal_policy_reward, general_sim_params):
     params = ['all']
     # params = ['reward', 'error', 'all']
-    [PlotEvaluationForParam(data_output, optimal_policy_reward, param, general_sim_params)
+    [plot_evaluation_for_param(data_output, optimal_policy_reward, param, general_sim_params)
      for param in params]
 
 
-def PlotColor(method, param=None, varied_param_str=None, l=None):
+def plot_color(method, param=None, varied_param_str=None, l=None):
     if varied_param_str == 'temporal_extension':
         if method in 'random':
-            #     c = {1: 'yellow green', 2: 'baby blue', 3: 'toxic green', 4: 'dark pastel green', 8: 'dark grass green', 15: 'spruce'}
             return 'xkcd:yellow green'
         # c = {1: 'green', 2: 'blue', 3: 'purple', 4: 'pink', 8: 'light blue', 15:'aqua'}
         c = {1: 'robin\'s egg blue', 2: 'baby blue', 3: 'baby blue', 4: 'cerulean', 8: 'blue', 15: 'indigo'}
@@ -48,7 +47,7 @@ def PlotColor(method, param=None, varied_param_str=None, l=None):
     if varied_param_str == 'agents':
         c = {(10, 10): 'robin\'s egg blue', (10, 20): 'baby blue', (10, 30): 'blue', (10, 40): 'indigo',
              (10, 40): 'robin\'s egg blue', (20, 40): 'baby blue', (30, 40): 'blue', (40, 40): 'indigo'
-        }
+             }
         return 'xkcd:' + c[l]
 
     if method == 'optimal':
@@ -57,14 +56,14 @@ def PlotColor(method, param=None, varied_param_str=None, l=None):
     if method == 'random':
         return 'xkcd:lime green'
 
-        ## Error
+        # Error
     if param == 'error':
         if method == 'gittins':
             return 'xkcd:red'
         if method == 'greedy':
             return 'xkcd:orange'
 
-    ## Reward
+    # Reward
     if param == 'reward':
         if method == 'gittins':
             return 'xkcd:bright blue'
@@ -78,7 +77,7 @@ def PlotColor(method, param=None, varied_param_str=None, l=None):
             return 'xkcd:pale yellow'
 
 
-def CreateZoomFig(ax, optimal_policy_reward):
+def create_zoom_fig(ax, optimal_policy_reward):
     # sub region of the original image
     zoom = global_dict['zoom_list'][global_dict['j']]
     loc = global_dict['loc_list'][global_dict['j']]
@@ -95,14 +94,13 @@ def CreateZoomFig(ax, optimal_policy_reward):
     return axins
 
 
-def CreateLegendFig():
+def create_legend_fig():
     fig = pylab.figure(figsize=(3, 2))
     plt.axis('off')
     return fig
 
 
-def BuildLegend(mdp_num, varied_param=None):
-
+def build_legend(mdp_num, varied_param=None):
     if varied_param == 'agents':
         for ax in global_dict['axes'][1]:
             handles, labels = ax.get_legend_handles_labels()
@@ -112,7 +110,7 @@ def BuildLegend(mdp_num, varied_param=None):
             leg = ax.legend(by_label.values(), by_label.keys())
         return
 
-    handles, labels = global_dict['axes'][1,0].get_legend_handles_labels()
+    handles, labels = global_dict['axes'][1, 0].get_legend_handles_labels()
     if varied_param != 'temporal_extension':
         labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0][::-1]))
         labels = list(labels)
@@ -135,7 +133,7 @@ def BuildLegend(mdp_num, varied_param=None):
         line.set_linewidth(4.0)
 
 
-def SetDefaults():
+def set_defaults():
     SMALL_SIZE = 13
     MEDIUM_SIZE = 14
     BIGGER_SIZE = 16
@@ -150,7 +148,7 @@ def SetDefaults():
     plt.rc('figure', titlesize=BIGGER_SIZE, titleweight="bold")  # fontsize of the figure title
 
 
-def CalcData(general_sim_params, sim_output, varied_param, eval_type, optimal_policy_reward):
+def calc_data(general_sim_params, sim_output, varied_param, eval_type, optimal_policy_reward):
     if general_sim_params['varied_param'] == 'temporal_extension':
         temp_ext = varied_param
     else:
@@ -173,8 +171,8 @@ def CalcData(general_sim_params, sim_output, varied_param, eval_type, optimal_po
     return y / optimal_policy_reward, std / optimal_policy_reward, steps
 
 
-def NeedToPlot(req_param, param, method, TE=False, l=0):
-    if TE and l != 1 and method == 'random':
+def need_to_plot(req_param, param, method, te=False, l=0):
+    if te and l != 1 and method == 'random':
         return False
     if req_param == 'GT':
         if method not in ['greedy']:
@@ -188,19 +186,19 @@ def NeedToPlot(req_param, param, method, TE=False, l=0):
     return False
 
 
-def PlotData(ax, sim_outputs, req_param, general_sim_params, optimal_policy_reward, eval_type):
-    axins = CreateZoomFig(ax, optimal_policy_reward)
+def plot_data(ax, sim_outputs, req_param, general_sim_params, optimal_policy_reward, eval_type):
+    axins = create_zoom_fig(ax, optimal_policy_reward)
 
     for method, parameter, varied_param in sim_outputs.keys():
-        label = createLabel(general_sim_params['varied_param'], varied_param, method, parameter)
-        if NeedToPlot(req_param, parameter, method):
-            y, std, steps = CalcData(general_sim_params,
-                                     sim_outputs[(method, parameter, varied_param)],
-                                     varied_param,
-                                     eval_type,
-                                     optimal_policy_reward)
+        label = create_label(general_sim_params['varied_param'], varied_param, method, parameter)
+        if need_to_plot(req_param, parameter, method):
+            y, std, steps = calc_data(general_sim_params,
+                                      sim_outputs[(method, parameter, varied_param)],
+                                      varied_param,
+                                      eval_type,
+                                      optimal_policy_reward)
 
-            c = PlotColor(method, parameter, general_sim_params['varied_param'], varied_param)
+            c = plot_color(method, parameter, general_sim_params['varied_param'], varied_param)
             ax.plot(steps, y, color=c, label=label)
             axins.plot(steps, y, color=c, label=label)
 
@@ -216,7 +214,7 @@ def PlotData(ax, sim_outputs, req_param, general_sim_params, optimal_policy_rewa
         mark_inset(ax, axins, loc1=line[0], loc2=line[1], fc=(1, 1, 1), ec="0.5")
 
     if eval_type == 'offline':
-        ax.axhline(y=1, color=PlotColor('optimal'), linestyle='-',
+        ax.axhline(y=1, color=plot_color('optimal'), linestyle='-',
                    label='optimal policy expected reward')
 
         ax.set_ylim([global_dict['ylim1'][global_dict['j']], global_dict['ylim2'][global_dict['j']]])
@@ -251,7 +249,7 @@ def PlotData(ax, sim_outputs, req_param, general_sim_params, optimal_policy_rewa
 #     ax.set_ylim([global_dict['ylim1'][global_dict['j']], global_dict['ylim2'][global_dict['j']]])
 
 
-def createLabel(varied_param_str, varied_param_val, method, parameter):
+def create_label(varied_param_str, varied_param_val, method, parameter):
     if varied_param_str == 'temporal_extension':
         if method == 'random':
             rand = 'random, '
@@ -266,22 +264,22 @@ def createLabel(varied_param_str, varied_param_val, method, parameter):
     return method + ' ' + str(parameter)
 
 
-def PlotEvaluationForParam(sim_outputs, optimal_policy_reward, req_param, general_sim_params):
-    SetDefaults()
+def plot_evaluation_for_param(sim_outputs, optimal_policy_reward, req_param, general_sim_params):
+    set_defaults()
 
     ax = plt.Subplot(global_dict['global_fig'], global_dict['inner'][global_dict['j']])
     global_dict['global_fig'].add_subplot(ax)
     global_dict['axes'][global_dict['i'], global_dict['j']] = ax
     # ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 3))
     if global_dict['i'] == 0:
-        PlotData(ax, sim_outputs, req_param, general_sim_params, optimal_policy_reward, 'online')
+        plot_data(ax, sim_outputs, req_param, general_sim_params, optimal_policy_reward, 'online')
     if global_dict['i'] == 1:
-        PlotData(ax, sim_outputs, req_param, general_sim_params, optimal_policy_reward, 'offline')
+        plot_data(ax, sim_outputs, req_param, general_sim_params, optimal_policy_reward, 'offline')
 
 
-def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
+def plot_results(result_list, opt_policy_reward_list, general_sim_params):
     for i, ((mdp_type, res_data), opt_reward) in enumerate(zip(result_list, opt_policy_reward_list)):
-        PlotEvaluation(res_data, opt_reward, general_sim_params)
+        plot_evaluation(res_data, opt_reward, general_sim_params)
         # if mdp_type in ['chains', 'bridge']:
         # CompareActivations(res_data, i)
 
@@ -291,7 +289,7 @@ def PlotResults(result_list, opt_policy_reward_list, general_sim_params):
 MAIN_FOLDER = r'C:\Users\Naama\Dropbox\project\report graphs\\'
 
 
-def ListOfMDPFromPckl():
+def list_of_mdp_from_pckl():
     # part
     ylim1 = [0.9, 0.7, 0.7, 0.2, 0.7]
     ylim2 = [1.01, 1.03, 1.03, 1.08, 1.03]
@@ -327,7 +325,7 @@ def ListOfMDPFromPckl():
     return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
 
 
-def ListOfMDPFromPath():
+def list_of_mdp_from_path():
     ylim1 = [0.95, 0.87, 0.5, 0.95, 0.7]
     ylim2 = [1.001, 1.03, 1.005, 1.03, 1.03]
     titles = ['Tree', 'Cliques', 'Cliff', 'Star', 'Tunnel']
@@ -352,7 +350,7 @@ def DATA_PATH(path):
     return MAIN_FOLDER + path
 
 
-def FormatPlot(mdp_num, varied_param):
+def format_plot(mdp_num, varied_param):
     if mdp_num > 1:
         # axes[1, 2].set_xlabel('simulation steps')
 
@@ -372,12 +370,12 @@ def FormatPlot(mdp_num, varied_param):
         # axes[1, 0].set_title('Evaluation')
 
     # global_fig.text(.5, .06, 'simulation steps', ha='center', fontweight="bold")
-    BuildLegend(mdp_num, varied_param)
+    build_legend(mdp_num, varied_param)
     # global_dict['global_fig'].legend()
     # global_fig.show()
 
 
-def GTRes():
+def gt_res():
     # part
     titles = ['Cliques', 'Tunnel', 'Tree', 'Cliff']
     graph_name = [r'GT/new calc/GT_clique.pckl',
@@ -413,7 +411,7 @@ def GTRes():
     return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
 
 
-def TERes():
+def te_res():
     '''
     res_tuple_add = [pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_8.pckl'), 'rb')),
                      pickle.load(open(DATA_PATH(r'temporal_extension\run_res_TE_16.pckl'), 'rb'))]
@@ -474,7 +472,7 @@ def TERes():
     return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
 
 
-def AgentsRes():
+def agents_res():
     ylim1 = [0.3, 0.3]
     ylim2 = [1.1, 1.1]
     # x1, x2, y1, y2
@@ -485,7 +483,7 @@ def AgentsRes():
     line_loc = [(4, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
     titles = ['Cliques', 'Cliques']
     graph_path_list = [r'agents\run_res2_3.pckl']
-                       # r'agents\run_res2_3.pckl']
+    # r'agents\run_res2_3.pckl']
     graph_name = [DATA_PATH(path) for path in graph_path_list]
     mdp_num = len(graph_name)
 
@@ -501,7 +499,7 @@ def AgentsRes():
     return res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
 
 
-def AddBadStatesForGT(res_list, general_sim_params):
+def add_bad_states_for_gt(res_list, general_sim_params):
     ax = plt.Subplot(global_dict['global_fig'], global_dict['inner'][1])
     steps = []
     global_dict['global_fig'].add_subplot(ax)
@@ -525,8 +523,8 @@ def AddBadStatesForGT(res_list, general_sim_params):
     # plt.show()
 
 
-def SetGlobalsFromMain(Results):
-    res, titles = Results
+def set_globals_from_main(results):
+    res, titles = results
 
     mdp_num = len(titles)
 
@@ -542,7 +540,7 @@ def SetGlobalsFromMain(Results):
     return res, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num
 
 
-def BuildGlobalDict(param):
+def build_global_dict(param):
     res_tuple_list, titles, zoom_list, loc_list, ylim1, ylim2, offset_list, line_loc, mdp_num = param
     global_dict['res_tuple_list'] = res_tuple_list
     global_dict['titles'] = titles
@@ -555,28 +553,28 @@ def BuildGlobalDict(param):
     global_dict['mdp_num'] = mdp_num
 
 
-def SetGlobals(plot_type, Results):
+def set_globals(plot_type, results):
     if plot_type == 'GT':
-        res = GTRes()
+        res = gt_res()
     elif plot_type == 'TE':
-        res = TERes()
+        res = te_res()
     elif plot_type == 'agents':
-        res = AgentsRes()
+        res = agents_res()
     elif plot_type == 'pickle list':
-        res = ListOfMDPFromPckl()
+        res = list_of_mdp_from_pckl()
     elif plot_type == 'combined pickle':
-        res = ListOfMDPFromPath()
+        res = list_of_mdp_from_path()
     else:
-        res = SetGlobalsFromMain(Results)
+        res = set_globals_from_main(results)
 
-    BuildGlobalDict(res)
+    build_global_dict(res)
 
 
-def PlotResultsWrraper(plot_type='combined pickle', Results=None):
+def plot_results_wrraper(plot_type='combined pickle', results=None):
     if plot_type == 'GT':
-        PlotGT(Results)
+        plot_gt(results)
         return
-    SetGlobals(plot_type, Results)
+    set_globals(plot_type, results)
 
     global_dict['global_fig'] = plt.figure(figsize=(6, 8))
     outer = gridspec.GridSpec(2, 1, wspace=0.3, hspace=0.3)
@@ -590,13 +588,13 @@ def PlotResultsWrraper(plot_type='combined pickle', Results=None):
         res_tuple_list = global_dict['res_tuple_list']
         for j in range(global_dict['mdp_num']):
             global_dict['j'] = j
-            PlotEvaluation(res_tuple_list['res'][j]['critics'],
-                           res_tuple_list['opt_reward'][j],
-                           res_tuple_list['params'])
-    FormatPlot(global_dict['mdp_num'], res_tuple_list['params']['varied_param'])
+            plot_evaluation(res_tuple_list['res'][j]['critics'],
+                            res_tuple_list['opt_reward'][j],
+                            res_tuple_list['params'])
+    format_plot(global_dict['mdp_num'], res_tuple_list['params']['varied_param'])
     global_dict['global_fig'].show()
     plt.show()
 
 
 if __name__ == '__main__':
-    PlotResultsWrraper('combined pickle')
+    plot_results_wrraper('combined pickle')

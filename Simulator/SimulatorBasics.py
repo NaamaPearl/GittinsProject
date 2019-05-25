@@ -11,7 +11,7 @@ class SimulatedModel:
         self.states = [SimulatedState(idx, self.FindChain(idx)) for idx in range(mdp_model.n)]
 
     def CalcPolicyData(self, policy):
-        self.policy_dynamics, self.policy_expected_rewards = self.MDP.CalcPolicyData(policy)
+        self.policy_dynamics, self.policy_expected_rewards = self.MDP.calc_policy_data(policy)
 
     def calculate_V(self, gamma):
         return np.linalg.inv(np.eye(self.MDP.n) - gamma * self.policy_dynamics) @ self.policy_expected_rewards
@@ -35,7 +35,7 @@ class SimulatedModel:
         return self.MDP.init_prob
 
     def FindChain(self, idx):
-        return self.MDP.FindChain(idx)
+        return self.MDP.find_chain(idx)
 
     @property
     def chain_num(self):
