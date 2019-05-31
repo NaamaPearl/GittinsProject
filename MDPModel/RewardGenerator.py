@@ -13,11 +13,11 @@ class RewardGenerator:
 
 
 class RandomRewardGenerator(RewardGenerator):
-    def __init__(self, **kwargs):
+    def __init__(self, gauss_params, bernoulli_p):
         super().__init__()
-        self.bernoulli_p = kwargs.get('bernoulli_p', 1)
-        self.gauss_mu = np.random.normal(kwargs['gauss_params'][0][0], kwargs['gauss_params'][0][1])
-        self.gauss_sigma = kwargs['gauss_params'][1]
+        self.bernoulli_p = bernoulli_p
+        self.gauss_mu = np.random.normal(gauss_params[0][0], gauss_params[0][1])
+        self.gauss_sigma = gauss_params[1]
 
         self.expected_reward = self.gauss_mu * self.bernoulli_p
 
@@ -33,4 +33,4 @@ class RewardGeneratorFactory:
     @staticmethod
     def generate(**kwargs):
         return RandomRewardGenerator(gauss_params=kwargs['reward_params']['gauss_params'],
-                                     bernoulli_p=kwargs['reward_params'].get('bernoulli_p'))
+                                     bernoulli_p=kwargs['reward_params'].get('bernoulli_p', 1))

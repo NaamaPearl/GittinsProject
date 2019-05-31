@@ -89,7 +89,7 @@ class ChainMDPCritic(Critic):
         super().__init__(**kwargs)
 
     def build_chain_vec(self):
-        return list(map(lambda: 0, range(self.chain_num)))
+        return list(map(lambda x: 0, range(self.chain_num)))
 
     def update(self, chain, state_idx):
         if chain is not None:

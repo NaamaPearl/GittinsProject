@@ -1,19 +1,13 @@
 from Framework.Plotting import *
+from Framework import config as cfg
 import pickle
-from Simulator.SimulatorBasics import Runner
-import MDPModel.MDPModel as Mdp
-
-
-def generate_sim_params():
-    return {
-        'steps': 100, 'eval_type': ['online', 'offline'], 'agents': (10, 30),
-        'trajectory_len': 150, 'eval_freq': 50, 'epsilon': 0.15, 'reset_freq': 20000,
-        'grades_freq': 50, 'gittins_discount': 0.9, 'temporal_extension': [1], 'T_board': 3, 'runs_per_mdp': 1,
-        'varied_param': None, 'trajectory_num': 50, 'max_trajectory_len': 50
-    }
+from MDPModel import MDPModel as Mdp, MDPUtils as mdpcfg
+import argparse
+from Framework.Outputs import Runner
 
 
 def load_mdp_list():
+    """load previously generated MDPs"""
     # clique = pickle.load(open("mdp.pckl", "rb"))
     # directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
     # clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
@@ -27,78 +21,46 @@ def load_mdp_list():
     return mdps
 
 
-def generate_mdp_list():
+def generate_mdp_list(type_list):
+    """
+    Generate new MDP per type in type_list.
+    Note that MDPs are generated according to default config. insert values to constructors to override them.
+    """
     def generate_mdp(mdp_type):
-        if mdp_type == 'tunnel':
-            tunnel_indexes = list(range(n - tunnel_length, n))
-            return Mdp.ChainsTunnelMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num,
-                                       chain_num=chain_num,
-                                       gamma=gamma, traps_num=0, tunnel_indexes=tunnel_indexes,
-                                       reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)},
-                                                     'lead_to_tunnel': {'bernoulli_p': 1, 'gauss_params': ((-1, 0), 0)},
-                                                     'tunnel_end': {'bernoulli_p': 1, 'gauss_params': ((100, 0), 0)}})
-        if mdp_type == 'star':
-            return Mdp.StarMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, chain_num=chain_num,
-                               gamma=gamma,
-                               reward_param={1: {'bernoulli_p': 1, 'gauss_params': ((100, 3), 0)},
-                                             2: {'bernoulli_p': 1, 'gauss_params': ((0, 0), 0)},
-                                             3: {'bernoulli_p': 1, 'gauss_params': ((100, 2), 0)},
-                                             4: {'bernoulli_p': 1, 'gauss_params': ((1, 0), 0)},
-                                             0: {'bernoulli_p': 1, 'gauss_params': ((110, 4), 0)}})
-        if mdp_type == 'clique':
-            return Mdp.CliquesMDP(n=n, actions=actions, succ_num=succ_num, op_succ_num=op_succ_num, traps_num=0,
-                                  chain_num=chain_num, gamma=gamma,
-                                  reward_param={chain_num - 1: {'bernoulli_p': 1, 'gauss_params': ((10, 4), 0)}})
-
-        if mdp_type == 'cliff':
-            return Mdp.CliffWalker(size=size, random_prob=random_prob, gamma=gamma)
-        if mdp_type == 'directed':
-            return Mdp.DirectedTreeMDP(depth, actions, gamma, resets_num)
+        if mdp_type == 'tunnel': return Mdp.ChainsTunnelMDP(mdpcfg.TunnelMDPConfig())
+        if mdp_type == 'star': return Mdp.StarMDP(mdpcfg.StarMDPConfig())
+        if mdp_type == 'clique': return Mdp.CliquesMDP(mdpcfg.CliqueMDPConfig())
+        if mdp_type == 'cliff': return Mdp.CliffWalker(mdpcfg.CliffMDPConfig())
+        if mdp_type == 'directed': return Mdp.DirectedTreeMDP(mdpcfg.DirectedTreeMDPConfig())
 
         raise NotImplementedError()
-    n = 46
-    chain_num = 3
-    actions = 3
-    succ_num = 3
-    op_succ_num = 5
-    gamma = 0.95
-    tunnel_length = 5
-    size = 5
-    random_prob = 0.2
-    depth = 6
-    resets_num = 7
 
-    mdps = [generate_mdp('tunnel')]
+    mdps = [generate_mdp(mdp_type) for mdp_type in type_list]
 
     with open('mdp.pckl', 'wb') as f1:
         pickle.dump(mdps, f1)
 
+    return mdps
+
 
 if __name__ == '__main__':
-    ''''build the MDPs or load new'''
-    load = False
-    mdp_list = load_mdp_list() if load else generate_mdp_list()
+    ''''Parse user's arguments'''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--load', '-l', action='store_true', help='load existing MDP')
+    args = parser.parse_args()
 
-    '''define general simulation params. At most 1 parameter can be a list- compare results according to it'''
-    gt_compare = False
-    general_sim_params = generate_sim_params()
+    '''define general simulation params. Add arguments to constructor, or use default values'''
+    general_sim_params = cfg.SimulationParameters()
+    mdp_list = load_mdp_list() if args.load else generate_mdp_list(general_sim_params.mdp_types)
 
-    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error'], 'random': [None]}
-    # _method_dict = {'gittins': ['reward', 'error'], 'greedy': ['reward', 'error', 'v_f'], 'random': [None]}
-    general_sim_params['method_dict'] = {'greedy': ['error', 'reward']}
-
-    if gt_compare:
-        general_sim_params['gittins_compare'] = [('model_free', 'error'), ('gittins', 'error')]
-        general_sim_params['method_dict']['gittins'].append('ground_truth')
-
-    runner = Runner(general_sim_params, gt_compare=gt_compare, varied_definition_str='temporal_extension')
+    runner = Runner(general_sim_params)
     res = runner.run(mdp_list)
 
     with open('run_res2.pckl', 'wb') as f:
         pickle.dump(res, f)
 
     titles = ['tree']
-    if gt_compare:
+    if general_sim_params.gt_compare:
         plot_results_wrraper('GT', (res, titles))
     else:
         plot_results_wrraper('from main', (res, titles))

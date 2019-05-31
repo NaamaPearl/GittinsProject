@@ -98,7 +98,8 @@ class Simulator:
             if i % sim_input.grades_freq == 0:
                 self.improve_policy(sim_input, iteration_num=i)
             if i % sim_input.evaluate_freq == 0:  # sim_input.evaluate_freq - 1:
-                self.sim_evaluate(trajectory_len=sim_input.trajectory_len, running_agents=sim_input.agents_to_run,
+                self.sim_evaluate(trajectory_len=sim_input.trajectory_len,
+                                  running_agents=sim_input.agents_to_run,
                                   gamma=self.gamma)
             # if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
             #     self.Reset()
@@ -347,8 +348,7 @@ def SimulatorFactory(new_mdp: sb.MDPModel, sim_params, gt_compare):
     else:
         simulator = AgentSimulator
 
-    return simulator(
-        ProblemInput(MDP_model=sb.SimulatedModel(new_mdp), gamma=new_mdp.gamma, **sim_params))
+    return simulator(ProblemInput(sim_params, sb.SimulatedModel(new_mdp)))
 
 
 def SimInputFactory(method_type, parameter, sim_params):
@@ -366,4 +366,4 @@ def SimInputFactory(method_type, parameter, sim_params):
     else:
         raise IOError('unrecognized method type:' + method_type)
 
-    return simulation_input_type(method=method_type, prioritizer=prioritizer, parameter=parameter, **sim_params)
+    return simulation_input_type(method_type, prioritizer, parameter, sim_params)
