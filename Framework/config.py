@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 from typing import Tuple, List
 
 
+def get_mdp_types(): return ['tunnel', 'star', 'clique', 'cliff', 'directed']
+
+
 @dataclass
 class SimulationParameters:
     steps: int = 100
@@ -22,7 +25,7 @@ class SimulationParameters:
     trajectory_num = 50
     max_trajectory_len = 50
     method_dict = {'greedy': ['error', 'reward']}
-    mdp_types: List[str] = field(default_factory=lambda: ['tunnel', 'star', 'clique', 'cliff'])#, 'directed'])
+    mdp_types: List[str] = field(default_factory=lambda: ['tunnel', 'star', 'clique', 'cliff', 'directed'])
     gt_compare: bool = False
     gittins_compare = None
 

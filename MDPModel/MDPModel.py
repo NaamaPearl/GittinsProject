@@ -190,27 +190,24 @@ class DirectedTreeMDP(TreeMDP):
     def gen_possible_successors(self, **kwargs):
         """ each state can lead to states one level deeper, excepts leaves, which lead to the initial states"""
 
-        def calc_depth(state_idx):
-            return int(np.log2(state_idx + 1))
+        def get_next_level(state_idx):
+            state_level = int(np.log2(state_idx + 1))
+            return set(range(*self.levels[state_level + 1]))
 
-        res = list(map(lambda s: list(range(*self.levels[calc_depth(s) + 1])), reduce(lambda a, b: a.union(b),
-                                                                                      map(lambda x: set(range(*x)),
-                                                                                          self.levels[:-1]))))
-        res += [self.init_states_idx for _ in self.leaves]
-
-        return res
+        return list(map(lambda s: get_next_level(s), self.inner_nodes.union(self.root)))
 
     def gen_reset_states(self, **kwargs):
         """ reset states are evenly distributed amongst tree's inner nodes """
         return random.sample(self.inner_nodes, kwargs['resets_num']) + list(self.leaves)
 
     @property
-    def leaves(self):
-        return self.levels[-1]
+    def leaves(self): return set(range(*self.levels[-1]))
 
     @property
+    def root(self): return set(range(*self.levels[0]))
+    @property
     def inner_nodes(self):
-        return set(range(self.n)).difference(set(range(*self.leaves))).difference(self.levels[0])
+        return set(range(self.n)).difference(self.leaves).difference(self.root)
 
 
 class CliffWalker(TreeMDP):

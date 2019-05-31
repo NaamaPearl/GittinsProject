@@ -37,7 +37,6 @@ class StarMDPConfig(CliqueMDPConfig):
     active_chains: Set[int] = field(default_factory=lambda: set(range(3)))
 
 
-
 @dataclass
 class TunnelMDPConfig(CliqueMDPConfig):
     tunnel_length: int = 5
@@ -65,6 +64,7 @@ class DirectedTreeMDPConfig(TreeMDPConfig):
                                                        25: {'gauss_params': ((-50, 0), 0)}})
     depth: int = 5
     chain_num = 1
+    succ_num: int = 2  # note that root has only 2 sons, so changing this number will cause a bug
 
     def __post_init__(self):
         self.n = 2 ** self.depth - 1
