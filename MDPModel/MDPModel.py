@@ -133,16 +133,6 @@ class MDPModel:
 
     def calc_opt_expected_reward(self):
         return self.init_prob @ self.V
-        # if 'offline' in params['eval_type']:
-        #     return self.init_prob @ self.V
-        # if 'online' in params['eval_type']:
-        # expected_reward_vec = [self.opt_r @ (self.init_prob @ np.linalg.matrix_power(self.opt_P, i))
-        #                        for i in range(params['steps'])]
-        # batch_reward = [sum(group)
-        #                 for group in np.array_split(expected_reward_vec, params['steps'] / params['eval_freq'])]
-        # return np.cumsum(self.init_prob @ self.V)
-
-        # raise ValueError('unexpected evaluation type')
 
 
 class TreeMDP(MDPModel):

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Tuple, List
+from pathlib import Path
 
 
 @dataclass
@@ -25,6 +26,7 @@ class SimulationParameters:
     mdp_types: List[str] = field(default_factory=lambda: ['tunnel', 'star', 'clique', 'cliff', 'directed'])
     gt_compare: bool = False
     gittins_compare = None
+    results_address: str = str(Path.cwd() / 'run_res.pckl')
 
     def __post_init__(self):
         if self.gt_compare:

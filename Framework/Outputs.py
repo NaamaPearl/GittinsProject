@@ -1,8 +1,11 @@
 from functools import reduce
 from itertools import product
 from Simulator.Simulator import SimInputFactory, SimulatorFactory
-from MDPModel.MDPModel import MDPModel
+from MDPModel import MDPModel as Mdp, MDPConfig as mdpcfg
 import numpy as np
+import pickle
+from Framework.Plotting import plot_results_wrraper
+from Framework import config as cfg
 
 
 class Runner:
@@ -15,17 +18,61 @@ class Runner:
     varying = None
     gt_compare = None
 
-    def __init__(self, sim_params):
+    def __init__(self, sim_params: cfg.SimulationParameters, load):
         Runner.varying = sim_params.varied_definition_str
         Runner.sim_params = sim_params
         Runner.gt_compare = sim_params.gt_compare
+
+        self.res = None
+        self.res_address = sim_params.results_address
 
         def create_definitions(param):
             return list(product([param], sim_params.method_dict[param], getattr(sim_params, Runner.varying)))
 
         self.definitions = reduce(lambda a, b: a + b, map(create_definitions, sim_params.method_dict.keys()))
 
-    def run(self, mdp_list):
+        def gen_mdps(load_mdps):
+            def generate_mdp_list(type_list):
+                """
+                Generate new MDP per type in type_list.
+                Note that MDPs are generated according to default config. insert values to constructors to override them.
+                """
+
+                def generate_mdp(mdp_type):
+                    if mdp_type == 'tunnel': return Mdp.ChainsTunnelMDP(mdpcfg.TunnelMDPConfig())
+                    if mdp_type == 'star': return Mdp.StarMDP(mdpcfg.StarMDPConfig())
+                    if mdp_type == 'clique': return Mdp.CliquesMDP(mdpcfg.CliqueMDPConfig())
+                    if mdp_type == 'cliff': return Mdp.CliffWalker(mdpcfg.CliffMDPConfig())
+                    if mdp_type == 'directed': return Mdp.DirectedTreeMDP(mdpcfg.DirectedTreeMDPConfig())
+
+                    raise NotImplementedError()
+
+                mdps = [generate_mdp(mdp_type) for mdp_type in type_list]
+
+                with open('mdp.pckl', 'wb') as f1:
+                    pickle.dump(mdps, f1)
+
+                return mdps
+
+            def load_mdp_list():
+                """load previously generated MDPs"""
+                # clique = pickle.load(open("mdp.pckl", "rb"))
+                # directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
+                # clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
+                # cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
+                # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
+                tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
+
+                mdps = [tunnel[0]]
+                # mdps = [directed[0], clique[0], cliff[0], tunnel[0]]
+
+                return mdps
+
+            return load_mdp_list() if load_mdps else generate_mdp_list(sim_params.mdp_types)
+
+        self.mdp_list = gen_mdps(load)
+
+    def run(self):
         """Executes a run for each mdp stored"""
 
         def run_mdp(mdp_idx, mdp):
@@ -33,14 +80,25 @@ class Runner:
             print(f'run MDP num {mdp_idx}')
             return MDPResult(mdp).run(self.definitions)
 
-        return list(map(lambda e: run_mdp(*e), enumerate(mdp_list)))
+        self.res = list(map(lambda e: run_mdp(*e), enumerate(self.mdp_list)))
+
+        with open(self.res_address, 'wb') as f:
+            pickle.dump(self.res, f)
+
+        return self.res
+
+    def plot(self, titles):
+        if Runner.gt_compare:
+            plot_results_wrraper('GT', (self.res, titles))
+        else:
+            plot_results_wrraper('from main', (self.res, titles))
 
 
 class MDPResult:
     """Executes required runs for a single MDP, and holds results, alongside it's optimal reward"""
 
     def __init__(self, mdp):
-        self.mdp: MDPModel = mdp
+        self.mdp: mdp.MDPModel = mdp
         self.optimal_reward = self.mdp.calc_opt_expected_reward()
         self.result = None
 
