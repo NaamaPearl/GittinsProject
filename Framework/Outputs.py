@@ -24,7 +24,6 @@ class Runner:
         Runner.gt_compare = sim_params.gt_compare
 
         self.res = None
-        self.res_address = sim_params.results_address
 
         def create_definitions(param):
             return list(product([param], sim_params.method_dict[param], getattr(sim_params, Runner.varying)))
@@ -82,7 +81,7 @@ class Runner:
 
         self.res = list(map(lambda e: run_mdp(*e), enumerate(self.mdp_list)))
 
-        with open(self.res_address, 'wb') as f:
+        with open(Runner.sim_params.results_address, 'wb') as f:
             pickle.dump(self.res, f)
 
         return self.res
