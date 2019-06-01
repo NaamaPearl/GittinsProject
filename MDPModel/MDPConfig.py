@@ -1,16 +1,33 @@
 from dataclasses import dataclass, field
 from typing import List, Set, Dict
 
+"""
+Parameters are ordered by hierarchy.  
+Note that some parameters' default value are derived from the below lists.
+You can always add values to the constructor in order to override default values.  
+"""
+
+# Default Values for MDP.
+n = 46
+chain_num = 3
+actions = 3
+succ_num = 3
+op_succ_num = 5
+gamma = 0.95
+
+# Tunnel defaults
+tunnel_length = 5
+
 
 @dataclass
 class MDPConfig:
     """Needed parameters for MDP generation. Note that some values are hardcoded, so pay attention!"""
-    n: int = 46
-    chain_num: int = 3
-    actions: int = 3
-    succ_num: int = 3  # number of successors per state
-    op_succ_num: int = 5  # number of states from which successors are raffled
-    gamma: float = 0.95
+    n: int = n
+    chain_num: int = chain_num
+    actions: int = actions
+    succ_num: int = succ_num  # number of successors per state
+    op_succ_num: int = op_succ_num  # number of states from which successors are raffled
+    gamma: float = gamma
     reward_dict: Dict = field(default_factory=lambda: {})
 
 
@@ -23,8 +40,8 @@ class TreeMDPConfig(MDPConfig):
 
 @dataclass
 class CliqueMDPConfig(TreeMDPConfig):
-    active_chains: Set[int] = field(default_factory=lambda: {2})  # chains with rewarded state-action pairs
-    reward_dict: Dict = field(default_factory=lambda: {2: {'gauss_params': ((10, 4), 0)}})
+    active_chains: Set[int] = field(default_factory=lambda: {chain_num - 1})  # chains with rewarded state-action pairs
+    reward_dict: Dict = field(default_factory=lambda: {chain_num - 1: {'gauss_params': ((10, 4), 0)}})
 
 
 @dataclass
@@ -34,16 +51,19 @@ class StarMDPConfig(CliqueMDPConfig):
                                                        3: {'gauss_params': ((100, 2), 0)},
                                                        4: {'gauss_params': ((1, 0), 0)},
                                                        0: {'gauss_params': ((110, 4), 0)}})
-    active_chains: Set[int] = field(default_factory=lambda: set(range(3)))
+    active_chains: Set[int] = field(default_factory=lambda: set(range(chain_num)))
 
 
 @dataclass
 class TunnelMDPConfig(CliqueMDPConfig):
-    tunnel_length: int = 5
-    tunnel_indices: List[int] = field(default_factory=lambda: list(range(46 - 5, 46)))
-    reward_dict: Dict = field(default_factory=lambda: {2: {'gauss_params': ((10, 4), 0)},
+    tunnel_length: int = tunnel_length
+    tunnel_indices: List[int] = None
+    reward_dict: Dict = field(default_factory=lambda: {chain_num - 1: {'gauss_params': ((10, 4), 0)},
                                                        'lead_to_tunnel': {'gauss_params': ((-1, 0), 0)},
                                                        'tunnel_end': {'gauss_params': ((100, 0), 0)}})
+
+    def __post_init__(self):
+        self.tunnel_indices = list(range(self.n - self.tunnel_length, self.n))
 
 
 @dataclass

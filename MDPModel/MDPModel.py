@@ -3,7 +3,7 @@ from functools import reduce
 from itertools import product
 from MDPModel.RewardGenerator import RewardGenerator, RewardGeneratorFactory
 import numpy as np
-import MDPModel.MDPUtils as mdpcfg
+import MDPModel.MDPConfig as mdpcfg
 
 threshold = 10 ** -10
 
@@ -150,7 +150,7 @@ class TreeMDP(MDPModel):
 
     def __init__(self, mdp_config: mdpcfg.TreeMDPConfig):
         self.n = mdp_config.n
-        self.traps_idx = random.sample(range(self.n), mdp_config.traps_num)
+        self.traps_idx = random.sample(range(mdp_config.n), mdp_config.traps_num)
         self.init_states_idx = mdp_config.init_state_idx
         self.reset_states_idx = self.gen_reset_states(resets_num=mdp_config.resets_num)
 
@@ -192,19 +192,20 @@ class DirectedTreeMDP(TreeMDP):
 
         def get_next_level(state_idx):
             state_level = int(np.log2(state_idx + 1))
-            return set(range(*self.levels[state_level + 1]))
+            return self.get_level_nodes(state_level + 1)
 
-        return list(map(lambda s: get_next_level(s), self.inner_nodes.union(self.root)))
+        return list(map(get_next_level, self.inner_nodes.union(self.root)))
 
     def gen_reset_states(self, **kwargs):
         """ reset states are evenly distributed amongst tree's inner nodes """
         return random.sample(self.inner_nodes, kwargs['resets_num']) + list(self.leaves)
 
+    def get_level_nodes(self, level): return set(range(*self.levels[level]))
     @property
-    def leaves(self): return set(range(*self.levels[-1]))
+    def leaves(self): return self.get_level_nodes(-1)
 
     @property
-    def root(self): return set(range(*self.levels[0]))
+    def root(self): return self.get_level_nodes(0)
     @property
     def inner_nodes(self):
         return set(range(self.n)).difference(self.leaves).difference(self.root)

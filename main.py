@@ -1,7 +1,7 @@
 from Framework.Plotting import *
 from Framework import config as cfg
 import pickle
-from MDPModel import MDPModel as Mdp, MDPUtils as mdpcfg
+from MDPModel import MDPModel as Mdp, MDPConfig as mdpcfg
 import argparse
 from Framework.Outputs import Runner
 

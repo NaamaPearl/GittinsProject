@@ -2,9 +2,6 @@ from dataclasses import dataclass, field
 from typing import Tuple, List
 
 
-def get_mdp_types(): return ['tunnel', 'star', 'clique', 'cliff', 'directed']
-
-
 @dataclass
 class SimulationParameters:
     steps: int = 100
