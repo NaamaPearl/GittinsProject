@@ -56,6 +56,7 @@ class StarMDPConfig(CliqueMDPConfig):
 
 @dataclass
 class TunnelMDPConfig(CliqueMDPConfig):
+    tunnel_start: int = n
     tunnel_length: int = tunnel_length
     tunnel_indices: List[int] = None
     reward_dict: Dict = field(default_factory=lambda: {chain_num - 1: {'gauss_params': ((10, 4), 0)},
@@ -63,7 +64,7 @@ class TunnelMDPConfig(CliqueMDPConfig):
                                                        'tunnel_end': {'gauss_params': ((100, 0), 0)}})
 
     def __post_init__(self):
-        self.tunnel_indices = list(range(self.n - self.tunnel_length, self.n))
+        self.tunnel_indices = list(range(self.tunnel_start - self.tunnel_length, self.tunnel_start))
 
 
 @dataclass
