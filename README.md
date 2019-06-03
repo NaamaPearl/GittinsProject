@@ -13,4 +13,4 @@ Override defaults by explicitly assigning other values in `main.py`. For example
 cfg.SimulationParameters(steps=1000)
 ```
 
-Parmaters for MDP types are stored in `MDPModel\MDPConfig.py`, and can be changed as listed above
+Parmaters for MDP types are stored in `MDPModel\MDPConfig.py`, and can be changed as listed above. Note that some default values here are derived from other values, so it'd be wise to check the file before overriding.
