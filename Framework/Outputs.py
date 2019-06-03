@@ -77,7 +77,7 @@ class Runner:
         def run_mdp(mdp_idx, mdp):
             """Executes required runs for a single MDP. Creates and returns an updated MDPResult objects"""
             print(f'run MDP num {mdp_idx}')
-            return MDPResult(mdp).run(self.definitions)
+            return MDPResult(mdp, self.sim_params).run(self.definitions)
 
         self.res = list(map(lambda e: run_mdp(*e), enumerate(self.mdp_list)))
 
@@ -96,10 +96,11 @@ class Runner:
 class MDPResult:
     """Executes required runs for a single MDP, and holds results, alongside it's optimal reward"""
 
-    def __init__(self, mdp):
+    def __init__(self, mdp, sim_params):
         self.mdp: mdp.MDPModel = mdp
         self.optimal_reward = self.mdp.calc_opt_expected_reward()
         self.result = None
+        self.sim_params = sim_params
 
     def run(self, definitions):
         def run_mdp_with_defs(method, parameter, varied_definition):
@@ -114,8 +115,8 @@ class MDPResult:
                 simulator = SimulatorFactory(self.mdp, Runner.sim_params, Runner.gt_compare)
                 res.update(simulator.simulate((SimInputFactory(method, parameter, Runner.sim_params))))
 
-            res.summarize_critics()
-            return res
+            summarized_critics = res.summarize_critics()
+            return summarized_critics
 
         self.result = {definition: run_mdp_with_defs(*definition) for definition in definitions}
         return self
@@ -137,7 +138,7 @@ class RunResult:
         def critic_getter_generator(attr_name):
             return list(map(lambda x: x.value_vec[attr_name], self.critics))
         res = {
-            'online': (np.cumsum(np.mean(critic_getter_generator('online')), axis=0),
+            'online': (np.cumsum(np.mean(critic_getter_generator('online'), axis=0)),
                        np.std(critic_getter_generator('online'), axis=0)),
             'offline': (np.mean(critic_getter_generator('offline'), axis=0),
                         np.std(critic_getter_generator('offline'), axis=0)),
@@ -155,14 +156,26 @@ class GTRunResult(RunResult):
 
     def __init__(self, mdp):
         super().__init__(mdp)
-        self.indices = []
-        self.gt = []
+        self.eval_indices = []
+        self.gt_indices = []
 
-    def update(self, critics, **kwargs):
+    def update(self, simulate_result, **kwargs):
         """Add new result to the container"""
+        (critics, indices_order, gt_indices_values) = simulate_result
         super().update(critics)
-        self.indices.append(kwargs['indices'])
-        self.gt.append(kwargs['gt'])
+        self.eval_indices.append(indices_order)
+        self.gt_indices.append(gt_indices_values)
+
+    def summarize_critics(self):
+        res = super().summarize_critics()
+
+        res['indices'] = {}
+        res['indices']['eval'] = self.eval_indices
+        res['indices']['gt'] = self.gt_indices
+
+        return res
+
+
 
 
 class ResFactory:

@@ -123,8 +123,7 @@ def build_legend(mdp_num, varied_param=None):
     by_label = OrderedDict(zip(labels, handles))
 
     if mdp_num > 1:
-        ncol = mdp_num
-        leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=ncol, loc=8)
+        leg = plt.figlegend(by_label.values(), by_label.keys(), ncol=len(by_label), loc=8)
     else:
         by_label['optimal'] = by_label['optimal policy expected reward']
         del by_label['optimal policy expected reward']
@@ -150,14 +149,14 @@ def set_defaults():
 
 
 def calc_data(general_sim_params, sim_output, varied_param, eval_type, optimal_policy_reward):
-    if general_sim_params.varied_definition_str == 'temporal_extension':
+    if general_sim_params['varied_param'] == 'temporal_extension':
         temp_ext = varied_param
     else:
-        temp_ext = general_sim_params.temporal_extension
+        temp_ext = general_sim_params['temporal_extension']
 
-    eval_count = int(general_sim_params.steps /
-                     (general_sim_params.eval_freq * temp_ext))
-    max_step = eval_count * general_sim_params.eval_freq * temp_ext
+    eval_count = int(general_sim_params['steps'] /
+                     (general_sim_params['eval_freq'] * temp_ext))
+    max_step = eval_count * general_sim_params['eval_freq'] * temp_ext
     samples = np.linspace(0, max_step, num=eval_count)
     steps = np.linspace(0, max_step, num=eval_count * temp_ext)
 
@@ -191,7 +190,7 @@ def plot_data(ax, sim_outputs, req_param, general_sim_params, optimal_policy_rew
     axins = create_zoom_fig(ax, optimal_policy_reward)
 
     for method, parameter, varied_param in sim_outputs.keys():
-        label = create_label(general_sim_params.varied_definition_str, varied_param, method, parameter)
+        label = create_label(general_sim_params['varied_param'], varied_param, method, parameter)
         if need_to_plot(req_param, parameter, method):
             y, std, steps = calc_data(general_sim_params,
                                       sim_outputs[(method, parameter, varied_param)],
@@ -199,7 +198,7 @@ def plot_data(ax, sim_outputs, req_param, general_sim_params, optimal_policy_rew
                                       eval_type,
                                       optimal_policy_reward)
 
-            c = plot_color(method, parameter, general_sim_params.varied_param, varied_param)
+            c = plot_color(method, parameter, general_sim_params['varied_param'], varied_param)
             ax.plot(steps, y, color=c, label=label)
             axins.plot(steps, y, color=c, label=label)
 
@@ -508,10 +507,10 @@ def add_bad_states_for_gt(res_list, general_sim_params):
     bad_states = []
     for i, mdp_res in enumerate(res_list):
         bad_states.append(
-            np.asarray(mdp_res[1][('gittins', 'reward', 1)]['bad_states'][0]) / general_sim_params.eval_freq)
-        eval_count = int(general_sim_params.steps /
-                         (general_sim_params.eval_freq))
-        max_step = eval_count * general_sim_params.eval_freq
+            np.asarray(mdp_res[1][('gittins', 'reward', 1)]['bad_states'][0]) / general_sim_params['eval_freq'])
+        eval_count = int(general_sim_params['steps'] /
+                         (general_sim_params['eval_freq']))
+        max_step = eval_count * general_sim_params['eval_freq']
         steps = np.linspace(0, max_step, num=eval_count)[:-1]
     # del[bad_states[0]]
     bad_states = np.asarray(bad_states).T
@@ -529,11 +528,11 @@ def set_globals_from_main(results):
 
     mdp_num = len(titles)
 
-    ylim1 = [0.3] * mdp_num
-    ylim2 = [1.1] * mdp_num
+    ylim1 = [0.3]
+    ylim2 = [1.1]
     # x1, x2, y1, y2
-    offset_list = [[None] * mdp_num,
-                   [None] * mdp_num]
+    offset_list = [[None, None, None, None, None, None],
+                   [None, None, None, None, None, None]]
     zoom_list = [10, 3, 7, 2, 3, 3]
     loc_list = [8, 4, 4, 4, 4, 4]
     line_loc = [(4, 1), (1, 2), (1, 3), (2, 1), (1, 2), (3, 1)]
@@ -589,12 +588,10 @@ def plot_results_wrraper(plot_type='combined pickle', results=None):
         res_tuple_list = global_dict['res_tuple_list']
         for j in range(global_dict['mdp_num']):
             global_dict['j'] = j
-            mdp_result = res_tuple_list[j]
-            plot_evaluation(mdp_result.result,
-                            mdp_result.optimal_reward,
-                            mdp_result.sim_params)
-    format_plot(global_dict['mdp_num'], res_tuple_list[0].sim_params.varied_definition_str)
-    global_dict['global_fig'].subplots_adjust(bottom=0.2)
+            plot_evaluation(res_tuple_list['res'][j]['critics'],
+                            res_tuple_list['opt_reward'][j],
+                            res_tuple_list['params'])
+    format_plot(global_dict['mdp_num'], res_tuple_list['params']['varied_param'])
     global_dict['global_fig'].show()
     plt.show()
 

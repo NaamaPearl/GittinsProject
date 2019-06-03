@@ -7,14 +7,14 @@ from Framework.plotUtils import *
 
 
 def calc_data(general_sim_params, sim_outputs, optimal, param1, param2):
-    eval_count = int(general_sim_params.steps /
-                     (general_sim_params.eval_freq))
-    max_step = eval_count * general_sim_params.eval_freq
+    eval_count = int(general_sim_params['steps'] /
+                     (general_sim_params['eval_freq']))
+    max_step = eval_count * general_sim_params['eval_freq']
     steps = np.linspace(0, max_step, num=eval_count)
 
-    gittins_mean_values, gittins_std_tmp = sim_outputs.result[('gittins', param1, 1)]['offline']
+    gittins_mean_values, gittins_std_tmp = sim_outputs['critics'][('gittins', param1, 1)].get('offline')
     gittins_smooth = np.array(smooth(gittins_mean_values))
-    gt_mean_values, gt_std_tmp = sim_outputs.result[('gittins', param2, 1)]['offline']
+    gt_mean_values, gt_std_tmp = sim_outputs['critics'][('gittins', param2, 1)].get('offline')
     gt_smooth = np.array(smooth(gt_mean_values))
 
     return steps, (gittins_smooth, gittins_std_tmp), (
@@ -54,19 +54,18 @@ def DATA_PATH(path):
     return MAIN_FOLDER + path
 
 
-def evaluate_gittins_by_value(res_list, titles):
+def evaluate_gittins_by_value(res_list, general_sim_params, titles, optimal):
     subs = []
-    method_list = res_list[0].sim_params.gittins_compare
+    method_list = general_sim_params['gittins_compare']
     for (method, param) in method_list:
         for i, mdp_res in enumerate(res_list):
-            general_sim_params = mdp_res.sim_params
-            eval_count = int(general_sim_params.steps / (general_sim_params.eval_freq))
-            max_step = eval_count * general_sim_params.eval_freq
+            eval_count = int(general_sim_params['steps'] / (general_sim_params['eval_freq']))
+            max_step = eval_count * general_sim_params['eval_freq']
             steps = np.linspace(0, max_step, num=eval_count)
 
-            evaluated_indexes = np.asarray(mdp_res.result[(method, param, 1)]['indices']['eval'][i])
-            gt_indexes = np.asarray(mdp_res.result[(method, param, 1)]['indices']['gt'][i])
-            sub = np.abs(evaluated_indexes - gt_indexes) / mdp_res.optimal_reward
+            evaluated_indexes = np.asarray(mdp_res['indices'][(method, param, 1)]['eval'])[i]
+            gt_indexes = np.asarray(mdp_res['indices'][(method, param, 1)]['gt'])[i]
+            sub = np.abs(evaluated_indexes - gt_indexes) / optimal[i]
             sub = sub.sum(1)
             state_num = evaluated_indexes[0].shape[0]
             subs.append(sub / state_num)
@@ -80,17 +79,17 @@ def evaluate_gittins_by_value(res_list, titles):
     global_dict['axes'][0].legend([x if x != 'reward' else 'model_based' for x in method_list])
 
 
-def evaluate_gittins_by_states(res_list, titles):
-    method_list = res_list[0].sim_params.gittins_compare
+def evaluate_gittins_by_states(res_list, general_sim_params, titles):
+    method_list = general_sim_params['gittins_compare']
     for (method, param) in method_list:
         bad_states = []
         for i, mdp_res in enumerate(res_list):
-            general_sim_params = mdp_res.sim_params
             bad_states.append(
-                np.asarray(mdp_res.result[(method, param, 1)]['bad_states'][i]) / general_sim_params.eval_freq)
-            eval_count = int(general_sim_params.steps /
-                             (general_sim_params.eval_freq))
-            max_step = eval_count * general_sim_params.eval_freq
+                np.asarray(mdp_res['critics'][(method, param, 1)]['bad_states'][0]) / general_sim_params[
+                    'eval_freq'])
+            eval_count = int(general_sim_params['steps'] /
+                             (general_sim_params['eval_freq']))
+            max_step = eval_count * general_sim_params['eval_freq']
             steps = np.linspace(0, max_step, num=eval_count)[:-1]
         bad_states = np.asarray(bad_states).T / 10
         global_dict['axes'][1].plot(steps, bad_states)
@@ -104,14 +103,13 @@ def evaluate_gittins_by_states(res_list, titles):
     global_dict['axes'][1].legend([x if x != 'reward' else 'model_based' for x in method_list])
 
 
-def evaluate_gittins_by_perf(res_list, titles):
-    method_list = res_list[0].sim_params.method_dict['gittins']
+def evaluate_gittins_by_perf(res_list, general_sim_params, titles, optimal):
+    method_list = general_sim_params['method_dict']['gittins']
     param2 = 'ground_truth'
     for i, mdp_res in enumerate(res_list):
         # for param1, param2 in set(itertools.combinations(method_list, 2)):  # FOR COMPARISION
-        general_sim_params = mdp_res.sim_params
         for param1 in method_list:
-            steps, (y, std), (y_diff, std_diff) = calc_data(general_sim_params, mdp_res, mdp_res.optimal_reward, param1, param2)
+            steps, (y, std), (y_diff, std_diff) = calc_data(general_sim_params, mdp_res, optimal[i], param1, param2)
 
             # c = PlotColor(method, parameter)
             global_dict['axes'][2].plot(steps, y, label=param1 if param1 != 'reward' else 'model_based')
@@ -119,7 +117,7 @@ def evaluate_gittins_by_perf(res_list, titles):
             # global_dict['axes'][2].plot(steps, y, label=param1 + ' vs ' + param2)
             # global_dict['axes'][2].fill_between(steps, y + std, y - std, alpha=0.2)
 
-        global_dict['axes'][2].axhline(y=mdp_res.optimal_reward, color='0', linestyle='-',
+        global_dict['axes'][2].axhline(y=optimal[i], color='0', linestyle='-',
                                        label='optimal expected reward')
 
     # axes[2].set_xlabel('simulation steps')
@@ -128,10 +126,11 @@ def evaluate_gittins_by_perf(res_list, titles):
     global_dict['axes'][2].legend()
 
 
-def evaluate_gittins(res_list, titles):
-    evaluate_gittins_by_value(res_list, titles)
-    evaluate_gittins_by_states(res_list, titles)
-    evaluate_gittins_by_perf(res_list, titles)
+def evaluate_gittins(res_list, general_sim_params, titles):
+    # mdp_num = len(res_list)
+    evaluate_gittins_by_value(res_list['res'], general_sim_params, titles, res_list['opt_reward'])
+    evaluate_gittins_by_states(res_list['res'], general_sim_params, titles)
+    evaluate_gittins_by_perf(res_list['res'], general_sim_params, titles, res_list['opt_reward'])
 
 
 def set_defaults():
@@ -157,7 +156,7 @@ def plot_gt(results=None):
     set_defaults()
     fig, global_dict['axes'] = plt.subplots(1, 3)
     fig.subplots_adjust(wspace=0.5, bottom=0.2)
-    evaluate_gittins(res_tuple_list, titles)
+    evaluate_gittins(res_tuple_list, res_tuple_list['params'], titles)
 
     plt.show()
 

@@ -17,4 +17,6 @@ if __name__ == '__main__':
     runner.run()
 
     if args.plot:
-        runner.plot(['tree'])
+        runner.plot(general_sim_params.mdp_types)
+
+    print('done')
