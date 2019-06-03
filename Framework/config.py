@@ -11,7 +11,6 @@ class SimulationParameters:
     trajectory_len: int = 150
     eval_freq: int = 50
     epsilon = 0.15
-    gamma = 0.9
     reset_freq = 20000
     grades_freq = 50
     gittins_discount = 0.9

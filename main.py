@@ -11,7 +11,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     '''define general simulation params. Add arguments to constructor, or use default values'''
-    general_sim_params = cfg.SimulationParameters()
+    general_sim_params = cfg.SimulationParameters(steps=2000, runs_per_mdp=1, mdp_types=['clique'])
 
     runner = Runner(general_sim_params, args.load_mdps)
     runner.run()

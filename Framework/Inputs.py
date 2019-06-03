@@ -7,7 +7,7 @@ class ProblemInput:
     def __init__(self, sim_params: SimulationParameters, mdp_model):
         self.MDP_model = mdp_model
         self.agent_num = sim_params.agents[1]
-        self.gamma = sim_params.gamma
+        self.gamma = mdp_model.MDP.gamma
         self.epsilon = sim_params.epsilon
         self.eval_type = sim_params.eval_type
 

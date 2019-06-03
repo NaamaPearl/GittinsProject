@@ -55,12 +55,10 @@ class Runner:
 
             def load_mdp_list():
                 """load previously generated MDPs"""
-                # clique = pickle.load(open("mdp.pckl", "rb"))
-                # directed = pickle.load(open("directed_mdp_with_gittins.pckl", "rb"))
-                # clique = pickle.load(open("clique_mdp_with_gittins.pckl", "rb"))
-                # cliff = pickle.load(open("cliff_mdp_with_gittins.pckl", "rb"))
-                # star = pickle.load(open("star_mdp_with_gittins.pckl", "rb"))
-                tunnel = pickle.load(open("tunnel_mdp_with_gittins.pckl", "rb"))
+                # clique = pickle.load(open("Data/clique_mdp.pckl", "rb"))
+                directed = pickle.load(open("Data/tree_mdp.pckl", "rb"))
+                cliff = pickle.load(open("Data/cliff_mdp.pckl", "rb"))
+                tunnel = pickle.load(open("Data/tunnel_mdp.pckl", "rb"))
 
                 mdps = [tunnel[0]]
                 # mdps = [directed[0], clique[0], cliff[0], tunnel[0]]

@@ -20,7 +20,7 @@ class Simulator:
     def __init__(self, sim_input: ProblemInput):
         self.model: sb.SimulatedModel = sim_input.MDP_model
         self.evaluation_type = sim_input.eval_type
-        self.gamma = sim_input.gamma
+        self.gamma = sim_input.MDP_model.MDP.gamma
         self.epsilon = sim_input.epsilon
         self.evaluated_model = mdp.EvaluatedModel()
 

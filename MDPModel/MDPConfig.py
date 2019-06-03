@@ -13,7 +13,7 @@ chain_num = 3
 actions = 3
 succ_num = 3
 op_succ_num = 5
-gamma = 0.95
+gamma = 0.9
 
 # Tunnel defaults
 tunnel_length = 5
