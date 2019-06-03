@@ -7,7 +7,7 @@ $ python main.py
 use `-p` to plot results, and `-l` to use previously generated MDPs.
 
 Defualt values for all needed simulation parameters are defined in `Framework\config.py`. 
-Override defaults by explicitly assign other values:
+Override defaults by explicitly assign other values in `main.py`:
 ```
 cfg.SimulationParameters(steps=1000)
 ```
