@@ -4,7 +4,7 @@ Use `main.py` as an entry point the the code. Generate new MDPs, and save run re
 ```
 $ python main.py
 ```
-use `-p` to plot results, and `-l` to use previously generated MDPs.
+use `-p` to plot results, and `-l` to load previously generated MDPs.
 
 Defualt values for all needed simulation parameters are defined in `Framework\config.py`. 
 
