@@ -19,7 +19,7 @@ class SimulationParameters:
     runs_per_mdp: int = 3
     varied_param = None
     regular : List[int] = field(default_factory=lambda: [1])
-    varied_definition_str : str = 'regular'
+    run_type : str = 'regular'
     trajectory_num = 50
     max_trajectory_len = 50
     method_dict: dict = field(default_factory=lambda: {'random': ['None'], 'greedy': ['reward', 'error'], 'gittins': ['reward', 'error']})
@@ -35,18 +35,18 @@ class SimulationParameters:
             self.method_dict['gittins'].append('error')
             self.method_dict['model_free'] = ['error']
 
-        if self.varied_definition_str != 'temporal_extension':
+        if self.run_type != 'temporal_extension':
             if len(self.temporal_extension) != 1:
                 raise('varied parameter is not temporal extension but temporal extension is a list')
             self.temporal_extension = self.temporal_extension[0]
 
-        if self.varied_definition_str != 'agents':
+        if self.run_type != 'agents':
             if len(self.agents) != 1:
                 raise('varied parameter is not agents but agents is a list')
             self.agents = self.agents[0]
 
-        if self.varied_definition_str == 'agents':
+        if self.run_type == 'agents':
             self.method_dict = {'gittins': ['error']}
 
-        if self.varied_definition_str == 'temporal_extension':
+        if self.run_type == 'temporal_extension':
             self.method_dict = {'random': [None], 'gittins': ['error']}

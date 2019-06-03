@@ -19,7 +19,7 @@ class Runner:
     gt_compare = None
 
     def __init__(self, sim_params: cfg.SimulationParameters, load):
-        Runner.varying = sim_params.varied_definition_str
+        Runner.varying = sim_params.run_type
         Runner.sim_params = sim_params
         Runner.gt_compare = sim_params.gt_compare
 

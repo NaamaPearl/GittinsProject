@@ -150,7 +150,7 @@ def set_defaults():
 
 
 def calc_data(general_sim_params, sim_output, varied_param, eval_type, optimal_policy_reward):
-    if general_sim_params.varied_definition_str == 'temporal_extension':
+    if general_sim_params.run_type == 'temporal_extension':
         temp_ext = varied_param
     else:
         temp_ext = general_sim_params.temporal_extension
@@ -191,7 +191,7 @@ def plot_data(ax, sim_outputs, req_param, general_sim_params, optimal_policy_rew
     axins = create_zoom_fig(ax, optimal_policy_reward)
 
     for method, parameter, varied_param in sim_outputs.keys():
-        label = create_label(general_sim_params.varied_definition_str, varied_param, method, parameter)
+        label = create_label(general_sim_params.run_type, varied_param, method, parameter)
         if need_to_plot(req_param, parameter, method):
             y, std, steps = calc_data(general_sim_params,
                                       sim_outputs[(method, parameter, varied_param)],
@@ -593,7 +593,7 @@ def plot_results_wrraper(plot_type='combined pickle', results=None):
             plot_evaluation(mdp_result.result,
                             mdp_result.optimal_reward,
                             mdp_result.sim_params)
-    format_plot(global_dict['mdp_num'], res_tuple_list[0].sim_params.varied_definition_str)
+    format_plot(global_dict['mdp_num'], res_tuple_list[0].sim_params.run_type)
     global_dict['global_fig'].subplots_adjust(bottom=0.2)
     global_dict['global_fig'].show()
     plt.show()
