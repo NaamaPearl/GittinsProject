@@ -53,6 +53,8 @@ def plot_color(method, param=None, varied_param_str=None, l=None):
     if method == 'optimal':
         return '0'  # black
 
+    if method == 'model_free': return 'xkcd:red purple'
+
     if method == 'random':
         return 'xkcd:lime green'
 

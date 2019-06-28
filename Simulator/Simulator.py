@@ -101,6 +101,7 @@ class Simulator:
                 self.sim_evaluate(trajectory_len=sim_input.trajectory_len,
                                   running_agents=sim_input.agents_to_run,
                                   gamma=self.gamma)
+            if i % 1000 == 0: print('1000 down')
             # if i % sim_input.reset_freq == 0:  # sim_input.reset_freq - 1:
             #     self.Reset()
 
