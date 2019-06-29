@@ -6,11 +6,13 @@ import numpy as np
 import pickle
 from Framework.Plotting import plot_results_wrraper
 from Framework import config as cfg
+from itertools import chain
+
 
 
 class Runner:
     """
-    Auxiliary class which holds executes all the requested runs, and outputs their result.
+    Auxiliary class which holds and executes all the requested runs, and outputs their result.
     Initiation requires all simulation parameters, which are shared between all runs.
     Executing also requires an iterable of all MDPs.
     """
@@ -26,9 +28,9 @@ class Runner:
         self.res = None
 
         def create_definitions(param):
-            return list(product([param], sim_params.method_dict[param], getattr(sim_params, Runner.varying)))
+            return product([param], sim_params.method_dict[param], getattr(sim_params, Runner.varying))
 
-        self.definitions = reduce(lambda a, b: a + b, map(create_definitions, sim_params.method_dict.keys()))
+        self.definitions = list(chain(*map(create_definitions, sim_params.method_dict.keys())))
 
         def gen_mdps(load_mdps):
             def generate_mdp_list(type_list):
@@ -82,9 +84,12 @@ class Runner:
         with open(Runner.sim_params.results_address, 'wb') as f:
             pickle.dump(self.res, f)
 
+        self.plot()
+
         return self.res
 
-    def plot(self, titles):
+    def plot(self):
+        titles = [mdp.type for mdp in self.mdp_list]
         if Runner.gt_compare:
             plot_results_wrraper('GT', (self.res, titles))
         else:

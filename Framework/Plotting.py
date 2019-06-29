@@ -354,7 +354,7 @@ def DATA_PATH(path):
 
 
 def format_plot(mdp_num, varied_param):
-    if mdp_num > 1:
+    if mdp_num > 0:
         # axes[1, 2].set_xlabel('simulation steps')
 
         global_dict['axes'][0, 0].set_ylabel('normalized evaluated regret')
@@ -373,7 +373,7 @@ def format_plot(mdp_num, varied_param):
         # axes[1, 0].set_title('Evaluation')
 
     # global_fig.text(.5, .06, 'simulation steps', ha='center', fontweight="bold")
-    build_legend(mdp_num, varied_param)
+    # build_legend(mdp_num, varied_param)
     # global_dict['global_fig'].legend()
     # global_fig.show()
 
@@ -531,8 +531,8 @@ def set_globals_from_main(results):
 
     mdp_num = len(titles)
 
-    ylim1 = [0.3] * mdp_num
-    ylim2 = [1.1] * mdp_num
+    ylim1 = [0.85] * mdp_num
+    ylim2 = [1.01] * mdp_num
     # x1, x2, y1, y2
     offset_list = [[None] * mdp_num,
                    [None] * mdp_num]
@@ -602,4 +602,5 @@ def plot_results_wrraper(plot_type='combined pickle', results=None):
 
 
 if __name__ == '__main__':
-    plot_results_wrraper('combined pickle')
+    res = pickle.load(open('../run_res.pckl', 'rb'))
+    plot_results_wrraper('', (res, ['Cliques']))

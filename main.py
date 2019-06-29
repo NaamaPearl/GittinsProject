@@ -11,12 +11,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     '''define general simulation params. Add arguments to constructor, or use default values'''
-    general_sim_params = cfg.SimulationParameters(method_dict={'model_free': ['error'], 'gittins': ['error']})
+    general_sim_params = cfg.SimulationParameters(method_dict={'model_free': ['error'], 'gittins': ['error', 'reward']},
+                                                  mdp_types=['clique'])
 
     runner = Runner(general_sim_params, args.load_mdps)
     runner.run()
 
     if args.plot:
-        runner.plot(general_sim_params.mdp_types)
+        runner.plot()
 
     print('done')
